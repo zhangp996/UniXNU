@@ -1,0 +1,67 @@
+name: build-xnu-arm64
+
+on:
+  workflow_dispatch:
+    inputs:
+      xnu_version:
+        description: "XNU tag (apple-oss-distributions/xnu)"
+        required: true
+        default: "xnu-7195.141.2"
+      machine:
+        description: "MACHINE_CONFIG (T7000 for OnePlus 8 Pro / SM8250 is not used; T7000 = A13)"
+        required: true
+        default: "T7000"
+
+jobs:
+  build:
+    # macos-14 is Apple silicon; XNU arm64 cross-build also works on macos-13 (x86_64).
+    runs-on: macos-14
+    timeout-minutes: 120
+
+    steps:
+      - name: Select full Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+          xcrun --show-sdk-path
+          xcrun -find clang
+          xcrun -find mig
+          xcrun -find ctfconvert || true
+          xcrun -find ctfmerge || true
+
+      - name: Fetch XNU source
+        run: |
+          set -eux
+          curl -fL -o xnu.tar.gz \
+            "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/${{ inputs.xnu_version }}.tar.gz"
+          tar xzf xnu.tar.gz
+          ls -d xnu-*
+
+      - name: Build arm64 kernel
+        run: |
+          set -eux
+          cd xnu-*
+          SDK="$(xcrun --show-sdk-path)"
+          make \
+            ARCH_CONFIGS=ARM64 \
+            MACHINE_CONFIGS="${{ inputs.machine }}" \
+            KERNEL_CONFIGS=RELEASE \
+            SDKROOT="$SDK" \
+            -j"$(sysctl -n hw.ncpu)"
+
+      - name: Collect kernel
+        run: |
+          set -eux
+          mkdir -p out
+          KERNEL="$(find xnu-*/BUILD/obj -type f \( -name kernel -o -name mach_kernel \) | head -n 1)"
+          test -n "$KERNEL"
+          cp "$KERNEL" out/kernel.macho
+          file out/kernel.macho
+          ls -lh out/kernel.macho
+
+      - name: Upload kernel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xnu-kernel-${{ inputs.machine }}
+          path: out/
+          if-no-files-found: error
