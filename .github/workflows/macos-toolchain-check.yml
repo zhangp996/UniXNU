@@ -1,29 +1,25 @@
-name: Self-hosted runner check
+name: macOS toolchain check
 
-# Verifies that the repository's self-hosted macOS runner is online and that its
-# Xcode / iOS toolchain works. Triggered manually and once a day.
+# Reports the macOS runner image plus the Xcode / iOS toolchain it provides.
+# Runs on the GitHub-hosted macOS runner, which is free for public repositories.
+# Trigger it manually when a build fails and you need to see the toolchain.
 #
-# Deliberately NOT triggered by pull_request: on a public repository a fork PR
-# would run unreviewed code on your own Mac. Keep self-hosted jobs on trusted
-# events (workflow_dispatch, push to main) unless the runner is disposable.
+# The optional self-hosted setup is documented in SELF-HOSTED-RUNNER.md.
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 1 * * *"   # 09:00 Asia/Shanghai
 
 permissions:
   contents: read
 
 concurrency:
-  group: self-hosted-runner-check
+  group: macos-toolchain-check
   cancel-in-progress: true
 
 jobs:
   check:
-    # Only runners carrying all three labels accept this job.
-    # self-hosted, macOS and ARM64 are added automatically by the runner.
-    runs-on: [self-hosted, macOS, ARM64]
+    # GitHub-hosted image: latest macOS with the current stable Xcode.
+    runs-on: macos-latest
     timeout-minutes: 30
 
     steps:
@@ -37,9 +33,10 @@ jobs:
           set -euo pipefail
           {
             echo "## Runner"
-            echo '```text'
+            echo '~~~text'
             echo "runner    : ${RUNNER_NAME:-unknown}"
             echo "os/arch   : ${RUNNER_OS:-unknown} / ${RUNNER_ARCH:-unknown}"
+            echo "image     : ${ImageOS:-unknown} ${ImageVersion:-}"
             echo "host      : $(scutil --get ComputerName 2>/dev/null || hostname)"
             echo "macOS     : $(sw_vers -productName) $(sw_vers -productVersion) ($(sw_vers -buildVersion))"
             echo "kernel    : $(uname -mrs)"
@@ -49,7 +46,7 @@ jobs:
             echo "disk free : $(df -h / | awk 'NR==2 {print $4}')"
             echo "workspace : $GITHUB_WORKSPACE"
             echo "runner tmp: $RUNNER_TEMP"
-            echo '```'
+            echo '~~~'
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Workspace and git
@@ -91,17 +88,26 @@ jobs:
       - name: Host tools used by macos.yml
         run: |
           set -uo pipefail
+          echo "core tools (must be present in the image):"
           missing=0
-          for tool in git make clang cmake ninja unifdef mcopy dtc python3 brew xcodebuild; do
+          for tool in git make clang python3 xcodebuild brew; do
             if command -v "$tool" >/dev/null 2>&1; then
-              printf '%-12s %s\n' "$tool" "$(command -v "$tool")"
+              printf '  %-12s %s\n' "$tool" "$(command -v "$tool")"
             else
-              printf '%-12s %s\n' "$tool" "MISSING"
+              printf '  %-12s MISSING\n' "$tool"
               missing=$((missing + 1))
             fi
           done
+          echo "installed on demand by macos.yml:"
+          for tool in cmake ninja unifdef mcopy dtc; do
+            if command -v "$tool" >/dev/null 2>&1; then
+              printf '  %-12s %s\n' "$tool" "$(command -v "$tool")"
+            else
+              printf '  %-12s not installed (brew install)\n' "$tool"
+            fi
+          done
           if [ "$missing" -gt 0 ]; then
-            echo "::warning title=Missing host tools::Install them with: brew install cmake ninja unifdef llvm mtools dtc"
+            echo "::error title=Missing core tools::$missing core tool(s) missing from the runner image"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "host tools missing: $missing" >> "$GITHUB_STEP_SUMMARY"
+          echo "core tools missing: $missing" >> "$GITHUB_STEP_SUMMARY"

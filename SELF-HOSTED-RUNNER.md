@@ -4,6 +4,9 @@
 `runs-on: [self-hosted, macOS, ARM64]` 的 job 会直接在你机器上执行。
 
 > 目标仓库：**zhangp996/UniXNU**（公开 fork）。换仓库只需改 `--repo`。
+>
+> **当前状态**：仓库 CI 已使用 GitHub 托管的 `macos-latest`（公开仓库免费额度）。
+> 本文档是将来需要自托管时的参考，不影响现有构建。
 
 ---
 
@@ -138,12 +141,13 @@ chmod +x install-macos-runner.sh
 
 或刷新 <https://github.com/zhangp996/UniXNU/settings/actions/runners>，看到 **Idle / 绿点** 即可。
 
-### 3.5 跑一次验证 workflow
+### 3.5 跑一次验证 job
 
-仓库 → **Actions** → 左侧 **Self-hosted runner check** → **Run workflow**。
+runner 注册好之后，任何 `runs-on: [self-hosted, macOS, ARM64]` 的 job 都会落到这台机器上。
+最直接的验证是按第 4 节把 `macos.yml` 临时切过去跑一次；也可以先加一个只执行
+`uname -a && xcodebuild -version` 的 `workflow_dispatch` workflow 试水。
 
-它会打印主机信息、Xcode 版本、iOS SDK、模拟器列表，并用 iPhoneOS SDK 真编一个 `.o` 文件。
-全绿说明 runner 和 iOS 工具链都没问题。
+> 仓库里的 `macos-toolchain-check.yml` 验证的是 GitHub 托管镜像，不是这台自托管机器。
 
 ---
 
@@ -300,7 +304,7 @@ GitHub 官方不建议在**公开仓库**用自托管 runner：任何能提 PR �
 ## 10. 验收清单
 
 - [ ] 设置页里 runner 显示 **Online / Idle**
-- [ ] **Self-hosted runner check** 手动跑一次全绿
+- [ ] 任意 `runs-on: [self-hosted, macOS, ARM64]` 的 job 能落到这台机器上
 - [ ] `macos.yml` 改 `runs-on` 后手动跑通一次构建
 - [ ] 重启 Mac 后 runner 能自动回来（或清楚知道自己要手动登录）
 - [ ] 第 7 节安全项已确认（尤其 fork PR 审批）
