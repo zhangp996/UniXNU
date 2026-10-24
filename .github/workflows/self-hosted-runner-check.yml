@@ -1,0 +1,107 @@
+name: Self-hosted runner check
+
+# Verifies that the repository's self-hosted macOS runner is online and that its
+# Xcode / iOS toolchain works. Triggered manually and once a day.
+#
+# Deliberately NOT triggered by pull_request: on a public repository a fork PR
+# would run unreviewed code on your own Mac. Keep self-hosted jobs on trusted
+# events (workflow_dispatch, push to main) unless the runner is disposable.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * *"   # 09:00 Asia/Shanghai
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-hosted-runner-check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # Only runners carrying all three labels accept this job.
+    # self-hosted, macOS and ARM64 are added automatically by the runner.
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Host and system information
+        run: |
+          set -euo pipefail
+          {
+            echo "## Runner"
+            echo '```text'
+            echo "runner    : ${RUNNER_NAME:-unknown}"
+            echo "os/arch   : ${RUNNER_OS:-unknown} / ${RUNNER_ARCH:-unknown}"
+            echo "host      : $(scutil --get ComputerName 2>/dev/null || hostname)"
+            echo "macOS     : $(sw_vers -productName) $(sw_vers -productVersion) ($(sw_vers -buildVersion))"
+            echo "kernel    : $(uname -mrs)"
+            echo "cpu       : $(sysctl -n machdep.cpu.brand_string 2>/dev/null || sysctl -n hw.model)"
+            echo "cores     : $(sysctl -n hw.ncpu)"
+            echo "memory    : $(( $(sysctl -n hw.memsize) / 1024 / 1024 / 1024 )) GiB"
+            echo "disk free : $(df -h / | awk 'NR==2 {print $4}')"
+            echo "workspace : $GITHUB_WORKSPACE"
+            echo "runner tmp: $RUNNER_TEMP"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Workspace and git
+        run: |
+          set -euo pipefail
+          git --version
+          git log -1 --oneline
+          probe="$RUNNER_TEMP/.write-probe"
+          printf 'ok\n' > "$probe"
+          rm -f "$probe"
+          echo "workspace is writable"
+
+      - name: Xcode toolchain
+        run: |
+          set -euo pipefail
+          echo "xcode-select: $(xcode-select -p)"
+          xcodebuild -version
+          xcodebuild -showsdks
+          echo "iphoneos sdk: $(xcrun --sdk iphoneos --show-sdk-version)"
+          echo "iphoneos mig: $(xcrun --sdk iphoneos --find mig 2>/dev/null || echo MISSING)"
+
+      - name: iOS simulator runtimes
+        run: |
+          set -euo pipefail
+          xcrun simctl list runtimes
+          echo
+          xcrun simctl list devices available | sed -n '1,40p'
+
+      - name: Compile against the iOS SDK
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          printf 'int unixnu_probe(void) { return 0; }\n' > "$work/probe.c"
+          xcrun --sdk iphoneos clang -arch arm64 -miphoneos-version-min=15.0 \
+            -c "$work/probe.c" -o "$work/probe.o"
+          file "$work/probe.o"
+
+      - name: Host tools used by macos.yml
+        run: |
+          set -uo pipefail
+          missing=0
+          for tool in git make clang cmake ninja unifdef mcopy dtc python3 brew xcodebuild; do
+            if command -v "$tool" >/dev/null 2>&1; then
+              printf '%-12s %s\n' "$tool" "$(command -v "$tool")"
+            else
+              printf '%-12s %s\n' "$tool" "MISSING"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ "$missing" -gt 0 ]; then
+            echo "::warning title=Missing host tools::Install them with: brew install cmake ninja unifdef llvm mtools dtc"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "host tools missing: $missing" >> "$GITHUB_STEP_SUMMARY"
