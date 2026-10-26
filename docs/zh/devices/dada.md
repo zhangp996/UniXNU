@@ -11,6 +11,7 @@ dada 是搭载 SM8750 的小米 15。下面的移植是独立的社区项目，U
 | 阶段 | 状态 |
 | --- | --- |
 | UEFI 固件、framebuffer、菜单、UFS、侧键、UART7 | 在 Mu-Silicium 中工作 |
+| UFS 控制器 bring-up | UIC 路径已预热，Hibernate 用 UIC 命令退出，已读取 0x300 的 MCQ 开关；下一步是第一次存储读取 |
 | UniXNU 菜单和配置 | 未运行 |
 | 负载卷 | 板级数值已写入，设备输入缺失 |
 | DarwinBoot 交接 | 未运行 |

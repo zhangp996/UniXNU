@@ -11,6 +11,7 @@ dada is the Xiaomi 15 with the SM8750 SoC. The port below is an independent comm
 | Stage | State |
 | --- | --- |
 | UEFI firmware, framebuffer, menu, UFS, side buttons, UART7 | works in Mu-Silicium |
+| UFS controller bring-up | the UIC path is primed, Hibernate is left with a UIC command and the MCQ switch at 0x300 is read; the first storage read is next |
 | UniXNU menu and configuration | not run |
 | Payload volume | board values written; device inputs missing |
 | DarwinBoot handoff | not run |
