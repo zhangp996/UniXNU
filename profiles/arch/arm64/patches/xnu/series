@@ -11,6 +11,9 @@
 ../../../../../patches/xnu/mockfs-statfs.patch
 ../../../../../patches/xnu/mockfs-test-file.patch
 ../../../../../patches/xnu/mockfs-typed-allocation.patch
+../../../../../patches/xnu/native-4k-bootstrap-capacity.patch
+../../../../../patches/xnu/native-4k-signature-hash-cache.patch
+../../../../../patches/xnu/native-4k-user-abi.patch
 ../../../../../patches/xnu/native-aes-personality.patch
 ../../../../../patches/xnu/native-arm-pan.patch
 ../../../../../patches/xnu/native-dt-panic-region.patch
@@ -23,7 +26,6 @@
 ../../../../../patches/xnu/native-union-lower-directory.patch
 ../../../../../patches/xnu/native-work-interval-soft-fail.patch
 ../../../../../patches/xnu/native-work-interval-trace.patch
-../../../../../patches/xnu/native-work-interval-instance.patch
 ../../../../../patches/xnu/non-apple-cache-monitor.patch
 ../../../../../patches/xnu/non-apple-iommu-bootstrap.patch
 ../../../../../patches/xnu/non-apple-pmap-field.patch
@@ -49,5 +51,3 @@
 ../../../../../patches/xnu/zzx-pmap-sync-64bit-pa.patch
 ../../../../../patches/xnu/zzy-native-gpu-addon-mount.patch
 ../../../../../patches/xnu/zzy-staged-system-apps.patch
-../../../../../patches/xnu/zzyb-native-cryptex-os-view.patch
-../../../../../patches/xnu/zzyc-owner-skip-launch-constraints.patch
