@@ -11,9 +11,6 @@
 ../../../../../patches/xnu/mockfs-statfs.patch
 ../../../../../patches/xnu/mockfs-test-file.patch
 ../../../../../patches/xnu/mockfs-typed-allocation.patch
-../../../../../patches/xnu/native-4k-bootstrap-capacity.patch
-../../../../../patches/xnu/native-4k-signature-hash-cache.patch
-../../../../../patches/xnu/native-4k-user-abi.patch
 ../../../../../patches/xnu/native-aes-personality.patch
 ../../../../../patches/xnu/native-arm-pan.patch
 ../../../../../patches/xnu/native-dt-panic-region.patch
