@@ -87,7 +87,7 @@ if component in ('NativeVirtioBlock', 'NativeRamBlock', 'NativeUfs', 'KonaUfs'):
         command += ['-DNATIVE_VERIFIED_BLOCK_INJECT_FAULT=1']
     if args.verified_root_bundle:
         command += ['-DNATIVE_VERIFIED_BLOCK_MULTI_POLICY=1']
-if component == 'NativeUfs':
+if component in ('NativeUfs', 'KonaUfs'):
     command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-I', str(ROOT / 'drivers/VirtioMmioBlock'),
                 '-DNATIVE_VERIFIED_BLOCK=1', '-DNATIVE_VERIFIED_BLOCK_MULTI_POLICY=1', '-mgeneral-regs-only']
 if component=='NativeOfflineGPU':
