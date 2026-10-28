@@ -735,6 +735,11 @@ PY_BINDINGS
     KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES -Wl,-force_load,$VERIFIED_ROOT_ARCHIVE"
     KERNEL_ARCHIVE_DEPENDENCIES="$KERNEL_ARCHIVE_DEPENDENCIES $VERIFIED_ROOT_ARCHIVE"
   fi
+  if [ -f "$ROOT/build/storage-abi-kernel/libIOStorageFamilyKernel.a" ]; then
+    STORAGE_ARCHIVE=$ROOT/build/storage-abi-kernel/libIOStorageFamilyKernel.a
+    KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES -Wl,-force_load,$STORAGE_ARCHIVE"
+    KERNEL_ARCHIVE_DEPENDENCIES="$KERNEL_ARCHIVE_DEPENDENCIES $STORAGE_ARCHIVE"
+  fi
   if [ "$MOCKFS_MODE" = 1 ]; then
     MOCKFS_ARCHIVE=$ROOT/build/mockfs-fixture/libmockfs_fixture.a
     test -f "$MOCKFS_ARCHIVE"
