@@ -331,6 +331,15 @@ def generate(dtb, config, *, unique_chip_id=None, data=False, trust=False, addon
             if not re.fullmatch(r'[A-Za-z0-9_.\-]{1,63},[0-9a-fA-F]{1,16},(?:[0-9a-fA-F]{2}){1,16},(?:[0-9a-fA-F]{2}){1,16}', value) or len(value) >= 160:
                 raise Error(f'Malformed text fixup: {value}')
         chosen.append(('text-fixups', b''.join(value.encode() + b'\0' for value in payload['text_fixups'])))
+    #
+    # Local port change: carry embedded-panic-log-size from the hardware DTS. XNU's DT
+    # panic patch reads it from /chosen and pairs it with the pram reg; the generator
+    # otherwise builds /chosen from the OS profile alone, so the property would never
+    # reach the kernel.
+    #
+    hardware_chosen = next((entry for entry in root.children if entry.name == 'chosen'), None)
+    if hardware_chosen is not None and 'embedded-panic-log-size' in hardware_chosen.properties:
+        chosen.append(('embedded-panic-log-size', struct.pack('<I', hardware_chosen.scalar('embedded-panic-log-size'))))
     chosen += typed_properties(platform.get('chosen', {}))
     mappings = [('PackedRAMDisk' if options.get('packed_data_ramdisk') else 'RAMDisk', bytes(16))] if data else []
     mappings += [('TrustCache', bytes(16))] if trust else []
@@ -373,6 +382,17 @@ def generate(dtb, config, *, unique_chip_id=None, data=False, trust=False, addon
     children.append(node('arm-io', [('device_type', b'arm-io\0'), ('#address-cells', struct.pack('<I', 2)),
                          ('#size-cells', struct.pack('<I', 2)), ('ranges', struct.pack('<QQQ', 0, base, size))],
                          [node(name, hardware_properties(entry, handles, base)) for name, entry in zip(names, hardware)]))
+    #
+    # Local port change: carry a top-level pram node into the ADT. XNU's DT panic patch
+    # looks it up by name for the reg of the embedded panic log and reads
+    # /chosen/embedded-panic-log-size, so a board that declares pram in its hardware DTS
+    # gets the region without a second source of truth.
+    #
+    pram = next((entry for entry in root.children if entry.name == 'pram' or entry.name.startswith('pram@')), None)
+    if pram is not None:
+        pram_reg = registers(pram)
+        if len(pram_reg) == 1:
+            children.append(node('pram', [('reg', struct.pack('<QQ', pram_reg[0][0], pram_reg[0][1]))]))
     for name in ('defaults', 'options', 'product', 'buttons'):
         if name in platform or name in ('defaults', 'options', 'product'):
             children.append(platform_node(name, platform.get(name, {})))

@@ -510,3 +510,23 @@ runtime_identifiers = ["ShengPreflight"]
 build_stage = "firmware"
 build = []
 outputs = []
+
+[[component]]
+id = "KonaUfs"
+kind = "driver"
+repository_id = 0
+function = "SM8250 UFS transport for the OnePlus 8 Pro"
+scope = "board"
+repository = "https://github.com/zhangp996/UniXNU-instantnoodlep.git"
+revision = "3e420bb"
+path = "drivers/KonaUfs"
+hardware = ["SM8250 UFS controller at 0x1d84000"]
+os_abi = ["ipados-17.7.11-21H461"]
+board_dependencies = ["kona GCC branch table", "no apps SMMU for UFS"]
+verified_devices = []
+dependencies = []
+source_files = ["NativeUfs.cpp"]
+runtime_identifiers = ["NativeUfs"]
+build_stage = "kernel"
+build = ["build-arm-driver.py", "KonaUfs"]
+outputs = ["build/kona-ufs/libKonaUfs.a"]
