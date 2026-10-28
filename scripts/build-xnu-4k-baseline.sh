@@ -209,6 +209,10 @@ if [ "$NATIVE_RAM_BLOCK" = 1 ]; then
   fi
   PERSONALITY_CFLAGS="$PERSONALITY_CFLAGS -DXNU_NATIVE_RAM_BLOCK=1"
 fi
+if [ "${XNU_KONA_UFS:-0}" = 1 ]; then
+  # The board BSD-level UFS disk driver and its rd=ufsroot0 hook are guarded by KONA.
+  PERSONALITY_CFLAGS="$PERSONALITY_CFLAGS -DKONA=1"
+fi
 if [ "${XNU_NATIVE_UFS:-0}" = 1 ]; then
   PERSONALITY_CFLAGS="$PERSONALITY_CFLAGS -DXNU_NATIVE_UFS=1"
 fi
