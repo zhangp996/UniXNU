@@ -393,6 +393,15 @@ def generate(dtb, config, *, unique_chip_id=None, data=False, trust=False, addon
         pram_reg = registers(pram)
         if len(pram_reg) == 1:
             children.append(node('pram', [('reg', struct.pack('<QQ', pram_reg[0][0], pram_reg[0][1]))]))
+    #
+    # Local port change: the bdevsw UFS driver looks up /kona-ufs for the controller
+    # window; hardware nodes otherwise live under /arm-io, so carry this one top-level.
+    #
+    kona = next((entry for entry in root.children if entry.name == 'kona-ufs' or entry.name.startswith('kona-ufs@')), None)
+    if kona is not None:
+        kona_reg = registers(kona)
+        if len(kona_reg) == 1:
+            children.append(node('kona-ufs', [('reg', struct.pack('<QQ', kona_reg[0][0], kona_reg[0][1]))]))
     for name in ('defaults', 'options', 'product', 'buttons'):
         if name in platform or name in ('defaults', 'options', 'product'):
             children.append(platform_node(name, platform.get(name, {})))
