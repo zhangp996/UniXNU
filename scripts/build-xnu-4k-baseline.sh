@@ -798,6 +798,12 @@ if not stamp.exists() or stamp.read_text() != identity:
     stamp.write_text(identity)
 PY
 EXTRA_CFLAGS="$EXTRA_CFLAGS -DXNU_BOOT_PROGRESS=$BOOT_PROGRESS"
+# The kona bdevsw disk is guarded by KONA in both the C driver and IOKitBSDInit.cpp.
+# CFLAGS_EXTRA reaches C files; CXXFLAGS does not include it, so C++ needs OTHER_CXXFLAGS.
+if [ "${XNU_KONA_UFS:-0}" = 1 ]; then
+  EXTRA_CFLAGS="$EXTRA_CFLAGS -DKONA=1"
+  EXTRA_MAKE_ARGS+=("OTHER_CXXFLAGS=-DKONA=1")
+fi
 make -C .cache/xnu-work "${XNU_BUILD_TARGET:-build}" SDKROOT="${XNU_SDKROOT:-iphoneos}" ARCH_CONFIGS=ARM64 \
   MACHINE_CONFIGS=BCM2837 KERNEL_CONFIGS=DEVELOPMENT \
   ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG=arm64 LARGE_MEMORY_DEFINE=-UARM_LARGE_MEMORY \
