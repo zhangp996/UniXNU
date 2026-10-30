@@ -87,9 +87,14 @@ if component in ('NativeVirtioBlock', 'NativeRamBlock', 'NativeUfs', 'KonaUfs'):
         command += ['-DNATIVE_VERIFIED_BLOCK_INJECT_FAULT=1']
     if args.verified_root_bundle:
         command += ['-DNATIVE_VERIFIED_BLOCK_MULTI_POLICY=1']
-if component in ('NativeUfs', 'KonaUfs'):
+if component == 'NativeUfs':
     command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-I', str(ROOT / 'drivers/VirtioMmioBlock'),
                 '-DNATIVE_VERIFIED_BLOCK=1', '-DNATIVE_VERIFIED_BLOCK_MULTI_POLICY=1', '-mgeneral-regs-only']
+if component == 'KonaUfs':
+    # Bring-up build: the owner-root verified-block chain needs a signed policy bundle
+    # this board does not have yet, and the root auth is bypassed for now. Compile the
+    # driver without NATIVE_VERIFIED_BLOCK so it does not import the policy symbols.
+    command += ['-mgeneral-regs-only']
 if component=='NativeOfflineGPU':
     command += ['-I',str(ROOT/'drivers/VirtioMmioConsole')]
 if component in ('NativeLegacyDisplay','NativeHidInput'):
