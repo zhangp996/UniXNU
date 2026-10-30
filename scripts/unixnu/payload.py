@@ -13,6 +13,7 @@ import json
 import os
 import re
 import shutil
+import struct
 import tempfile
 from pathlib import Path
 
@@ -37,6 +38,31 @@ def check_args(arguments):
     return line
 
 
+# The AMFI "No PMGR?" call and the branch patch-amfi-nopmgr.py writes over it. Both live in
+# __PLK_TEXT_EXEC, whose slide the OS profile pins, so the address is the same for every kernel
+# built from that kernelcache.
+AMFI_SITE_VA = 0xFFFFFFF004AAED04
+AMFI_BRANCH = 0x17FFFFD2
+
+
+def amfi_bypassed(kernel):
+    """True when the kernel already branches past the AMFI "No PMGR?" panic."""
+    data = Path(kernel).read_bytes()
+    magic, _cpu, _sub, _filetype, commands, _size, _flags, _res = struct.unpack_from('<IIIIIIII', data, 0)
+    if magic != 0xFEEDFACF:
+        return False
+    offset = 32
+    for _ in range(commands):
+        command, size = struct.unpack_from('<II', data, offset)
+        if command == 0x19:
+            virtual, vm_size, file_off, file_size = struct.unpack_from('<QQQQ', data, offset + 24)
+            if virtual <= AMFI_SITE_VA < virtual + vm_size and (AMFI_SITE_VA - virtual) < file_size:
+                word = struct.unpack_from('<I', data, file_off + (AMFI_SITE_VA - virtual))[0]
+                return word == AMFI_BRANCH
+        offset += size
+    return False
+
+
 def check_native_root(kernel, arguments):
     """Refuse the known bare-metal AMFI panic before the volume is written."""
     values = {}
@@ -46,11 +72,18 @@ def check_native_root(kernel, arguments):
             values.setdefault(key, []).append(value)
     if '1' not in values.get('native-ufs-root', []):
         return
-    if values.get('sheng-pmgr') != ['2']:
-        raise Error('native UFS root boot needs exactly one sheng-pmgr=2; the unchanged target AMFI otherwise panics with No PMGR')
-    symbols = run([tool('llvm-nm', 'brew install llvm'), '--defined-only', kernel], capture=True)
-    if not any(line.split()[-1:] == ['_sheng_pmgr_run'] for line in symbols.splitlines()):
-        raise Error('the native UFS root kernel lacks the linked sheng PMGR integration')
+    if values.get('sheng-pmgr') == ['2']:
+        symbols = run([tool('llvm-nm', 'brew install llvm'), '--defined-only', kernel], capture=True)
+        if not any(line.split()[-1:] == ['_sheng_pmgr_run'] for line in symbols.splitlines()):
+            raise Error('the native UFS root kernel lacks the linked sheng PMGR integration')
+        return
+    # Without the sheng PMGR provider the panic this guard exists for is AMFI's "No PMGR?", and
+    # scripts/patch-amfi-nopmgr.py closes it by branching past that call. Accept a kernel whose
+    # site already carries the branch instead of demanding an argument that would do nothing.
+    if not amfi_bypassed(kernel):
+        raise Error('native UFS root boot needs either exactly one sheng-pmgr=2 with the linked '
+                    'PMGR integration, or a kernel whose AMFI "No PMGR?" call is already branched '
+                    'past (scripts/patch-amfi-nopmgr.py)')
 
 
 def write_volume(stage, image, label, size_mib):
