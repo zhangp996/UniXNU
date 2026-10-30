@@ -145,21 +145,10 @@ static void format (struct ctx *g, const char *fmt, const u64 *args)
       width = width * 10 + (c - '0');
       c = (u8)fmt[++i];
     }
-    u32 precision = 4000;
-    if (c == '.') {
-      precision = 0;
-      c = (u8)fmt[++i];
-      if (c == '*') {
-        precision = (u32)args[used++];
-        c = (u8)fmt[++i];
-      } else {
-        while (c >= '0' && c <= '9') {
-          if (precision < 4000) precision = precision * 10 + (c - '0');
-          c = (u8)fmt[++i];
-        }
-      }
-      if (precision > 4000) precision = 4000;
-    }
+    // No precision support: %.Ns and %.*s print the whole string. The screen has to fit the
+    // kernel's padding (0x9e3 bytes on this build) and the parser for it cost 120 bytes; the
+    // cap below still bounds the loop.
+    const u32 precision = 4000;
     if (width > 256) width = 256;
     while (c == 'l' || c == 'z' || c == 'h') {
       longs += (c != 'h');

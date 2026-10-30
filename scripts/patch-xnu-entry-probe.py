@@ -203,7 +203,8 @@ def assemble_c(source, va, workdir, symbols):
             raise SystemExit('Invalid _boot_progress_panic_text')
         definitions.append(f'-DPANIC_TEXT={text:#x}UL')
     subprocess.run([clang, '--target=aarch64-none-elf', '-ffreestanding', '-fno-builtin', '-fno-stack-protector',
-                    '-mgeneral-regs-only', '-fno-pic', '-mcmodel=tiny', '-Oz', f'-DVINFO={VINFO_VA:#x}UL',
+                    '-mgeneral-regs-only', '-fno-pic', '-mcmodel=tiny', '-Oz',
+                    '-ffunction-sections', '-fdata-sections', f'-DVINFO={VINFO_VA:#x}UL',
                     *definitions, f'-I{font_dir}', '-c', source, '-o', obj], check=True)
     script = workdir / 'panic.ld'
     script.write_text('SECTIONS { . = %#x; .text : { *(.text.a_entry) *(.text.a_common) *(.text*) *(.rodata*) } /DISCARD/ : { *(.comment) *(.note*) *(.eh_frame*) *(.ARM.*) } }\n' % va)
@@ -212,7 +213,7 @@ def assemble_c(source, va, workdir, symbols):
     if int(sizes[1]) or int(sizes[2]):
         # The code runs from the kernel's read-only text: a global would fault on its first store.
         raise SystemExit(f'{source.name} has writable data (data {sizes[1]}, bss {sizes[2]}); use the stack')
-    subprocess.run([lld, '-T', script, '-e', 'panic_screen', obj, '-o', elf], check=True)
+    subprocess.run([lld, '-T', script, '-e', 'panic_screen', '-u', 'panic_screen_common', obj, '-o', elf], check=True)
     # Only .text: a plain binary dump would start at the ELF headers kept in front of it.
     subprocess.run([objcopy, '-O', 'binary', '-j', '.text', elf, binary], check=True)
     readelf = shutil.which('llvm-readelf') or '/opt/homebrew/opt/llvm/bin/llvm-readelf'
