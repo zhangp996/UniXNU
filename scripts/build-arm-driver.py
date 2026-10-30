@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Compile the generic platform expert against the actual source-kernel ABI."""
 import argparse
+import hashlib
 import json
 import tomllib
 from pathlib import Path
@@ -175,9 +176,17 @@ if component == 'KonaUfs':
     if compiled.returncode:
         raise SystemExit((compiled.stdout + compiled.stderr)[-4000:])
     # A warm tree still has the kernelcache, so the record is proved against it here; a cold
-    # tree (CI) reaches the prelink afterwards.
-    if sorted(ROOT.parents[3].glob('ipsw/*/kernelcache.decompressed')):
-        check = subprocess.run(['python3', str(ROOT / 'scripts/derive-storage-bindings.py'), '--check'],
+    # tree (CI) reaches the prelink afterwards. The cache and the slide are passed explicitly:
+    # the archive step runs before the prelink, so build/kernel/kernel.json does not exist yet.
+    caches = sorted(ROOT.parents[3].glob('ipsw/*/kernelcache.decompressed'))
+    matching = [cache for cache in caches
+                if hashlib.sha256(cache.read_bytes()).hexdigest() == record['kernelcache_sha256']]
+    if caches and not matching:
+        raise SystemExit('the storage bindings were recorded from ' + record['kernelcache_sha256'][:16]
+                         + ' but no kernelcache under out/ipsw matches it')
+    if matching:
+        check = subprocess.run(['python3', str(ROOT / 'scripts/derive-storage-bindings.py'), '--check',
+                                '--kernelcache', str(matching[0]), f'--slide={record["slide"]}'],
                                cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         (out / 'derive-check.log').write_text(check.stdout)
         if check.returncode:
