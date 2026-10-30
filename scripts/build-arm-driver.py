@@ -94,7 +94,8 @@ if component == 'KonaUfs':
     # Bring-up build: the owner-root verified-block chain needs a signed policy bundle
     # this board does not have yet, and the root auth is bypassed for now. Compile the
     # driver without NATIVE_VERIFIED_BLOCK so it does not import the policy symbols.
-    command += ['-mgeneral-regs-only']
+    # The ShengUfs fork predates this clang, so keep its warnings as warnings.
+    command += ['-mgeneral-regs-only', '-Wno-error']
 if component=='NativeOfflineGPU':
     command += ['-I',str(ROOT/'drivers/VirtioMmioConsole')]
 if component in ('NativeLegacyDisplay','NativeHidInput'):
