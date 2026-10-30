@@ -193,13 +193,13 @@ def assemble_c(source, va, workdir, symbols):
         address = symbols.get(name)
         if address is None or address % width or not any(
                 base <= address and address + width <= base + size
-                for base, size, _, _ in SEGMENTS):
+                for base, size, _, _, _ in SEGMENTS):
             raise SystemExit(f'Missing or invalid diagnostic symbol {name}')
         definitions.append(f'-D{macro}={address:#x}UL')
     # Optional: the board's banner buffer for the panic message (kits/sheng/BootProgress.c); kernels without it get 0 (no copy).
     text = symbols.get('_boot_progress_panic_text')
     if text is not None:
-        if not any(base <= text and text + 256 <= base + size for base, size, _, _ in SEGMENTS):
+        if not any(base <= text and text + 256 <= base + size for base, size, _, _, _ in SEGMENTS):
             raise SystemExit('Invalid _boot_progress_panic_text')
         definitions.append(f'-DPANIC_TEXT={text:#x}UL')
     subprocess.run([clang, '--target=aarch64-none-elf', '-ffreestanding', '-fno-builtin', '-fno-stack-protector',
@@ -266,8 +266,11 @@ def load_segments(data):
         cmd, size = struct.unpack_from('<II', data, offset)
         if cmd == 0x19:
             _, vmaddr, vmsize, fileoff, filesize = struct.unpack_from('<16sQQQQ', data, offset + 8)
+            # maxprot and initprot follow: 4 = VM_PROT_EXECUTE. Only executable segments may
+            # receive code.
+            _, initprot = struct.unpack_from('<ii', data, offset + 8 + 16 + 32)
             if filesize:
-                SEGMENTS.append((vmaddr, vmsize, fileoff, filesize))
+                SEGMENTS.append((vmaddr, vmsize, fileoff, filesize, initprot))
         offset += size
 
 
@@ -328,10 +331,40 @@ def rebase(kernel, data):
 
 
 def file_offset(va):
-    for vmaddr, vmsize, fileoff, filesize in SEGMENTS:
+    for vmaddr, vmsize, fileoff, filesize, _ in SEGMENTS:
         if vmaddr <= va < vmaddr + min(vmsize, filesize):
             return fileoff + (va - vmaddr)
     raise SystemExit(f'{va:#x} is not in a file-backed segment of this kernel')
+
+
+def find_text_padding(data, size, near):
+    """A zero run of `size` bytes in a file-backed executable segment, 8-byte aligned.
+
+    The text of a kernel that keeps growing runs past the padding after the probe caves, so
+    the panic screen can live in any zero run of the executable text. Prefer the run closest
+    to `near`: the two branches that enter the screen are 26-bit PC-relative.
+    """
+    best = None
+    for vmaddr, vmsize, fileoff, filesize, initprot in SEGMENTS:
+        if not initprot & 4:      # VM_PROT_EXECUTE
+            continue
+        end = fileoff + min(vmsize, filesize)
+        blob = data[fileoff:end]
+        start, n = 0, len(blob)
+        while start < n:
+            if blob[start] != 0:
+                start += 1
+                continue
+            stop = start
+            while stop < n and blob[stop] == 0:
+                stop += 1
+            aligned = (start + 7) & ~7
+            if stop - aligned >= size:
+                va = vmaddr + aligned
+                if best is None or abs(va - near) < abs(best - near):
+                    best = va
+            start = stop
+    return best
 
 
 def branch(from_va, to_va):
@@ -413,7 +446,18 @@ def main():
             code, load, entry = assemble_c(ROOT / 'scripts/xnu-panic-screen.c', PANIC_CAVE, Path(tmp), kernel_names)
             common_entry = panic_common_entry(Path(tmp), code, load)
         if load + len(code) > PANIC_CAVE_END:
-            raise SystemExit(f'panic screen is {len(code):#x} bytes at {load:#x}, the padding ends at {PANIC_CAVE_END:#x}')
+            # The text outgrew the padding after the probe caves: move the screen to the
+            # closest zero run of the executable text that is large enough, and assemble it
+            # again at that address.
+            target = find_text_padding(data, len(code) + 0x40, PANIC_VA)
+            if target is None:
+                raise SystemExit(f'panic screen is {len(code):#x} bytes at {load:#x} and no zero run that large exists in the executable text')
+            with tempfile.TemporaryDirectory() as tmp:
+                code, load, entry = assemble_c(ROOT / 'scripts/xnu-panic-screen.c', target, Path(tmp), kernel_names)
+                common_entry = panic_common_entry(Path(tmp), code, load)
+            if any(data[file_offset(load):file_offset(load) + len(code)]):
+                raise SystemExit(f'Padding at {load:#x} is not empty')
+            description += f', panic screen relocated to {load:#x}'
         if any(data[file_offset(load):file_offset(load) + len(code)]):
             raise SystemExit(f'Padding at {load:#x} is not empty')
         data[file_offset(load):file_offset(load) + len(code)] = code
