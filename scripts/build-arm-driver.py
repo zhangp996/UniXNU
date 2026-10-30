@@ -8,6 +8,29 @@ import struct
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def storage_imports(data):
+    """Undefined IOStorageFamily symbols of a compiled object, read from its Mach-O table."""
+    count = struct.unpack_from('<6I', data)[4]
+    offset = 32
+    for _ in range(count):
+        command, length = struct.unpack_from('<II', data, offset)
+        if command == 2:
+            symoff, symbols, stroff, strsize = struct.unpack_from('<4I', data, offset + 8)
+            names = []
+            for index in range(symbols):
+                strx, kind, _, _, _ = struct.unpack_from('<IBBHQ', data, symoff + index * 16)
+                if kind & 0x0e or strx >= strsize:
+                    continue
+                name = data[stroff + strx:data.find(b'\0', stroff + strx)].decode()
+                if 'IOBlockStorageDevice' in name:
+                    names.append(name)
+            return sorted(set(names))
+        offset += length
+    return []
+
+
 parser = argparse.ArgumentParser(description=__doc__)
 catalog = {entry['id']: entry for entry in tomllib.loads((ROOT / 'components.toml').read_text())['component']
            if entry['kind'] == 'driver' and any(name.endswith('.cpp') for name in entry.get('source_files', []))}
@@ -125,4 +148,41 @@ if deployment != (2, 0x110000):
 archive = out / ('lib' + identifier + '.a')
 archive.unlink(missing_ok=True)
 subprocess.run(['xcrun', 'ar', 'rcs', archive, destination], check=True)
+if component == 'KonaUfs':
+    # IOStorageFamily is a kext of the pinned kernelcache, so the kernel link has no definition
+    # for the class this driver subclasses. scripts/data/storage-bindings.json holds the
+    # original addresses derive-storage-bindings.py proved against that kernelcache; at the
+    # prelink slide they are the addresses the driver calls, and original-bindings.o defines
+    # them as absolute symbols. The import list comes from the compiled object, never from a
+    # hand-written table, so a shape change in the driver fails here instead of at the link.
+    record = json.loads((ROOT / 'scripts/data/storage-bindings.json').read_text())
+    addresses = {name: int(value, 16) for name, value in record['addresses'].items()}
+    imports = storage_imports(data)
+    if not imports:
+        raise SystemExit(f'{identifier}: the object imports no IOStorageFamily symbol; the driver shape changed')
+    missing = [name for name in imports if name not in addresses]
+    if missing:
+        raise SystemExit('the driver imports storage symbols the record does not cover: ' + ', '.join(missing))
+    if any(name.endswith(('D0Ev', 'D1Ev')) for name in imports):
+        raise SystemExit('the driver must not use the abstract complete or deleting destruction')
+    assembly = out / 'original-bindings.S'
+    assembly.write_text(''.join(f'.globl {name}\n.set {name}, {addresses[name] + record["slide"]:#x}\n'
+                                for name in imports))
+    bindings_object = out / 'original-bindings.o'
+    compiled = subprocess.run(['xcrun', 'clang', '-target', 'arm64-apple-ios17.0', '-Werror',
+                               '-Wno-incompatible-sysroot', '-c', str(assembly), '-o', str(bindings_object)],
+                              capture_output=True, text=True)
+    if compiled.returncode:
+        raise SystemExit((compiled.stdout + compiled.stderr)[-4000:])
+    # A warm tree still has the kernelcache, so the record is proved against it here; a cold
+    # tree (CI) reaches the prelink afterwards.
+    if sorted(ROOT.parents[3].glob('ipsw/*/kernelcache.decompressed')):
+        check = subprocess.run(['python3', str(ROOT / 'scripts/derive-storage-bindings.py'), '--check'],
+                               cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        (out / 'derive-check.log').write_text(check.stdout)
+        if check.returncode:
+            raise SystemExit(check.stdout[-4000:])
+    subprocess.run(['xcrun', 'ar', 'rcs', archive, bindings_object], check=True)
+    print(f'{identifier}: {len(imports)} storage imports bound from the recorded kernelcache '
+          f'({record["kernelcache_sha256"][:16]}, slide {record["slide"]:#x})')
 print(f'{identifier}: -Werror build and actual ARM64/iOS 17 object audit passed')
