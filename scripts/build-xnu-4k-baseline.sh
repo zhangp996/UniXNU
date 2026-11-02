@@ -621,7 +621,13 @@ if [ "${XNU_SOURCE_CORECRYPTO14:-0}" = 1 ] && [ "$BOOTSTRAP" = 0 ]; then
     KERNEL_ARCHIVE_DEPENDENCIES="$KERNEL_ARCHIVE_DEPENDENCIES $ARMCPU_ARCHIVE"
   fi
   if [ "${XNU_NATIVE_UFS:-0}" = 1 ]; then
-    UFS_ARCHIVE=$ROOT/build/kona-ufs/libKonaUfs.a
+    # The board's storage component decides the archive name: the shared ShengUfs builds
+    # libShengUfs.a and a board-owned port builds libKonaUfs.a. Link whichever the tree made.
+    if [ -f "$ROOT/build/sheng-ufs/libShengUfs.a" ]; then
+      UFS_ARCHIVE=$ROOT/build/sheng-ufs/libShengUfs.a
+    else
+      UFS_ARCHIVE=$ROOT/build/kona-ufs/libKonaUfs.a
+    fi
     test -f "$UFS_ARCHIVE"
     KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES -Wl,-force_load,$UFS_ARCHIVE"
     KERNEL_ARCHIVE_DEPENDENCIES="$KERNEL_ARCHIVE_DEPENDENCIES $UFS_ARCHIVE"
