@@ -103,7 +103,7 @@ while index < len(arguments):
 command.extend(['-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter',
                 '-Wno-c99-designator', '-Wno-reorder-init-list', '-Wno-deprecated-enum-enum-conversion',
                 '-Wno-unnecessary-virtual-specifier', '-I', str(ROOT / '.cache/xnu-work/osfmk')])
-if component in ('NativeVirtioBlock', 'NativeRamBlock', 'NativeUfs', 'KonaUfs'):
+if component in ('NativeVirtioBlock', 'NativeRamBlock', 'NativeUfs', 'KonaUfs', 'ShengUfs'):
     command += ['-I', str(ROOT / 'build/storage-abi/include')]
     if args.verified_root:
         command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-DNATIVE_VERIFIED_BLOCK=1']
@@ -114,11 +114,11 @@ if component in ('NativeVirtioBlock', 'NativeRamBlock', 'NativeUfs', 'KonaUfs'):
 if component == 'NativeUfs':
     command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-I', str(ROOT / 'drivers/VirtioMmioBlock'),
                 '-DNATIVE_VERIFIED_BLOCK=1', '-DNATIVE_VERIFIED_BLOCK_MULTI_POLICY=1', '-mgeneral-regs-only']
-if component == 'KonaUfs':
-    # Bring-up build: the owner-root verified-block chain needs a signed policy bundle
-    # this board does not have yet, and the root auth is bypassed for now. Compile the
-    # driver without NATIVE_VERIFIED_BLOCK so it does not import the policy symbols.
-    # The ShengUfs fork predates this clang, so keep its warnings as warnings.
+if component in ('KonaUfs', 'ShengUfs'):
+    # Bring-up build: the owner-root verified-block chain needs a signed policy bundle this
+    # board does not have yet, and the root auth is bypassed for now. Compile the driver
+    # without NATIVE_VERIFIED_BLOCK so it does not import the policy symbols. Both sources
+    # predate this clang, so keep their warnings as warnings (-Wno-error).
     command += ['-mgeneral-regs-only', '-Wno-error']
 if component=='NativeOfflineGPU':
     command += ['-I',str(ROOT/'drivers/VirtioMmioConsole')]
@@ -149,7 +149,7 @@ if deployment != (2, 0x110000):
 archive = out / ('lib' + identifier + '.a')
 archive.unlink(missing_ok=True)
 subprocess.run(['xcrun', 'ar', 'rcs', archive, destination], check=True)
-if component == 'KonaUfs':
+if component in ('KonaUfs', 'ShengUfs'):
     # IOStorageFamily is a kext of the pinned kernelcache, so the kernel link has no definition
     # for the class this driver subclasses. scripts/data/storage-bindings.json holds the
     # original addresses derive-storage-bindings.py proved against that kernelcache; at the
