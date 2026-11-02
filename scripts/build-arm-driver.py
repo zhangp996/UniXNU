@@ -122,9 +122,11 @@ if identifier == 'ShengUfs':
     # the end of the file; a forward declaration is all it needs, and the board fork carries
     # the same three names.
     compat = out / 'sheng-ufs-forward.h'
-    compat.write_text('static uint64_t timerTicks(void);\n'
-                      'extern volatile uint64_t native_ufs_read_ticks;\n'
-                      'extern volatile uint64_t native_ufs_verify_ticks;\n')
+    # Primitive types on purpose: -include happens before the source's own includes, so the
+    # header cannot name uint64_t yet. On this target uint64_t is unsigned long long.
+    compat.write_text('static unsigned long long timerTicks(void);\n'
+                      'extern volatile unsigned long long native_ufs_read_ticks;\n'
+                      'extern volatile unsigned long long native_ufs_verify_ticks;\n')
     command += ['-include', str(compat)]
 if identifier in ('KonaUfs', 'ShengUfs'):
     # Bring-up build: the owner-root verified-block chain needs a signed policy bundle this
