@@ -123,8 +123,15 @@ if identifier == 'ShengUfs':
     # the same three names.
     compat = out / 'sheng-ufs-forward.h'
     # Primitive types on purpose: -include happens before the source's own includes, so the
-    # header cannot name uint64_t yet. On this target uint64_t is unsigned long long.
-    compat.write_text('static unsigned long long timerTicks(void);\n'
+    # header cannot name uint64_t yet. On this target uint64_t is unsigned long long. The
+    # pinned revision calls the counter without defining it, so the definition lives here,
+    # written the same way the board fork and ShengUfs's own later revisions write it.
+    compat.write_text('static inline unsigned long long timerTicks(void)\n'
+                      '{\n'
+                      '  unsigned long long v;\n'
+                      '  __asm__ volatile ("isb\\n\\tmrs %0, cntpct_el0" : "=r" (v));\n'
+                      '  return v;\n'
+                      '}\n'
                       'extern volatile unsigned long long native_ufs_read_ticks;\n'
                       'extern volatile unsigned long long native_ufs_verify_ticks;\n')
     command += ['-include', str(compat)]
