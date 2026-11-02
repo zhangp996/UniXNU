@@ -111,10 +111,13 @@ if component in ('NativeVirtioBlock', 'NativeRamBlock', 'NativeUfs', 'KonaUfs', 
         command += ['-DNATIVE_VERIFIED_BLOCK_INJECT_FAULT=1']
     if args.verified_root_bundle:
         command += ['-DNATIVE_VERIFIED_BLOCK_MULTI_POLICY=1']
-if component == 'NativeUfs':
+if component == 'NativeUfs' and identifier == 'NativeUfs':
+    # Only the shared NativeUfs component carries the policy bundle this define expects.
+    # A catalog entry with legacy_name = "NativeUfs" (ShengUfs) resolves to that runtime name
+    # and would otherwise pick the verified-block chain up by accident.
     command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-I', str(ROOT / 'drivers/VirtioMmioBlock'),
                 '-DNATIVE_VERIFIED_BLOCK=1', '-DNATIVE_VERIFIED_BLOCK_MULTI_POLICY=1', '-mgeneral-regs-only']
-if component in ('KonaUfs', 'ShengUfs'):
+if identifier in ('KonaUfs', 'ShengUfs'):
     # Bring-up build: the owner-root verified-block chain needs a signed policy bundle this
     # board does not have yet, and the root auth is bypassed for now. Compile the driver
     # without NATIVE_VERIFIED_BLOCK so it does not import the policy symbols. Both sources
@@ -149,7 +152,7 @@ if deployment != (2, 0x110000):
 archive = out / ('lib' + identifier + '.a')
 archive.unlink(missing_ok=True)
 subprocess.run(['xcrun', 'ar', 'rcs', archive, destination], check=True)
-if component in ('KonaUfs', 'ShengUfs'):
+if identifier in ('KonaUfs', 'ShengUfs'):
     # IOStorageFamily is a kext of the pinned kernelcache, so the kernel link has no definition
     # for the class this driver subclasses. scripts/data/storage-bindings.json holds the
     # original addresses derive-storage-bindings.py proved against that kernelcache; at the
