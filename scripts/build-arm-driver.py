@@ -117,6 +117,15 @@ if component == 'NativeUfs' and identifier == 'NativeUfs':
     # and would otherwise pick the verified-block chain up by accident.
     command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-I', str(ROOT / 'drivers/VirtioMmioBlock'),
                 '-DNATIVE_VERIFIED_BLOCK=1', '-DNATIVE_VERIFIED_BLOCK_MULTI_POLICY=1', '-mgeneral-regs-only']
+if identifier == 'ShengUfs':
+    # The pinned ShengUfs revision uses its read-timing helpers before their definition near
+    # the end of the file; a forward declaration is all it needs, and the board fork carries
+    # the same three names.
+    compat = out / 'sheng-ufs-forward.h'
+    compat.write_text('static uint64_t timerTicks(void);\n'
+                      'extern volatile uint64_t native_ufs_read_ticks;\n'
+                      'extern volatile uint64_t native_ufs_verify_ticks;\n')
+    command += ['-include', str(compat)]
 if identifier in ('KonaUfs', 'ShengUfs'):
     # Bring-up build: the owner-root verified-block chain needs a signed policy bundle this
     # board does not have yet, and the root auth is bypassed for now. Compile the driver
