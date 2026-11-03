@@ -47,9 +47,13 @@ metadata = json.loads((policy_dir / 'verification.json').read_text())
 image = ROOT / '.cache/firmware/target-volumes/044-76034-038.dmg'
 manifest = policy_dir / 'manifest.bin'
 key = policy_dir / 'trusted-key.bin'
-expected_digest = ('e5634d04a8ac35f024845f583394e0a35deb26a04cb0c00286a8674e25a9a4f2' if args.component == 'os' else
+# The OS member is signed over the window the board manifest declares, which is the range the
+# driver publishes: the APFS container at userdata-root.img 0x104400 + 0x16a400000. That is the
+# same original image as the dmg's first 0x16a400000 bytes, trimmed to the manifest size, so its
+# digest is the window digest rather than the whole-disk dmg digest.
+expected_digest = ('d8808bea18b949142b3e47bbcb780c3f22faaacd9b40a88f77c23557181edc9c' if args.component == 'os' else
                    'b4908cde41d23e6bc05e6af51a2c9eeb00cf0f863a6a18b1600c96a3fd70414f')
-expected_count = 1483785 if args.component == 'os' else 806400
+expected_count = 1483776 if args.component == 'os' else 806400
 if (metadata['image_sha256'] != expected_digest or
         metadata['blocks_verified'] != expected_count or not metadata['real_c_signature_and_block_verification'] or
         hashlib.sha256(key.read_bytes()).hexdigest() != metadata['trusted_key_sha256']):
@@ -76,7 +80,7 @@ lengths = [4096] * 4
 if args.component == 'os':
     indices = metadata['actual_sample_indices']
     lengths = metadata['actual_sample_lengths']
-    if lengths != [4096, 4096, 4096, 1536]:
+    if lengths != [4096, 4096, 4096, 4096]:
         raise SystemExit('Expected the actual original OS final block length')
     samples.write_bytes((policy_dir / 'original-samples.bin').read_bytes())
 else:
