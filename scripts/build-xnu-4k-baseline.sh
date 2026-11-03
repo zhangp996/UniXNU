@@ -748,9 +748,15 @@ PY_BINDINGS
   fi
   if [ "$OWNER_ROOT_PROBE" = 1 ]; then
     VERIFIED_ROOT_ARCHIVE=${XNU_VERIFIED_ROOT_ARCHIVE:-$ROOT/build/verified-root-xnu/libVerifiedRootProbe.a}
-    test -f "$VERIFIED_ROOT_ARCHIVE"
-    KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES -Wl,-force_load,$VERIFIED_ROOT_ARCHIVE"
-    KERNEL_ARCHIVE_DEPENDENCIES="$KERNEL_ARCHIVE_DEPENDENCIES $VERIFIED_ROOT_ARCHIVE"
+    # The archive itself is built from bsd_init.o.json, which only a kernel pass writes, so the
+    # first pass has to run without it: like the other archive builders, this one arrives after
+    # the bootstrap pass and is force-loaded from then on.
+    if [ -f "$VERIFIED_ROOT_ARCHIVE" ]; then
+      KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES -Wl,-force_load,$VERIFIED_ROOT_ARCHIVE"
+      KERNEL_ARCHIVE_DEPENDENCIES="$KERNEL_ARCHIVE_DEPENDENCIES $VERIFIED_ROOT_ARCHIVE"
+    else
+      echo 'verified root archive not built yet: this pass only writes the compile recipes' >&2
+    fi
   fi
   if [ "$MOCKFS_MODE" = 1 ]; then
     MOCKFS_ARCHIVE=$ROOT/build/mockfs-fixture/libmockfs_fixture.a
