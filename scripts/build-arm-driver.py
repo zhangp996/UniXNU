@@ -109,7 +109,11 @@ if component in ('NativeVirtioBlock', 'NativeRamBlock', 'NativeUfs', 'KonaUfs', 
     # docs/concepts/security.md: the two RAM transports share one verified block policy and the
     # kernel link audits that their storage imports match. When the kernel selects the owner root
     # chain both therefore compile against the policy archive, whatever transport the board uses.
-    if component in ('NativeVirtioBlock', 'NativeRamBlock') and os.environ.get('XNU_VERIFIED_ROOT_PROBE') == '1':
+    # The board's UFS transport is part of the same policy: native_ufs_block_authenticates and
+    # NativeUfsBlock::authenticatesVolume live behind this define in the driver, and the owner
+    # root audit asks that hook whether the mounted media authenticates. Without it the audit
+    # answers 0 and the page reports root=0 even when the mount succeeded.
+    if component in ('NativeVirtioBlock', 'NativeRamBlock', 'KonaUfs') and os.environ.get('XNU_VERIFIED_ROOT_PROBE') == '1':
         command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-DNATIVE_VERIFIED_BLOCK=1']
     if args.verified_root:
         command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-DNATIVE_VERIFIED_BLOCK=1']
