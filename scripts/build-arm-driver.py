@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import tomllib
 from pathlib import Path
 import struct
@@ -105,6 +106,11 @@ command.extend(['-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter',
                 '-Wno-unnecessary-virtual-specifier', '-I', str(ROOT / '.cache/xnu-work/osfmk')])
 if component in ('NativeVirtioBlock', 'NativeRamBlock', 'NativeUfs', 'KonaUfs', 'ShengUfs'):
     command += ['-I', str(ROOT / 'build/storage-abi/include')]
+    # docs/concepts/security.md: the two RAM transports share one verified block policy and the
+    # kernel link audits that their storage imports match. When the kernel selects the owner root
+    # chain both therefore compile against the policy archive, whatever transport the board uses.
+    if component in ('NativeVirtioBlock', 'NativeRamBlock') and os.environ.get('XNU_VERIFIED_ROOT_PROBE') == '1':
+        command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-DNATIVE_VERIFIED_BLOCK=1']
     if args.verified_root:
         command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-DNATIVE_VERIFIED_BLOCK=1']
     if args.negative_verified_block:
