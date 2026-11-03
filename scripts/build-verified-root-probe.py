@@ -160,7 +160,10 @@ for source in (ROOT / 'kits/VerifiedRoot/src/verified_root.c', ROOT / 'kits/Veri
         elif value not in ('-MD', '-MP'):
             command.append(value)
         index += 1
-    command += ['-I' + str(ROOT / 'kits/VerifiedRoot/include'), '-Werror']
+    # XNU's own bsd_init record carries -I .../EXPORT_HDRS/libsa, a directory the build does not
+    # create; the normal kernel build only warns. The probe treats warnings as errors, so keep the
+    # known-missing include directory non-fatal without weakening the rest of the qualification.
+    command += ['-I' + str(ROOT / 'kits/VerifiedRoot/include'), '-Werror', '-Wno-missing-include-dirs']
     result = subprocess.run(command, cwd=record['directory'], capture_output=True, text=True)
     (out / (source.stem + '.log')).write_text(result.stdout + result.stderr)
     if result.returncode:
