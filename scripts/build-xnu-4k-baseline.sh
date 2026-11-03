@@ -831,7 +831,11 @@ if [ "${XNU_KONA_UFS:-0}" = 1 ]; then
   EXTRA_CFLAGS="$EXTRA_CFLAGS -DKONA=1"
   EXTRA_MAKE_ARGS+=("OTHER_CXXFLAGS=-DKONA=1")
 fi
-make -C .cache/xnu-work "${XNU_BUILD_TARGET:-build}" SDKROOT="${XNU_SDKROOT:-iphoneos}" ARCH_CONFIGS=ARM64 \
+# XNU's README builds with "exporthdrs all": the export-header step creates every
+# EXPORT_HDRS/<component> include directory, including libsa, which has no headers of its own
+# but is always on COMPONENT_IMPORT_LIST. The build target alone leaves it absent and only warns;
+# the probe builder's -Werror would turn that warning into a failure.
+make -C .cache/xnu-work exporthdrs "${XNU_BUILD_TARGET:-build}" SDKROOT="${XNU_SDKROOT:-iphoneos}" ARCH_CONFIGS=ARM64 \
   MACHINE_CONFIGS=BCM2837 KERNEL_CONFIGS=DEVELOPMENT \
   ARCH_STRING_FOR_CURRENT_MACHINE_CONFIG=arm64 LARGE_MEMORY_DEFINE=-UARM_LARGE_MEMORY \
   ARM64_LINK_ADDR=0xfffffff007004000 ARM64_PLKSEG_ADDR=0xfffffff004004000 \
