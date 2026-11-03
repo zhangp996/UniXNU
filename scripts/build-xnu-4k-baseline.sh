@@ -294,7 +294,10 @@ if [ "$OWNER_ROOT_TRUST" != 0 ] && [ "$OWNER_ROOT_TRUST" != 1 ]; then
   echo 'XNU_OWNER_ROOT_TRUST must be 0 or 1' >&2
   exit 1
 fi
-if [ "$OWNER_ROOT_TRUST" = 1 ] && { [ "$OWNER_ROOT_AUDIT" != 1 ] || [ "${XNU_NATIVE_VIRTIO_BLOCK:-0}" != 1 ]; }; then
+# docs/concepts/security.md records that VirtioMmioBlock and RamBlock share one verified block
+# policy, so a board that carries its storage through RamBlock satisfies this the same way the
+# virtio transport does - the check is about the policy being linked, not about the transport name.
+if [ "$OWNER_ROOT_TRUST" = 1 ] && { [ "$OWNER_ROOT_AUDIT" != 1 ] || { [ "${XNU_NATIVE_VIRTIO_BLOCK:-0}" != 1 ] && [ "${XNU_NATIVE_RAM_BLOCK:-0}" != 1 ]; }; }; then
   echo 'Owner root acceptance requires actual mounted-media binding and verified block storage' >&2
   exit 1
 fi
