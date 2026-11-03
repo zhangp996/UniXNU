@@ -117,8 +117,13 @@ _verified_root_policies:
         policy_records.append(policy_records[0].copy())
     bundle_assembly += '_verified_root_policy_count:\n.quad ' + str(len(policy_records)) + '\n'
     assembly.write_text(assembly.read_text() + bundle_assembly)
-recipe = ROOT / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/bsd/DEVELOPMENT/bsd_init.o.json'
-record = json.loads(recipe.read_text().strip().rstrip(','))
+# The recipe's depth under OBJROOT follows the source layout and the XNU makefiles, so search
+# for it instead of pinning one shape: a kernel pass writes bsd_init.o.json somewhere below
+# build/xnu/ios-obj, and the probe needs that exact compile command line.
+candidates = sorted((ROOT / 'build/xnu/ios-obj').rglob('bsd_init.o.json'))
+if not candidates:
+    raise SystemExit('no bsd_init.o.json under build/xnu/ios-obj: run a kernel pass first')
+recipe = candidates[0]
 objects = []
 for source in (ROOT / 'kits/VerifiedRoot/src/verified_root.c', ROOT / 'kits/VerifiedRoot/adapters/xnu_crypto.c',
                ROOT / 'scripts/qemu-entry/verified-root-probe.c'):
