@@ -142,6 +142,7 @@ candidates = sorted(recipe_root.rglob('bsd_init.o.json'))
 if not candidates:
     raise SystemExit(f'no bsd_init.o.json under {recipe_root}: run a kernel pass first')
 recipe = candidates[0]
+record = json.loads(recipe.read_text().strip().rstrip(','))
 objects = []
 for source in (ROOT / 'kits/VerifiedRoot/src/verified_root.c', ROOT / 'kits/VerifiedRoot/adapters/xnu_crypto.c',
                ROOT / 'scripts/qemu-entry/verified-root-probe.c'):
