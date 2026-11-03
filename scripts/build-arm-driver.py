@@ -114,7 +114,10 @@ if component in ('NativeVirtioBlock', 'NativeRamBlock', 'NativeUfs', 'KonaUfs', 
     # root audit asks that hook whether the mounted media authenticates. Without it the audit
     # answers 0 and the page reports root=0 even when the mount succeeded.
     if component in ('NativeVirtioBlock', 'NativeRamBlock', 'KonaUfs') and os.environ.get('XNU_VERIFIED_ROOT_PROBE') == '1':
-        command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-DNATIVE_VERIFIED_BLOCK=1']
+        # VerifiedBlockPolicy.h lives with the transport that owns the shared policy, which is
+        # where the board's UFS driver and the two RAM transports all read it from.
+        command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-I', str(ROOT / 'drivers/VirtioMmioBlock'),
+                    '-DNATIVE_VERIFIED_BLOCK=1']
     if args.verified_root:
         command += ['-I', str(ROOT / 'kits/VerifiedRoot/include'), '-DNATIVE_VERIFIED_BLOCK=1']
     if args.negative_verified_block:
