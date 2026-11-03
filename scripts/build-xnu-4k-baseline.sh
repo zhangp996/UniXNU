@@ -684,6 +684,14 @@ PY_LEGACY_DISPLAY
     test -f "$VIRTIO_ARCHIVE"
     KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES -Wl,-force_load,$VIRTIO_ARCHIVE"
     KERNEL_ARCHIVE_DEPENDENCIES="$KERNEL_ARCHIVE_DEPENDENCIES $VIRTIO_ARCHIVE"
+  elif [ "$OWNER_ROOT_TRUST" = 1 ]; then
+    # The owner-root chain imports native_verified_block_* from the Virtio transport archive.
+    # This board has no virtio device, so the transport stays off; link the archive only as
+    # the verified-block policy provider instead of turning the transport personality on.
+    VIRTIO_POLICY_ARCHIVE=${XNU_NATIVE_VIRTIO_BLOCK_ARCHIVE:-$ROOT/build/virtio-mmio-block/libVirtioMmioBlock.a}
+    test -f "$VIRTIO_POLICY_ARCHIVE"
+    KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES -Wl,-force_load,$VIRTIO_POLICY_ARCHIVE"
+    KERNEL_ARCHIVE_DEPENDENCIES="$KERNEL_ARCHIVE_DEPENDENCIES $VIRTIO_POLICY_ARCHIVE"
   fi
   if [ "$NATIVE_OFFLINE_GPU" = 1 ]; then
     GPU_BROKER_ARCHIVE=$ROOT/build/native-offline-gpu/libNativeOfflineGPU.late.a

@@ -14,6 +14,7 @@ parser.add_argument('--component', choices=('systemos', 'os'), default='systemos
 parser.add_argument('--negative-volume-uuid', action='store_true', help='Isolated real-signature policy with the wrong signed volume identity')
 parser.add_argument('--include-systemos', action='store_true', help='Include both separately verified original OS and SystemOS policies under the same explicit anchor')
 parser.add_argument('--duplicate-os-policy', action='store_true', help='Isolated negative bundle with an ambiguous duplicate OS policy')
+parser.add_argument('--tree', type=Path, help='resolved kernel build tree (default: the single out/*/*/*/tree)')
 args = parser.parse_args()
 if args.include_systemos and (args.component != 'os' or args.negative_volume_uuid):
     parser.error('The two-volume bundle requires the positive original OS policy')
@@ -21,6 +22,22 @@ if args.duplicate_os_policy and not args.include_systemos:
     parser.error('The duplicate control requires the explicit two-volume bundle')
 if args.negative_volume_uuid and args.component != 'os':
     parser.error('The actual-root negative control requires the original OS policy')
+
+
+def locate_tree(root):
+    """The compile records live in the resolved build tree, not always beside this script."""
+    if (root / 'build/xnu/ios-obj').is_dir():
+        return root
+    candidates = sorted(path for path in (root / 'out').glob('*/*/*/tree')
+                        if (path / 'build/xnu/ios-obj').is_dir())
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates:
+        raise SystemExit('no resolved kernel tree under out/*/*/*/tree: run a kernel pass first')
+    raise SystemExit('multiple resolved kernel trees under out/*/*/*/tree: pass --tree')
+
+
+TREE = args.tree.resolve() if args.tree else locate_tree(ROOT)
 out = ROOT / (('build/verified-root-os-xnu' if args.component == 'os' else 'build/verified-root-xnu') +
               ('-wrong-uuid' if args.negative_volume_uuid else '') +
               ('-bundle-ambiguous' if args.duplicate_os_policy else '-bundle' if args.include_systemos else ''))
@@ -119,10 +136,11 @@ _verified_root_policies:
     assembly.write_text(assembly.read_text() + bundle_assembly)
 # The recipe's depth under OBJROOT follows the source layout and the XNU makefiles, so search
 # for it instead of pinning one shape: a kernel pass writes bsd_init.o.json somewhere below
-# build/xnu/ios-obj, and the probe needs that exact compile command line.
-candidates = sorted((ROOT / 'build/xnu/ios-obj').rglob('bsd_init.o.json'))
+# the resolved tree's build/xnu/ios-obj, and the probe needs that exact compile command line.
+recipe_root = TREE / 'build/xnu/ios-obj'
+candidates = sorted(recipe_root.rglob('bsd_init.o.json'))
 if not candidates:
-    raise SystemExit('no bsd_init.o.json under build/xnu/ios-obj: run a kernel pass first')
+    raise SystemExit(f'no bsd_init.o.json under {recipe_root}: run a kernel pass first')
 recipe = candidates[0]
 objects = []
 for source in (ROOT / 'kits/VerifiedRoot/src/verified_root.c', ROOT / 'kits/VerifiedRoot/adapters/xnu_crypto.c',
