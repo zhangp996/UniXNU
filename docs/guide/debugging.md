@@ -133,6 +133,11 @@ boot-progress=2
 
 Level 2 runs continuously. Deadlines are reported and the OS keeps running.
 
+A level 2 page that stops is a stopped machine, not the page policy: level 1 stops by
+design, level 2 keeps running. When the page stops at the same point the work it reports
+reached, the kernel is in the stall rather than idle. The pulse strip is the liveness
+channel for that case; a driver-side indicator repeats what row 47 already draws.
+
 The page uses 48 rows of 120 columns. On a panel at least 2160 by 1400 the scale is 3.
 
 | Row group | Contents |

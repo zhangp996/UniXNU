@@ -92,6 +92,12 @@ Each `CONFIG_XNU_<NAME>` line becomes `XNU_<NAME>` in the kernel build environme
 | `XNU_BOOT_PROGRESS` | Adds the boot progress layer | `build/boot-progress/libBootProgress.a` |
 | `XNU_SOURCE_MOCKFS` | Adds the mockfs test file | `build/mockfs-fixture/libmockfs_fixture.a` |
 
+`XNU_SOURCE_MOCKFS` is an offline fixture. On hardware `mockfs_mountroot` accepts any
+device and runs before APFS, so a boot with it enabled mounts the whole partition as the
+root and returns the partition's own bytes where a Mach-O header is expected. Leave it
+unset in a device defconfig: an enabled mockfs turns a storage failure into a misleading
+success.
+
 `[kernel] archives` in `board.toml` lists the archive builders in order. Each entry is a script of the build tree and its arguments. For example:
 
 ```toml

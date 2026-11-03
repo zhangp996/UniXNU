@@ -89,6 +89,10 @@ DEPLOYMENT_TARGET_FLAGS="-miphoneos-version-min=17.0 -DXNU_TARGET_OS_IOS"
 | `XNU_BOOT_PROGRESS` | 加入启动进度层 | `build/boot-progress/libBootProgress.a` |
 | `XNU_SOURCE_MOCKFS` | 加入 mockfs 测试文件 | `build/mockfs-fixture/libmockfs_fixture.a` |
 
+`XNU_SOURCE_MOCKFS` 是离线测试夹具。在真机上 `mockfs_mountroot` 会接受任意设备并在
+APFS 之前运行，因此启用它启动时会把整个分区当作根卷挂载，并在期望 Mach-O 头的位置
+返回分区自身的字节。设备 defconfig 中不要启用：否则存储故障会被伪装成成功。
+
 `board.toml` 的 `[kernel] archives` 按顺序列出静态库脚本。每个条目是构建树中的脚本及其参数。例如：
 
 ```toml

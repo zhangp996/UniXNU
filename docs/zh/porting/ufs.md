@@ -77,6 +77,14 @@ PHY、复位、时钟和电源序列。
 - 接管 apps SMMU 的驱动也负责其他设备需要的 stage 1 窗口。ShengUfs 为显示 bank
   （`sheng-dpu-scanout`）和 WiFi 端点（`sheng-wifi=2` 或更大）各建立一个，默认都关闭。
   音频流保持直通：给它们使用转换 context 会让 sheng 复位。
+- 根卷需要 IOKit media，而不是 BSD 磁盘。`bdevsw` 磁盘不发布 `IOMedia`，挂载循环与
+  APFS 都会在发出块请求之前拒绝它：循环返回 `ENODEV`，APFS mountroot 返回 `ENOENT`，
+  没有一条命令到达驱动。`/chosen/root-matching` 指定的是 `IOProviderClass = IOMedia`，
+  因此应通过 `IOBlockStorageDevice` 发布存储，由 IOStorageFamily 完成匹配。
+- 窗口里可能是整盘镜像。从 IPSW 镜像逐字节复制的 OS 窗口以保护 MBR 开头，其后是
+  GPT，唯一分区的起始 LBA 为 34；该偏移按 512 字节对齐，但不按 4 KiB 对齐，
+  且并非每个 profile 的内核都带 `GPTPartitionScheme`。驱动应接受 512 字节对齐的窗口、
+  支持跨 4 KiB 边界的读，并以 `[userdata]` 而不是内部 GPT 作为边界来源。
 
 [sheng 存储记录](/zh/devices/sheng#storage)提供板级参数、实现引用和当前范围。
 

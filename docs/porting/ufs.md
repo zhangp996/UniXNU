@@ -87,6 +87,17 @@ clock and power sequence implemented and recorded.
   device needs. ShengUfs sets one up for the display bank (`sheng-dpu-scanout`)
   and one for the WiFi endpoint (`sheng-wifi=2` or more); both are off by default.
   Audio streams stay in pass-through: a translating context for them resets sheng.
+- A root volume needs an IOKit media, not a BSD disk. A `bdevsw` disk publishes no
+  `IOMedia`, and both the mountroot loop and APFS decline such a device before issuing
+  a block request: the loop returns `ENODEV`, the APFS mountroot returns `ENOENT`, and
+  no command reaches the driver. `/chosen/root-matching` names
+  `IOProviderClass = IOMedia`, so publish storage through `IOBlockStorageDevice` and
+  let IOStorageFamily answer the match.
+- A window can hold a whole-disk image. An OS window copied byte for byte from the IPSW
+  image begins with a protective MBR and a GPT whose single partition starts at LBA 34;
+  that offset is 512-byte aligned but not 4 KiB aligned, and the kernel does not carry a
+  `GPTPartitionScheme` on every profile. Accept a 512-byte aligned window, read across a
+  4 KiB boundary, and take the bounds from `[userdata]` rather than from the inner GPT.
 
 The [sheng storage record](/devices/sheng#storage) supplies board values,
 implementation references and current limits.
