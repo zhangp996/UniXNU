@@ -206,3 +206,12 @@ jobs:
         run: |
           rm -rf out/ipsw out/feeds device/.cache/firmware out/*/tree/.cache/firmware
           rm -f "$RUNNER_TEMP/trustcache" "$RUNNER_TEMP/data.dbr" "$RUNNER_TEMP/data-grow.dbr"
+
+      - name: Dump kernel logs on failure
+        if: failure()
+        run: |
+          for f in out/*/logs/*.log; do
+            [ -f "$f" ] || continue
+            echo "===== $f"
+            grep -n -m 20 -E 'error:|fatal error' "$f" || tail -n 40 "$f"
+          done
