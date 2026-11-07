@@ -210,7 +210,7 @@ jobs:
       - name: Dump kernel logs on failure
         if: failure()
         run: |
-          for f in out/*/logs/*.log; do
+          for f in $(find out -name '*.log' -path '*/logs/*' 2>/dev/null); do
             [ -f "$f" ] || continue
             echo "===== $f"
             grep -n -m 20 -E 'error:|fatal error' "$f" || tail -n 40 "$f"
