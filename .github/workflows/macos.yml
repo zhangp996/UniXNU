@@ -181,6 +181,7 @@ jobs:
           ./unixnu build payload "${args[@]}"
 
       - name: Upload kernel and payload
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: unixnu-${{ inputs.defconfig }}
