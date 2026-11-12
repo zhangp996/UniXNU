@@ -1,0 +1,194 @@
+{
+  "repository": "https://github.com/chiba233/Trogdor-ipadOS",
+  "revision": "58b5bc8bfc04482014ff403078435e581e58a5b0",
+  "author": "HoshinoYumeka (@chiba233)",
+  "license": "BSD-2-Clause",
+  "files": [
+    {
+      "source": "LICENSE",
+      "path": "LICENSE",
+      "sha256": "14af460c3b62a4498efe9ac781e3745049edc4c9a2184942ccbe68b7925d7b5c"
+    },
+    {
+      "source": "platform/coachz-prelink/drivers/RamBlock/coachz_modem.c",
+      "path": "platform/coachz/coachz_modem.c",
+      "sha256": "cc8b626975c948b28e07dffada567deed8ce4edabcdf0f52c9d350be30db154b"
+    },
+    {
+      "source": "platform/coachz-prelink/patches/xnu/coachz-prelink-baseband.patch",
+      "path": "platform/coachz/patches/coachz-prelink-baseband.patch",
+      "sha256": "a52435388534a2d7b54f4eb9786d14a59c2911d839928af8af36a9b971d5fe7a"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/baseband/coachz_baseband.cpp",
+      "path": "baseband/coachz_baseband.cpp",
+      "sha256": "f49e81794bbf46ae126cfbf3f5d4cf4992334bbcc61857c483f8d5553ab47486"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/baseband/coachz_bb_channels.h",
+      "path": "baseband/coachz_bb_channels.h",
+      "sha256": "bcaf8013c4cc2724f9ff024f00aad2cb14187576d4ac90cdfcab4a50d47a8e7b"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/baseband/coachz_bb_control.h",
+      "path": "baseband/coachz_bb_control.h",
+      "sha256": "b7876d86a9bc875aca213039833103d1433889fe9b1fbc275a3d19a24076d206"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/baseband/coachz_bb_data.h",
+      "path": "baseband/coachz_bb_data.h",
+      "sha256": "1ddcb9b92450311392ff59dbd15beb7135825757099a6fedd6ab7ddc120cb2d7"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/baseband/coachz_bb_esim.h",
+      "path": "baseband/coachz_bb_esim.h",
+      "sha256": "ab47cedfee356fc630d3914258226fd378df8f57876949170cef9bc5b5c7baf1"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/baseband/coachz_bb_pdp.cpp",
+      "path": "baseband/coachz_bb_pdp.cpp",
+      "sha256": "0bff14f9efc376d856cc5677f97e8526b27e2edcf6eb2f8d8474789a357b9efa",
+      "patched_sha256": "e9cc3fd1fb1f75b5f6f1901c4ccc45dc163e865d551ad3640ac06f2c41d00b49"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/baseband/coachz_bb_pdp.h",
+      "path": "baseband/coachz_bb_pdp.h",
+      "sha256": "1dd76eb9a03488075c0ee7e428291ff4ecb4af835718df2a18ddda239f736dab"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/baseband/coachz_bb_qmux.h",
+      "path": "baseband/coachz_bb_qmux.h",
+      "sha256": "ca786da9402bbf11eacfafa47c749aa9e2c13aebfec4a83d7b346947a05da7eb"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/baseband/coachz_bb_sahara.h",
+      "path": "baseband/coachz_bb_sahara.h",
+      "sha256": "f333455861e96c1b158a38f0d5e65b671b39d84a860c48b061ee2c9abb828f89"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_gsi.c",
+      "path": "ipa/coachz_gsi.c",
+      "sha256": "a372b3fa68f8a82dcf49139db62a0dc082a2c596d931700dcbb3d1b46b304f08"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_gsi_proto.h",
+      "path": "ipa/coachz_gsi_proto.h",
+      "sha256": "010b28f430292492ce351eb24f168b5c039c19680cb41249522b7fc43b63464d"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_ipa_cmd.c",
+      "path": "ipa/coachz_ipa_cmd.c",
+      "sha256": "c25c51e131854719f1406734569daaf0a90dd4535c2dfbf81495222072f41189"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_ipa_cmd_proto.h",
+      "path": "ipa/coachz_ipa_cmd_proto.h",
+      "sha256": "946bcee266130fc8a5fc17b00c4734c2783e9e6b03d7ab4b283d5bc5ec892e6b"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_ipa_config.c",
+      "path": "ipa/coachz_ipa_config.c",
+      "sha256": "015599ca0f46bfe0fa5a262d434950f3f9636c272e0e20fec296361335af7eef"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_ipa_kernel.h",
+      "path": "ipa/coachz_ipa_kernel.h",
+      "sha256": "20fab876b068846e6447e1b5e7eeb1cba1644d6e0a5ee6ba636fab9ed6563cf0"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_ipa_modem.c",
+      "path": "ipa/coachz_ipa_modem.c",
+      "sha256": "9b2dd97d0ed69c744444909e5bae3f382aabb513b5e2985a058707b93ce2f35d"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_ipa_modem_proto.h",
+      "path": "ipa/coachz_ipa_modem_proto.h",
+      "sha256": "e12ad066309d67dce0a2004d9d04ff37946c351ef2e86fcd05f9dc0c6efa6186"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_ipa_proto.h",
+      "path": "ipa/coachz_ipa_proto.h",
+      "sha256": "15718889f6ecdef114a39669d5c3b904613ff6fad9eda6e019dcda56d6898b2a"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_ipa_qmi.h",
+      "path": "ipa/coachz_ipa_qmi.h",
+      "sha256": "0c418bf5ba3deb8b4307c856b0d102f41988835cd47f7836d258c9be56b0e4ac"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_ipa_rx.c",
+      "path": "ipa/coachz_ipa_rx.c",
+      "sha256": "ced492c7fcade894266d602d70289ef9a4d3aaf441772f72fe323d8559fc3358"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_ipa_rx_proto.h",
+      "path": "ipa/coachz_ipa_rx_proto.h",
+      "sha256": "e24bdeb6712b7e82709595139b4d98818121ae64d8ae8b944e98d23b185a5800"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/coachz_ipa_v42.h",
+      "path": "ipa/coachz_ipa_v42.h",
+      "sha256": "b0c54b99a009b3fe7c95a07210c5723e7a5a8a19b974d5bc93f53096d72e0dd5"
+    },
+    {
+      "source": "platform/coachz-prelink/pending/modem/gen_ipa_data.py",
+      "path": "ipa/gen_ipa_data.py",
+      "sha256": "b6974dc116865901ad9f31afb0140ed1c9545253f8479bc29478979c49c3f567"
+    },
+    {
+      "source": "tools/coachz_cellular_compat.py",
+      "path": "platform/coachz/tools/coachz_cellular_compat.py",
+      "sha256": "8858d3a135954d744c13dfdb66334d7e3a324e2ffe5ebe02cc7aeda26e9e709a"
+    },
+    {
+      "source": "tools/xnu_init.py",
+      "path": "platform/coachz/tools/xnu_init.py",
+      "sha256": "cb38f9045389752cc0a94d70891b1af7cbc86627e2413564d0e3ac61e187b355"
+    },
+    {
+      "source": "tests/coachz_bb_model_test.c",
+      "path": "tests/coachz_bb_model_test.c",
+      "sha256": "5ae71c4b320ca2aaf356ad9709e592350cc81ebd8376cf24f54c01b480ba463c"
+    },
+    {
+      "source": "tests/coachz_gsi_model_test.c",
+      "path": "tests/coachz_gsi_model_test.c",
+      "sha256": "6bc315215d4bdbaea4f8be2dbb1d633b3184210842514744bebab93998f43b84"
+    },
+    {
+      "source": "tests/coachz_ipa_cmd_model_test.c",
+      "path": "tests/coachz_ipa_cmd_model_test.c",
+      "sha256": "269811d4503bdeeae7bd1eb441b37bd5582ce422226379f2b813e9d707e9b419"
+    },
+    {
+      "source": "tests/coachz_ipa_config_model_test.c",
+      "path": "tests/coachz_ipa_config_model_test.c",
+      "sha256": "a89fcaee505b9bfc9639981679c7891c4738de3b44683e3aea4fd32fdcd9f618"
+    },
+    {
+      "source": "tests/coachz_ipa_modem_model_test.c",
+      "path": "tests/coachz_ipa_modem_model_test.c",
+      "sha256": "bc1a520610682725ca17a3d9e4b5a0bcec1d69c48e867937ca6fb457e27936b9"
+    },
+    {
+      "source": "tests/coachz_ipa_qmi_model_test.c",
+      "path": "tests/coachz_ipa_qmi_model_test.c",
+      "sha256": "e7308220a7744228ff3c129822956608313a21f4e23d0e93209112d1cfd159b9"
+    },
+    {
+      "source": "tests/coachz_ipa_rx_model_test.c",
+      "path": "tests/coachz_ipa_rx_model_test.c",
+      "sha256": "d092712ab874f4c1656f11aa6a1394f3f3814f823cc880aa40a3022f44c89245"
+    }
+  ],
+  "local_patches": [
+    {
+      "path": "patches/pdp-mbuf-kpi.patch",
+      "sha256": "fcd2f0dde5ba44fa7f2773f0a199f2ab3b4aa6058e5a23fdd84e116741cf3160",
+      "files": [
+        "baseband/coachz_bb_pdp.cpp"
+      ],
+      "description": "Use the public mbuf KPI header for the C++ PDP interface."
+    }
+  ]
+}
