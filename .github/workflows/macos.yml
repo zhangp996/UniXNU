@@ -214,7 +214,7 @@ jobs:
           # prepare-xnu-source.py lists Apple sources through the GitHub API; anonymous calls from hosted runners hit
           # the shared rate limit (HTTP 403).
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./unixnu build kernel
+        run: ./unixnu build kernel -D device
 
       - name: Build userdata
         id: userdata
@@ -241,7 +241,7 @@ jobs:
           fi
           if [ -f "$RUNNER_TEMP/data.dbr" ]; then args+=(--data-ramdisk "$RUNNER_TEMP/data.dbr"); fi
           if [ "$SKIP_SETUP" = true ]; then args+=(--skip-setup); fi
-          ./unixnu build payload "${args[@]}"
+          ./unixnu build payload -D device "${args[@]}"
 
       - name: Collect the text logs
         id: logs
@@ -287,6 +287,14 @@ jobs:
           path: ${{ runner.temp }}/public-logs/*.log
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Upload the payload
+        if: contains(inputs.steps, 'payload')
+        uses: actions/upload-artifact@v4
+        with:
+          name: unixnu-payload-${{ github.run_attempt }}
+          path: |
+            out/**/payload/payload.img
 
       - name: Summary
         if: always()
