@@ -288,6 +288,15 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      - name: Upload the payload
+        if: contains(inputs.steps, 'payload')
+        uses: actions/upload-artifact@v4
+        with:
+          name: unixnu-${{ steps.check.outputs.board }}-payload-${{ github.run_attempt }}
+          path: |
+            out/**/payload/payload.img
+            out/**/boot/*.img
+
       - name: Summary
         if: always()
         env:
