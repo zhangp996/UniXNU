@@ -593,3 +593,28 @@ runtime_identifiers = ["QcomXnuUsbDebug", "1209:316d"]
 build_stage = "kernel"
 build = ["build-qcom-usb-debug.py"]
 outputs = ["build/qcom-usb-debug/libQcomXnuUsbDebug.a"]
+
+[[component]]
+id = "KonaUfs"
+kind = "driver"
+repository_id = 0
+function = "SM8250 UFS transport for the OnePlus 8 Pro"
+scope = "board"
+repository = "https://github.com/zhangp996/UniXNU-instantnoodlep.git"
+revision = "60eb947"
+path = "drivers/KonaUfs"
+hardware = ["SM8250 UFS controller at 0x1d84000"]
+os_abi = ["ipados-17.7.11-21H461"]
+board_dependencies = ["kona GCC branch table", "no apps SMMU for UFS"]
+verified_devices = []
+source_files = ["NativeUfs.cpp"]
+# The sources include the SoC repository's headers (scripts/unixnu/tree.py links it as soc/):
+# without this the build misses -I <tree>/soc/include and the UFS controller table.
+soc_headers = true
+legacy_name = "NativeUfs"
+dependencies = ["VirtioMmioBlock", "VerifiedRoot"]
+runtime_identifiers = ["NativeUfs"]
+build_stage = "kernel"
+build = ["build-arm-driver.py", "KonaUfs"]
+outputs = ["build/kona-ufs/libKonaUfs.a"]
+
