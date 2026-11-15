@@ -1,0 +1,22 @@
+{
+  "output": "out/instantnoodlep/ipados-17.7.11-21H461/instantnoodlep/payload/xpc-addon.bin",
+  "sha256": "00af5218869c6cd073f17bab78a1a6dd273a8579a2adc906e654f94600de1b9d",
+  "entries": {
+    "daemons/com.apple.preboardservice.plist": 621,
+    "daemons/com.apple.preboardservice_v2.plist": 1209,
+    "xpc-raw/launchd.plist": 1640626,
+    "xpc/launchd.plist": 887340
+  },
+  "changed_jobs": [
+    "/System/Library/LaunchDaemons/com.apple.preboardservice.plist",
+    "/System/Library/LaunchDaemons/com.apple.preboardservice_v2.plist"
+  ],
+  "modified": {
+    "path": "/home/dev/unixnu/UniXNU-instantnoodlep/docs/evidence/launchd/launchd-modified.plist",
+    "bytes": 887340
+  },
+  "original": {
+    "path": "/home/dev/unixnu/UniXNU-instantnoodlep/docs/evidence/launchd/launchd-original.plist",
+    "bytes": 1640626
+  }
+}

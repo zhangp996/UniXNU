@@ -13,3 +13,10 @@ The R2 baseline build needs inputs that are either Apple-distributed or macOS-bu
 | Metal addon/plugin | build the macOS-only plugin when its sources are present under r2/reference |
 
 Place the downloaded files under inputs/ (kernelcache) and out/ipsw/21H461/ as the R2 wrappers expect.
+
+## Baseline boot inputs are now committed
+
+artifacts/r2-inputs carries the exact validated payload inputs (ADT, trust cache, Data seed, GPU
+addon, payload metadata), so a Linux host can rebuild the validated payload with no macOS step.
+Only the Metal plugin / Turnip Vulkan pieces and the optional skip-setup/GPU-injected seed variants
+remain macOS-only and are produced by .github/workflows/baseline-artifacts.yml.

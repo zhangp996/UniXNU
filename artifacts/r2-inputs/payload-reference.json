@@ -1,0 +1,14 @@
+{
+  "kernel_sha256": "e9db497221428e6f830407a11adae18b4cba7b470fbfeda1762b657b3ce46020",
+  "payload_kernel_sha256": "e9db497221428e6f830407a11adae18b4cba7b470fbfeda1762b657b3ce46020",
+  "adt_sha256": "f11da7016253730c852958cd4b0c86a65129b227c46e8df543685de2f5096d0d",
+  "kernel_args": "serial=3 debug=0x14e -no_slto_panic sheng-aks=1 offline-key-events=1 sheng-aks-sls=3 amfi_get_out_of_my_way=1 native-ufs-root=1 native-ufs-allow-unverified=1 root-unverified=1 qcom-usb-debug=1 kt_fixed_zones=120 cpu-features=1 gpu-addon=1 sheng-gpu-addon=1 sheng-pmgr=2 sheng-smp=1 vm_compressor=2 ml-timeout-lock-panic-scale=40 disable-watchdogd=1 sheng-crashlog=1 log=1 data-persist=2 sheng-data-fua=1 native-vroot-cache=1 setup-skip=1 touchscreen=1 sheng-touch-hid=1 backlight=1 accel_stub=0 offline-legacy-register=1 offline-legacy-gop=1 offline-legacy-unit-scale=2 offline-legacy-pm=1 offline-legacy-validate=1 offline-legacy-transfer=1 offline-legacy-cpu-present=1 offline-legacy-retire=1 offline-legacy-phase=4 offline-legacy-adopt=1 sheng-vsync=60 sheng-vsync-fixed=1 offline-mobile-graphics-load=1 offline-mobile-graphics-client=1 launchd_unsecure_cache=1 boot-ui-trace=1 gpu-metal=1 smgop=1 sm8250-gpu-alioth=12 sheng-fb-gpu=1 sheng-early-retire=1 offline-legacy-console=1",
+  "trust_cache_sha256": "b440aad2e2a4b5335256e048d28b1776853f2f036842251af2afe7333f7be589",
+  "gpu_addon_sha256": "a3c869222ec9cd1b19d821e848eb51d7ddf870d569ee0efb07c76277351f744a",
+  "data_ramdisk_sha256": "414a8465c7051b5889278e6dbb49b4c617c09347476b437c32be9f1a4c47bc66",
+  "skip_setup": false,
+  "panic_screen": false,
+  "payload_sha256": "c08a60ad4093f2336d18d9fbb5760e4e711ba0ec7a14632bfaf28bc4b90d06e4",
+  "payload_bytes": 184549376,
+  "hardware_tested": false
+}
