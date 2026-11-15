@@ -1,0 +1,11 @@
+name: verify-baseline
+
+on: [push, workflow_dispatch]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reassemble and verify all split artifacts
+        run: sh tools/join-artifacts.sh

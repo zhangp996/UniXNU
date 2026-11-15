@@ -1,0 +1,60 @@
+name: baseline-artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - r2/uefi/**
+      - .github/workflows/baseline-artifacts.yml
+
+env:
+  IPSW_URL: https://updates.cdn-apple.com/2025SpringFCS/fullrestores/122-77166/DCA6CFE8-90E9-4B92-880D-3DE171798E40/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw
+  MU_SILICIUM: https://github.com/Project-Silicium/Mu-Silicium
+
+jobs:
+  extract-ipsw:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: brew install dtc python@3.12 && pip3 install pyimg4
+      - name: Download and extract 21H461 IPSW pieces
+        run: |
+          set -e
+          curl -L -o ipsw.zip "$IPSW_URL"
+          unzip -o ipsw.zip -d ipsw
+          pyimg4 im4p extract -i ipsw/kernelcache.release.ipad7 -o ipsw/kernelcache.decompressed
+          ls ipsw
+      - name: Upload IPSW-derived inputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipsw-inputs
+          path: |
+            ipsw/kernelcache.decompressed
+            ipsw/*.trustcache
+            ipsw/044-*.dmg
+          if-no-files-found: warn
+
+  build-firmware:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone Mu-Silicium base and overlay the device package
+        run: |
+          set -e
+          git clone --depth 1 "$MU_SILICIUM" uefi
+          cp -a r2/uefi/BootShim uefi/
+          cp -a r2/uefi/Platforms/OnePlus/instantnoodlepPkg uefi/Platforms/OnePlus/
+          cp -a r2/uefi/instantnoodlep.toml uefi/Resources/Configs/
+          cp -a r2/uefi/instantnoodlep.dtb uefi/Resources/DTBs/
+      - name: Build the UEFI firmware volume
+        run: |
+          set -e
+          cd uefi
+          if [ -f build_uefi.py ]; then python3 build_uefi.py -d instantnoodlep; else bash build.sh; fi
+      - name: Upload firmware volume
+        uses: actions/upload-artifact@v4
+        with:
+          name: uefi-firmware
+          path: uefi/Build/**/FV/SILICIUM_UEFI.fd
+          if-no-files-found: warn

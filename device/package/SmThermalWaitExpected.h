@@ -1,4 +1,0 @@
-// Pinned original21H461 thermalmonitord LC_UUID; generated fact, not executable code.
-// Input SHA256 8e94d7e0c48e8a9a1b9b0e3dbd3a8ed2b08b827b05134fed258c515cf9c96cec
-#pragma once
-static const uint8_t smtw_expected_uuid[16]={0x1c,0xd7,0x8b,0xdb,0xe0,0x2,0x3b,0x94,0x81,0xd8,0x49,0x32,0xf2,0xd,0xd0,0x86};

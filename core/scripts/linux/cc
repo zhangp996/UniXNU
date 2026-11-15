@@ -1,3 +1,0 @@
-#!/bin/bash
-# cc in the CLT's usr/bin, as on a Mac: the clang next to it.
-exec "$(dirname "$0")/clang" "$@"
