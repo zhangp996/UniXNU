@@ -232,6 +232,13 @@ jobs:
           # The RamWatchdog archive pins 21H461/kernelcache.decompressed; fetch it before the archives run.
           ./unixnu ipsw fetch KernelCache -D device > /dev/null
           ./unixnu build kernel -D device
+          # AMFI panics on the missing PMGR provider and on the trust-cache gate; the panel then only shows the
+          # watchdog 900E. The two post-build patches make the built kernel bootable on this board.
+          KERNEL="${ steps.check.outputs.work }/kernel/kernel.macho"
+          if [ -f "$KERNEL" ]; then
+            python3 device/scripts/patch-amfi-nopmgr.py "$KERNEL"
+            python3 device/scripts/patch-amfi-trustcache-gate.py "$KERNEL"
+          fi
 
       - name: Build userdata
         id: userdata
