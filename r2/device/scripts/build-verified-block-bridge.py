@@ -47,7 +47,8 @@ while index < len(arguments):
     index += 1
 # This clang reports the record own include layout as duplicate headers; the bridge keeps -Werror
 # for its own diagnostics and silences the two checks that only restate that layout.
-command += ['-Wno-shadow-header', '-Wno-missing-include-dirs', '-Wno-unsafe-buffer-usage']
+# Apple's clang does not know the three Linux-clang warning names; keep them non-fatal.
+command += ['-Wno-unknown-warning-option', '-Wno-shadow-header', '-Wno-missing-include-dirs', '-Wno-unsafe-buffer-usage']
 result = subprocess.run(command, cwd=record['directory'], capture_output=True, text=True)
 (output / 'compile.log').write_text(result.stdout + result.stderr)
 if result.returncode:
