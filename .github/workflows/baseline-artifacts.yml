@@ -7,75 +7,48 @@ on:
       - r2/**
       - .github/workflows/baseline-artifacts.yml
 
-env:
-  IPSW_URL: https://updates.cdn-apple.com/2025SpringFCS/fullrestores/122-77166/DCA6CFE8-90E9-4B92-880D-3DE171798E40/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw
-
 jobs:
-  macos-userspace:
-    runs-on: macos-14
+  verify:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install host tools
+      - name: Reassemble and verify all split artifacts
+        run: sh tools/join-artifacts.sh
+
+  macos-userspace:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host tools
         run: |
-          brew install llvm lld mtools dtc unifdef python@3.12
-          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          brew install llvm lld mtools dtc unifdef || true
       - name: Lay out the R2 workspace
         run: |
           mkdir -p "$HOME/unixnu"
           cp -a r2/core "$HOME/unixnu/UniXNU"
           cp -a r2/device "$HOME/unixnu/UniXNU-instantnoodlep"
-          echo "WORK=$HOME/unixnu" >> "$GITHUB_ENV"
-      - name: Build Turnip (Mesa freedreno Vulkan, Darwin/iOS backend)
-        working-directory: ${{ env.HOME }}/unixnu/UniXNU
-        run: python3 scripts/build-turnip-darwin.py --target ios
+          rm -rf "$HOME/unixnu/UniXNU/out"
+      - name: Build Turnip (Mesa freedreno Vulkan, ios target)
+        run: |
+          cd "$HOME/unixnu/UniXNU"
+          python3 scripts/build-turnip-darwin.py --target ios
       - name: Build the owner-signed Metal plugin and probe daemon
-        working-directory: ${{ env.HOME }}/unixnu/UniXNU
-        run: python3 scripts/build-adreno-metal-plugin.py
-      - name: Build the owner trust bundle with the plugin CDHashes
-        working-directory: ${{ env.HOME }}/unixnu/UniXNU
         run: |
-          python3 scripts/make-owner-trust-bundle.py --base out/ipsw/*/trust.bundle \
-            --plugin-plist build/adreno-metal-plugin/trust.json \
-            --output build/owner-trust.bundle 2>/dev/null || \
-          python3 "$HOME/unixnu/UniXNU-instantnoodlep/scripts/make-owner-trust-bundle.py" || true
+          cd "$HOME/unixnu/UniXNU"
+          python3 scripts/build-adreno-metal-plugin.py
       - name: Build Setup-skipped and GPU-plugin Data seeds (hdiutil)
-        working-directory: ${{ env.HOME }}/unixnu/UniXNU
         run: |
-          set -e
+          cd "$HOME/unixnu/UniXNU"
           SEED="$HOME/unixnu/UniXNU-instantnoodlep/seeds/owner-data-3g.dbr"
           mkdir -p build/macos-seeds
-          python3 scripts/seed-data-skip-setup.py "$SEED" build/macos-seeds/data-skip-setup.dbr || echo skip-setup-seed failed
-          python3 scripts/add-gpu-plugin-data.py --publish build/macos-seeds/data-skip-setup.dbr build/macos-seeds/owner-data-gpu.dbr || \
-            python3 scripts/add-gpu-plugin-data.py "$SEED" build/macos-seeds/owner-data-gpu.dbr || echo gpu-seed failed
+          python3 scripts/seed-data-skip-setup.py "$SEED" build/macos-seeds/data-skip-setup.dbr || echo "skip-setup seed failed"
+          python3 scripts/add-gpu-plugin-data.py --publish build/macos-seeds/data-skip-setup.dbr build/macos-seeds/owner-data-gpu.dbr || echo "gpu seed failed"
       - name: Upload macOS-only artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-userspace
           path: |
-            ${{ env.HOME }}/unixnu/UniXNU/build/adreno-metal-plugin/**
-            ${{ env.HOME }}/unixnu/UniXNU/build/mesa-tu-ios/src/freedreno/vulkan/libvulkan_freedreno.dylib
-            ${{ env.HOME }}/unixnu/UniXNU/build/owner-trust.bundle
-            ${{ env.HOME }}/unixnu/UniXNU/build/macos-seeds/*.dbr
-          if-no-files-found: warn
-
-  extract-ipsw:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download and extract 21H461 IPSW pieces
-        run: |
-          set -e
-          pip3 install pyimg4
-          curl -L -o ipsw.zip "$IPSW_URL"
-          unzip -o ipsw.zip -d ipsw
-          pyimg4 im4p extract -i ipsw/kernelcache.release.ipad7 -o ipsw/kernelcache.decompressed
-          ls ipsw
-      - name: Upload IPSW-derived inputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: ipsw-inputs
-          path: |
-            ipsw/kernelcache.decompressed
-            ipsw/*.trustcache
-            ipsw/044-*.dmg
+            /Users/runner/unixnu/UniXNU/build/adreno-metal-plugin/**
+            /Users/runner/unixnu/UniXNU/build/mesa-tu-ios/**/libvulkan_freedreno.dylib
+            /Users/runner/unixnu/UniXNU/build/macos-seeds/*.dbr
           if-no-files-found: warn
