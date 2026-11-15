@@ -91,15 +91,15 @@ if __name__ == '__main__':
         restored = [entry for entry in executor.map(restore, entries) if entry]
         trust_tag = TRUST_TAG
         trust_cache = CACHE.with_name(f'xnu-trustcache-{TRUST_TAG.removeprefix("xnu-")}.json')
+        trust_url = ('https://api.github.com/repos/apple-oss-distributions/xnu/'
+                     f'contents/EXTERNAL_HEADERS/TrustCache?ref={trust_tag}')
         if not trust_cache.exists():
-            url = ('https://api.github.com/repos/apple-oss-distributions/xnu/'
-                   f'contents/EXTERNAL_HEADERS/TrustCache?ref={trust_tag}')
-            trust_cache.write_bytes(fetch(url))
+            trust_cache.write_bytes(fetch(trust_url))
         trust_destination = Path('.cache/xnu-work/EXTERNAL_HEADERS/TrustCache')
         def restore_trust(entry):
             return restore(entry, trust_destination, trust_tag)
         restored.extend(entry for entry in executor.map(
-            restore_trust, entries_of(trust_cache, url)) if entry)
+            restore_trust, entries_of(trust_cache, trust_url)) if entry)
     previous = Path('.cache/sources/xnu-restored-headers.json')
     existing = json.loads(previous.read_text()) if previous.exists() else []
     by_name = {entry['name']: entry for entry in existing + restored}
