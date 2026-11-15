@@ -73,7 +73,7 @@ dram_size = "0x200000000"
 # adopts the controller the firmware left running and publishes the userdata windows as an IOMedia.
 kernel_args = ["serial=3", "debug=0x14e", "-no_slto_panic", "sheng-aks=1", "offline-key-events=1", "sheng-aks-sls=3", "amfi_get_out_of_my_way=1",
                "native-ufs-root=1", "native-ufs-allow-unverified=1", "root-unverified=1",
-               "qcom-usb-debug=1", "kt_fixed_zones=120", "cpu-features=1", "gpu-addon=1", "sheng-gpu-addon=1", "sheng-pmgr=2", "sheng-smp=1", "vm_compressor=2", "ml-timeout-lock-panic-scale=40", "disable-watchdogd=1", "sheng-crashlog=1", "log=1", "data-persist=2", "sheng-data-fua=1", "native-vroot-cache=1", "setup-skip=1", "touchscreen=1", "sheng-touch-hid=1", "backlight=1", "accel_stub=0",
+               "qcom-usb-debug=1", "kt_fixed_zones=120", "cpu-features=1", "gpu-addon=1", "sheng-gpu-addon=1", "sheng-pmgr=2", "sheng-smp=1", "sheng-smp-max=7", "vm_compressor=2", "ml-timeout-lock-panic-scale=40", "disable-watchdogd=1", "sheng-crashlog=1", "log=1", "data-persist=2", "sheng-data-fua=1", "native-vroot-cache=1", "setup-skip=1", "touchscreen=1", "sheng-touch-hid=1", "backlight=1", "accel_stub=0",
              "offline-legacy-register=1", "offline-legacy-gop=1", "offline-legacy-unit-scale=2", "offline-legacy-pm=1", "offline-legacy-validate=1", "offline-legacy-transfer=1", "offline-legacy-cpu-present=1", "offline-legacy-retire=1", "offline-legacy-phase=4", "offline-legacy-adopt=1", "sheng-vsync=60", "sheng-vsync-fixed=1",
              "offline-mobile-graphics-load=1",
              "offline-mobile-graphics-client=1",
