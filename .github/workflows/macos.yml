@@ -256,6 +256,8 @@ jobs:
             fi
           fi
           if [ -f "$RUNNER_TEMP/data.dbr" ]; then args+=(--data-ramdisk "$RUNNER_TEMP/data.dbr"); fi
+          gpu_addon="$GITHUB_WORKSPACE/artifacts/r2-inputs/gpu-addon-v6.bin"
+          if [ -f "$gpu_addon" ]; then args+=(--gpu-addon "$gpu_addon"); fi
           if [ "$SKIP_SETUP" = true ]; then args+=(--skip-setup); fi
           ./unixnu build payload -D device "${args[@]}"
 
