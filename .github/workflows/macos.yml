@@ -178,6 +178,9 @@ jobs:
           df -h "$GITHUB_WORKSPACE"
           exit "$missing"
 
+      - name: Restore the verified root probe archive
+        run: bash tools/join-r2-verified-root.sh "${{ steps.check.outputs.work }}/tree"
+
       - name: Restore the qualified prelink candidate
         run: bash tools/join-r2-prelink.sh "${{ steps.check.outputs.work }}/tree"
 
