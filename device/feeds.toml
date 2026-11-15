@@ -1,0 +1,43 @@
+# Public SM8250 (kona) support layer.
+[[source]]
+name = "sm8250"
+kind = "soc"
+git = "https://github.com/zhangp996/UniXNU-sm8250-common"
+commit = "3481a8bfd60fb9f8cefe5cfdf402b64c8b303b1e"
+
+# Our own A650 kernel backend and its support kits. Local tree while it is rebuilt per the
+# GPU porting page; it becomes its own component repository once it passes the device checks.
+[[source]]
+name = "Adreno650"
+kind = "driver"
+local = "../gpu-a650"
+
+[[source]]
+name = "libplatform"
+kind = "refer"
+local = "../local-feeds/libplatform"
+
+[[source]]
+name = "libdispatch"
+kind = "refer"
+local = "../local-feeds/libdispatch"
+
+[[source]]
+name = "AvailabilityVersions"
+kind = "refer"
+local = "../local-feeds/AvailabilityVersions"
+
+[[source]]
+name = "libpthread"
+kind = "refer"
+local = "../local-feeds/libpthread"
+
+[[source]]
+name = "corecrypto-2023"
+kind = "refer"
+local = "../local-feeds/corecrypto-2023"
+
+[[source]]
+name = "IOStorageFamily"
+kind = "refer"
+local = "../local-feeds/IOStorageFamily"

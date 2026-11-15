@@ -1,0 +1,63 @@
+schema_version = 1
+
+[device]
+name = "instantnoodlep"
+soc = "SM8250"
+os_profile = "ipados-17.7.11-21H461"
+summary = "Fresh rebuild from the official template: A650 kernel backend and GOP display in progress; storage pending."
+
+[[area]]
+id = "configuration"
+status = "in_progress"
+components = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "XnuPrelink", "DarwinBoot", "RamBlock", "GopFramebuffer"]
+paths = ["board.toml", "feeds.toml", "configs/**", "dts/**", "porting.toml"]
+inputs = ["SM8250 kona SoC, 8 GiB DRAM, 1080x2376 Samsung panel, S6SY791 touch, Adreno 650.", "Public SM8250 shared layer pinned in feeds.toml; A650 backend from the companion component tree."]
+configuration = ["kernel.defconfig = instantnoodlep_defconfig; device_tree.source = device:dts/instantnoodlep.dts.", "patch_series = arch + soc + device prereq + os + device; the PMGR prerequisite patch comes from this repository."]
+procedure = ["python3 ./unixnu defconfig instantnoodlep_defconfig -D <device>", "python3 ./unixnu fetch -D <device>", "python3 ./unixnu status --json -D <device>"]
+findings = ["The official core resolves this repository and applies the full ordered XNU patch series."]
+completion = ["All source pins resolve and status lists the intended components and patch order."]
+limits = ["Owner-data/verified-storage configuration is disabled in this first build: the SM8250 storage component is not rebuilt yet."]
+next_action = ["Record the resolved status output; rebuild the SM8250 storage component before enabling owner data."]
+evidence = []
+
+[[area]]
+id = "storage"
+status = "planned"
+components = []
+paths = ["patches/xnu/**", "scripts/**"]
+inputs = ["SM8250 UFS controller and the 21H461 owner-data layout."]
+configuration = []
+procedure = ["Implement a verified source-storage component with the official interface (XNU_SOURCE_STORAGE / verified root)."]
+findings = []
+completion = ["Owner root trust/audit build guards pass with real verified block storage."]
+limits = ["The official guards require verified block storage; the SM8550 ShengUfs component does not apply."]
+next_action = ["Port our own SM8250 storage component and re-enable CONFIG_XNU_OWNER_*."]
+evidence = []
+
+[[area]]
+id = "display"
+status = "in_progress"
+components = ["GopFramebuffer"]
+paths = ["scripts/build-gop-legacy-display.py", "scripts/build-sm8250-display.py", "configs/instantnoodlep_defconfig"]
+inputs = ["UEFI GOP framebuffer handoff; 1080x2376 panel; iPadOS 17.7.11 MobileFramebuffer ABI."]
+configuration = ["CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y; offline-legacy-* / sheng-vsync boot arguments in [payload].kernel_args."]
+procedure = ["Build the display archive from the GopFramebuffer component and link it with the kernel prelink."]
+findings = ["Previous bring-up on the same board showed 8-bit BGRA presentation works when backboardd runs with SDR preferences."]
+completion = ["A known frame appears with correct geometry and colors."]
+limits = ["Not yet rebuilt on the fresh official core."]
+next_action = ["Finish the display archive recipe and boot the kernel with the legacy display provider."]
+evidence = []
+
+[[area]]
+id = "gpu"
+status = "in_progress"
+components = ["ArmSmmu4K", "AdrenoFirmware", "AdrenoPM4"]
+paths = ["../component/Adreno650/**"]
+inputs = ["Adreno 650, kgsl 0x3d00000, GMU 0x3d6a00, seven register windows.", "a650_gmu.bin, a650_sqe.fw, a650_zap.elf (proprietary-files.txt)."]
+configuration = ["CONFIG_XNU_A650_GPU=y; build-sm8250-a650.py produces the archive for [kernel].archives."]
+procedure = ["Follow https://unixnu.com/zh/porting/gpu: kernel backend -> GMU/HFI validation -> bounded submission -> Metal addon."]
+findings = ["A previous session on this board reached GPU cold start mode 12, accelerator publish, Metal client calls and 8-bit BGRA presentation; the fresh rebuild is re-establishing this stack."]
+completion = ["Metal device discovery, client connection, pipeline creation, render and present are recorded."]
+limits = ["Storage/Data bring-up is a prerequisite for userspace Metal; the addon build needs a macOS host (documented scripts)."]
+next_action = ["Compile the A650 archive on the official core, then implement the bounded submission self-test and the [vm map]/[bo memory] diagnostics."]
+evidence = []
