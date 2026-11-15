@@ -9,6 +9,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('tree', type=Path, help='layout tree (the directory holding scripts/ and build/)')
 args = parser.parse_args()
 tree = args.tree.resolve()
+repo = Path(__file__).resolve().parents[1]
 
 
 def tool(name):
@@ -24,10 +25,13 @@ def compile_and_archive(source, outdir, archive):
     print(f'{archive} ({archive.stat().st_size} bytes)')
 
 
-# Original storage bindings: the assembly shipped with the scripts.
-assembly = tree / 'scripts/data/native-storage-21H461-original-bindings.S'
-if not assembly.is_file():
-    raise SystemExit(f'{assembly} is missing')
+# This runs before the kernel step assembles the tree; the assembly lives in the core checkout.
+search = [tree / 'scripts/data/native-storage-21H461-original-bindings.S',
+          repo / 'scripts/data/native-storage-21H461-original-bindings.S',
+          repo / 'r2/core/scripts/data/native-storage-21H461-original-bindings.S']
+assembly = next((p for p in search if p.is_file()), None)
+if assembly is None:
+    raise SystemExit('native-storage-21H461-original-bindings.S is missing')
 compile_and_archive(assembly, tree / 'build/io-storage-bindings', tree / 'build/io-storage-bindings/libIOStorageBindings.a')
 
 # Board compatibility shims for components this baseline does not link: the touch HID device comes
