@@ -4,23 +4,68 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - r2/uefi/**
+      - r2/**
       - .github/workflows/baseline-artifacts.yml
 
 env:
   IPSW_URL: https://updates.cdn-apple.com/2025SpringFCS/fullrestores/122-77166/DCA6CFE8-90E9-4B92-880D-3DE171798E40/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw
-  MU_SILICIUM: https://github.com/Project-Silicium/Mu-Silicium
 
 jobs:
+  macos-userspace:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host tools
+        run: |
+          brew install llvm lld mtools dtc unifdef python@3.12
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+      - name: Lay out the R2 workspace
+        run: |
+          mkdir -p "$HOME/unixnu"
+          cp -a r2/core "$HOME/unixnu/UniXNU"
+          cp -a r2/device "$HOME/unixnu/UniXNU-instantnoodlep"
+          echo "WORK=$HOME/unixnu" >> "$GITHUB_ENV"
+      - name: Build Turnip (Mesa freedreno Vulkan, Darwin/iOS backend)
+        working-directory: ${{ env.HOME }}/unixnu/UniXNU
+        run: python3 scripts/build-turnip-darwin.py --target ios
+      - name: Build the owner-signed Metal plugin and probe daemon
+        working-directory: ${{ env.HOME }}/unixnu/UniXNU
+        run: python3 scripts/build-adreno-metal-plugin.py
+      - name: Build the owner trust bundle with the plugin CDHashes
+        working-directory: ${{ env.HOME }}/unixnu/UniXNU
+        run: |
+          python3 scripts/make-owner-trust-bundle.py --base out/ipsw/*/trust.bundle \
+            --plugin-plist build/adreno-metal-plugin/trust.json \
+            --output build/owner-trust.bundle 2>/dev/null || \
+          python3 "$HOME/unixnu/UniXNU-instantnoodlep/scripts/make-owner-trust-bundle.py" || true
+      - name: Build Setup-skipped and GPU-plugin Data seeds (hdiutil)
+        working-directory: ${{ env.HOME }}/unixnu/UniXNU
+        run: |
+          set -e
+          SEED="$HOME/unixnu/UniXNU-instantnoodlep/seeds/owner-data-3g.dbr"
+          mkdir -p build/macos-seeds
+          python3 scripts/seed-data-skip-setup.py "$SEED" build/macos-seeds/data-skip-setup.dbr || echo skip-setup-seed failed
+          python3 scripts/add-gpu-plugin-data.py --publish build/macos-seeds/data-skip-setup.dbr build/macos-seeds/owner-data-gpu.dbr || \
+            python3 scripts/add-gpu-plugin-data.py "$SEED" build/macos-seeds/owner-data-gpu.dbr || echo gpu-seed failed
+      - name: Upload macOS-only artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-userspace
+          path: |
+            ${{ env.HOME }}/unixnu/UniXNU/build/adreno-metal-plugin/**
+            ${{ env.HOME }}/unixnu/UniXNU/build/mesa-tu-ios/src/freedreno/vulkan/libvulkan_freedreno.dylib
+            ${{ env.HOME }}/unixnu/UniXNU/build/owner-trust.bundle
+            ${{ env.HOME }}/unixnu/UniXNU/build/macos-seeds/*.dbr
+          if-no-files-found: warn
+
   extract-ipsw:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - name: Install tools
-        run: brew install dtc python@3.12 && pip3 install pyimg4
       - name: Download and extract 21H461 IPSW pieces
         run: |
           set -e
+          pip3 install pyimg4
           curl -L -o ipsw.zip "$IPSW_URL"
           unzip -o ipsw.zip -d ipsw
           pyimg4 im4p extract -i ipsw/kernelcache.release.ipad7 -o ipsw/kernelcache.decompressed
@@ -33,28 +78,4 @@ jobs:
             ipsw/kernelcache.decompressed
             ipsw/*.trustcache
             ipsw/044-*.dmg
-          if-no-files-found: warn
-
-  build-firmware:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-      - name: Clone Mu-Silicium base and overlay the device package
-        run: |
-          set -e
-          git clone --depth 1 "$MU_SILICIUM" uefi
-          cp -a r2/uefi/BootShim uefi/
-          cp -a r2/uefi/Platforms/OnePlus/instantnoodlepPkg uefi/Platforms/OnePlus/
-          cp -a r2/uefi/instantnoodlep.toml uefi/Resources/Configs/
-          cp -a r2/uefi/instantnoodlep.dtb uefi/Resources/DTBs/
-      - name: Build the UEFI firmware volume
-        run: |
-          set -e
-          cd uefi
-          if [ -f build_uefi.py ]; then python3 build_uefi.py -d instantnoodlep; else bash build.sh; fi
-      - name: Upload firmware volume
-        uses: actions/upload-artifact@v4
-        with:
-          name: uefi-firmware
-          path: uefi/Build/**/FV/SILICIUM_UEFI.fd
           if-no-files-found: warn
