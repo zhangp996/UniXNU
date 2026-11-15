@@ -52,7 +52,13 @@ command += ['-Wno-unknown-warning-option', '-Wno-shadow-header', '-Wno-missing-i
 result = subprocess.run(command, cwd=record['directory'], capture_output=True, text=True)
 (output / 'compile.log').write_text(result.stdout + result.stderr)
 if result.returncode:
-    print((result.stdout + result.stderr)[-6000:], file=sys.stderr, flush=True)
+    lines = (result.stdout + result.stderr).splitlines()
+    errors = [i for i, line in enumerate(lines) if ': error:' in line or line.startswith('error:')]
+    if errors:
+        index = errors[0]
+        print('\n'.join(lines[max(0, index - 4):index + 10]), file=sys.stderr, flush=True)
+    else:
+        print('\n'.join(lines[-40:]), file=sys.stderr, flush=True)
     raise SystemExit('the bridge must compile with the kernel own flags')
 subprocess.run(['llvm-ar', 'r', str(archive), str(object_file)], check=True)
 print(archive)
