@@ -56,3 +56,19 @@ The official-core kernel still stops at the AMFI/early-boot path (device leaves 
 - Result: full boot into SpringBoard with display surface adoption and A650 GPU clients (details and hashes in docs/evidence/2026-11-16-hybrid-boot.md).
 
 Open items: official-core kernel early boot path (900E), backlight/touch runtime checks in the hybrid image, and the A650 Metal plugin.
+
+## Artifacts / golden baseline (2026-11-16)
+
+- The validated original bootEU.img (old R2 kernel + old A650 component) is committed under
+  artifacts/original/ as 48 MiB parts (reassemble with tools/join-artifacts.sh; verify with
+  SHA256SUMS; full image SHA-256 e6386a23c3f1815f0fbc98029d1f99f60f9dd0e2352d699e52ea9dde801f6ae1).
+- Its embedded kernel is e9db497221428e6f830407a11adae18b4cba7b470fbfeda1762b657b3ce46020
+  (already AMFI-patched, patch site 0x6060d04) and booted stably for the whole 480 s control run
+  (0 storage errors, 0 panics, SpringBoard running).
+- Our rebuilt R2 kernel e134e9cfb05a36250ad428bfef48ec1808ec28c39140fc2d871867646d61a194 has the
+  same prelink layout but differs by one kalloc_type view index shift and one extra board diagnostic
+  symbol (_native_adreno_method_fail); that rebuild reproduced storage EINVAL errors and a pmap
+  panic under load, so the original kernel stays the golden baseline.
+- macOS-only deliverables are produced by .github/workflows/macos-artifacts.yml (reassembles and
+  verifies the image, builds the Metal addon when component/AdrenoMetal is present) and downloaded
+  from the Actions artifacts.
