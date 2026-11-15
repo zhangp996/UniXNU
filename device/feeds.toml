@@ -16,28 +16,33 @@ local = "../gpu-a650"
 name = "libplatform"
 kind = "refer"
 local = "../local-feeds/libplatform"
+commit = "dfe0b458bbb4cb82fb30f1661006ef42680dae4f"
 
 [[source]]
 name = "libdispatch"
 kind = "refer"
 local = "../local-feeds/libdispatch"
+commit = "4979f1a8e29152b2d15b41aa11e016d8d31e3083"
 
 [[source]]
 name = "AvailabilityVersions"
 kind = "refer"
 local = "../local-feeds/AvailabilityVersions"
+commit = "a66cbb2b945f74b6e5bb98358db371293a1cda9b"
 
 [[source]]
 name = "libpthread"
 kind = "refer"
 local = "../local-feeds/libpthread"
-
-[[source]]
-name = "corecrypto-2023"
-kind = "refer"
-local = "../local-feeds/corecrypto-2023"
+commit = "ae5eb4de207542f97f3cff20566af847fed8f639"
 
 [[source]]
 name = "IOStorageFamily"
 kind = "refer"
 local = "../local-feeds/IOStorageFamily"
+commit = "6db3a6f5d2948ed913c9e464b95ab6b61a1f7806"
+
+[[source]]
+name = "GopFramebuffer"
+kind = "driver"
+local = "../component-gop-legacy"

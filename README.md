@@ -32,3 +32,12 @@ The toolchain is the one installed by core/scripts/linux/setup-toolchain.py
 - UniXNU core and official components: upstream repositories (see core/feeds.toml and core/components.toml).
 - Apple open source references: apple-oss-distributions (see core/feeds.toml).
 - A650 backend and board files: this project.
+
+## Build flow policy
+
+- Only the official UniXNU core (core/, fetched from github.com/unixnu/UniXNU) and the official
+  component catalog revisions are build inputs. The abandoned R2 framework tree, its patches and
+  its build scripts are not inputs.
+- Board-level code lives in device/package (owned by this project).
+- tools/build-a650.sh is the single kernel build entry. Local inputs live under
+  /home/dev/unixnu/inputs (21H461 kernelcache) and offline-cache (llvm).
