@@ -10,7 +10,7 @@ here=$(cd "$(dirname "$0")/.." && pwd)
 src="$here/artifacts/r2-build-products"
 ( cd "$src" && sha256sum -c SHA256SUMS )
 mkdir -p "$tree/build/sheng-hid-input" "$tree/build/io-storage-bindings" "$tree/build/board-compat"
-cp "$src/sheng-hid-input/." "$tree/build/sheng-hid-input/"
+cp "$src"/sheng-hid-input/* "$tree/build/sheng-hid-input/"
 cp "$src/io-storage-bindings/libIOStorageBindings.a" "$tree/build/io-storage-bindings/"
 cp "$src/board-compat/libBoardCompat.a" "$tree/build/board-compat/"
 echo "restored the build products in $tree/build"
