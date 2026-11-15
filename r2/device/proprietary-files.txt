@@ -1,0 +1,6 @@
+# Required firmware inputs: relative path | source | SHA-256 | consumer
+# Source: stock OnePlus 8 Pro OOS 13.1.0.185 (IN2020_13.1.0.185(CN01)) partitions.
+tp/19811/FW_S6SY791_SAMSUNG.bin | /odm/firmware/tp/19811/FW_S6SY791_SAMSUNG.bin | 4cfcca35d268c4fad4ac194f8e192e31bb198d56035af8faf7206277df953e77 | touch (S6SY791)
+a650_gmu.bin | /vendor/firmware/a650_gmu.bin | df79fa8482fcc7587bb239b9c9e2b24bce4729893b990fe3f82b30da8175b01c | gpu (Adreno 650 GMU)
+a650_sqe.fw | /vendor/firmware/a650_sqe.fw | b4c27420fd6a5c6b511b254cc0fad8cdd40eea38ceb3418f895a1084f4460487 | gpu (Adreno 650 SQE)
+a650_zap.elf | /vendor/firmware/a650_zap.elf | b43bd7a7a93f2c488dad27ef550ffe8d1b5c5d098d1637d73e8c7b4c04cad058 | gpu (Adreno 650 ZAP)

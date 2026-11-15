@@ -1,0 +1,456 @@
+name: macOS kernel build
+
+# Builds the XNU kernel for this board on a GitHub macOS runner, because the kernel
+# step calls Xcode. The upstream workflow lives in UniXNU/.github/workflows/macos.yml
+# and is workflow_dispatch only, so another repository cannot call it.
+on:
+  workflow_dispatch:
+    inputs:
+      unixnu_repository:
+        description: UniXNU repository as owner/name
+        required: true
+        default: zhangp996/UniXNU
+      unixnu_ref:
+        description: UniXNU ref
+        required: true
+        default: instantnoodlep
+      soc_repository:
+        description: SoC repository as owner/name
+        required: true
+        default: zhangp996/UniXNU-sm8250-common
+      soc_ref:
+        description: SoC repository ref
+        required: true
+        default: main
+      device_repository:
+        description: Device repository as owner/name (empty uses this repository)
+        required: false
+        default: ""
+      defconfig:
+        description: Defconfig name under device/configs
+        required: true
+        default: instantnoodlep_defconfig
+      xcode:
+        description: Xcode version of the macos-26 image
+        required: true
+        default: "26.6"
+      fetch_ipsw:
+        description: Download and extract the OS image on the runner before the build
+        type: boolean
+        default: true
+      inspect_osimage:
+        description: Mount the OS image and print its APFS volumes and launchd
+        type: boolean
+        default: false
+      unique_chip_id:
+        description: Platform seed for the payload (hex); not stored in any repository
+        required: true
+        default: "0x198110001A2B3C4D"
+
+permissions:
+  # read for the checkouts, write so a failing run can publish its logs to the
+  # ci-logs branch instead of only to an artifact that needs a token to download
+  contents: write
+
+concurrency:
+  group: macos-kernel-${{ github.ref }}-${{ inputs.defconfig }}
+  cancel-in-progress: false
+
+env:
+  HOMEBREW_NO_AUTO_UPDATE: 1
+  HOMEBREW_NO_INSTALL_CLEANUP: 1
+  HOMEBREW_NO_ENV_HINTS: 1
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  kernel:
+    runs-on: macos-26
+    timeout-minutes: 360
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_${{ inputs.xcode }}.app/Contents/Developer
+      DEFCONFIG: ${{ inputs.defconfig }}
+      DEVICE_DIR: ${{ github.workspace }}/device
+      # scripts/prepare-xnu-source.py authenticates its api.github.com request when one
+      # of these is set. The anonymous quota (60 requests/hour per IP) is shared by the
+      # whole runner pool and was exhausted on every attempt today, which failed the
+      # kernel step before it compiled anything.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out UniXNU at the workspace root
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ inputs.unixnu_repository }}
+          ref: ${{ inputs.unixnu_ref }}
+          submodules: false
+          persist-credentials: false
+
+      - name: Check out the SoC repository beside the device repository
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ inputs.soc_repository }}
+          ref: ${{ inputs.soc_ref }}
+          path: UniXNU-sm8250-common
+          persist-credentials: false
+
+      - name: Check out the device repository
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ inputs.device_repository || github.repository }}
+          path: device
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Check the inputs
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          [ -f device/board.toml ] || fail 'device/board.toml is missing'
+          [ -f "device/configs/$DEFCONFIG" ] || fail "device/configs/$DEFCONFIG is missing"
+          [ -d "$DEVELOPER_DIR" ] || fail "Xcode not found at $DEVELOPER_DIR"
+          [ -x ./unixnu ] || fail 'the UniXNU CLI is missing at the workspace root'
+          if grep -q 'board.example = true' device/board.toml; then
+            echo '::warning::board.example is true: the build will refuse to run'
+          fi
+
+      - name: Install host tools
+        run: |
+          brew install llvm lld mtools dtc lzfse
+          if ! command -v unifdef >/dev/null; then brew install unifdef; echo "$(brew --prefix unifdef)/bin" >> "$GITHUB_PATH"; fi
+
+      - name: Resolve the configuration
+        run: |
+          set -o pipefail
+          ./unixnu defconfig "$DEFCONFIG" -D "$DEVICE_DIR" 2>&1 | tee "$RUNNER_TEMP/defconfig.log"
+          ./unixnu status -D "$DEVICE_DIR" 2>&1 | tee "$RUNNER_TEMP/status.log"
+
+      - name: Fetch sources
+        run: |
+          set -o pipefail
+          ./unixnu fetch -D "$DEVICE_DIR" 2>&1 | tee "$RUNNER_TEMP/fetch.log"
+
+      - name: Extract the OS image
+        if: inputs.fetch_ipsw
+        run: |
+          set -o pipefail
+          ./unixnu ipsw fetch -D "$DEVICE_DIR" 2>&1 | tee "$RUNNER_TEMP/ipsw.log"
+
+      - name: Show the OS image APFS volumes
+        # [payload.adt] root_match_volume_uuid comes from the OS component's APFS root
+        # volume; the userdata image on the board was built from the same component. Opt-in:
+        # the value is recorded in the porting record, so a normal build does not pay for the
+        # attach, and the profile directory is globbed instead of pinned.
+        if: inputs.fetch_ipsw && inputs.inspect_osimage
+        continue-on-error: true
+        run: |
+          ./unixnu ipsw fetch OS -D "$DEVICE_DIR" 2>&1 | tee "$RUNNER_TEMP/osimage.log"
+          OSDMG=$(ls -S out/ipsw/*/*.dmg 2>/dev/null | head -1)
+          echo "OSDMG=$OSDMG"
+          if [ -n "$OSDMG" ]; then
+            hdiutil attach -nomount -readonly "$OSDMG" | tee "$RUNNER_TEMP/apfs-attach.log"
+            diskutil apfs list | tee "$RUNNER_TEMP/apfs-list.log"
+            DEV=$(head -1 "$RUNNER_TEMP/apfs-attach.log" | awk '{print $1}')
+            if [ -n "$DEV" ]; then hdiutil detach "$DEV" || true; fi
+          fi
+
+      - name: Inspect the OS image launchd
+        # load_init_program execve('/sbin/launchd') returns ENOEXEC; check whether the
+        # root binary is compressed or a different slice before changing the kernel.
+        if: inputs.fetch_ipsw && inputs.inspect_osimage
+        continue-on-error: true
+        run: |
+          OSDMG=$(ls -S out/ipsw/*/*.dmg 2>/dev/null | head -1)
+          echo "OSDMG=$OSDMG"
+          {
+            MP=$(hdiutil attach "$OSDMG" | grep -E '/Volumes/' | tail -1 | awk '{print $NF}')
+            echo "MP=$MP"
+            ls -l "$MP/sbin/launchd" || true
+            file "$MP/sbin/launchd" || true
+            xattr -l "$MP/sbin/launchd" || true
+            otool -h "$MP/sbin/launchd" || true
+            lipo -info "$MP/sbin/launchd" || true
+            hdiutil detach "$MP" || true
+          } 2>&1 | tee "$RUNNER_TEMP/inspect-osimage.log"
+
+      - name: Prepare the Data seed
+        # docs/zh/guide/userdata.md: the writable Data volume comes from the payload's Data
+        # ramdisk seed, and scripts/prepare-owner-data-fixture.py refuses anything that is not
+        # a real APFS container (NXSB at offset 0x20). It needs hdiutil, diskutil and the
+        # supplied OS image's initial /private/var, none of which exist off macOS, so the
+        # runner builds the seed here and publishes it beside the kernel.
+        if: inputs.fetch_ipsw
+        continue-on-error: true
+        run: |
+          set +e
+          ./unixnu ipsw fetch -D "$DEVICE_DIR" 2>&1 | tee "$RUNNER_TEMP/data-seed-ipsw.log"
+          # The OS member is a separate fetch: the plain ipsw step does not unpack the
+          # 044-76040-038.dmg the fixture builder walks, which is why the first attempt
+          # mounted nothing and produced no seed.
+          ./unixnu ipsw fetch OS -D "$DEVICE_DIR" 2>&1 | tee "$RUNNER_TEMP/data-seed-os.log"
+          OSDMG=$(ls -S out/ipsw/*/*.dmg 2>/dev/null | head -1)
+          echo "OSDMG=$OSDMG"
+          MP="$PWD/.cache/firmware/target-volumes/os-mount"
+          mkdir -p "$MP"
+          hdiutil attach "$OSDMG" -nobrowse -owners off -mountpoint "$MP" 2>&1 | tee "$RUNNER_TEMP/data-seed-attach.log"
+          python3 scripts/prepare-owner-data-fixture.py 2>&1 | tee "$RUNNER_TEMP/data-seed.log"
+          hdiutil detach "$MP" 2>&1 || true
+          ls -l build/owner-data-fixture/ 2>&1 | tee -a "$RUNNER_TEMP/data-seed.log"
+
+      - name: Locate the dyld shared cache in the IPSW
+        # The SystemOS window that gets signed and flashed is a real system tree (System, usr,
+        # ExtensionKit extensions) yet neither it nor the OS window contains
+        # dyld_shared_cache_arm64e, and dyld ends PID 1 before main when the cache is missing.
+        # This walks every dmg the run fetched and reports which volume, if any, ships the cache.
+        if: inputs.fetch_ipsw && inputs.inspect_osimage
+        continue-on-error: true
+        run: |
+          set +e
+          LOG="$RUNNER_TEMP/cache-search.log"
+          ls -l out/ipsw/*/*.dmg | tee "$LOG"
+          for d in out/ipsw/*/*.dmg; do
+            [ -f "$d" ] || continue
+            echo "=== $d" | tee -a "$LOG"
+            MP=$(hdiutil attach "$d" -nobrowse -owners off 2>/dev/null | grep -E '/Volumes/' | tail -1 | awk '{print $NF}')
+            if [ -n "$MP" ]; then
+              echo "mounted at $MP" | tee -a "$LOG"
+              ls "$MP" | head -20 | tee -a "$LOG"
+              ls -l "$MP/System/Library/Caches" 2>/dev/null | tee -a "$LOG"
+              find "$MP" -maxdepth 7 -name 'dyld_shared_cache*' 2>/dev/null | head -5 | tee -a "$LOG"
+              hdiutil detach "$MP" >/dev/null 2>&1 || true
+            fi
+          done
+
+      - name: Add the bringup linker to the Data seed
+        # assets/dyld.bringup is a 32 KB MH_DYLINKER that writes BRINGUP to stderr and exits. The
+        # kernel honours alt-dyld=<path> (kebab-route/kona-alt-dyld.patch), so pointing launchd's
+        # interpreter at this file proves the alternate-linker path end to end before any real
+        # linker is available.
+        run: |
+          set -o pipefail
+          SEED="$PWD/build/owner-data-fixture/owner-data-32.cdr"
+          STUB="$DEVICE_DIR/assets/dyld.bringup"
+          test -f "$SEED"
+          test -f "$STUB"
+          MP=$(hdiutil attach "$SEED" 2>/dev/null | grep -E '/Volumes/' | tail -1 | awk '{print $NF}')
+          echo "seed mounted at $MP"
+          if [ -z "$MP" ]; then echo 'seed did not mount'; exit 1; fi
+          cp "$STUB" "$MP/dyld.bringup"
+          ls -l "$MP/dyld.bringup"
+          hdiutil detach "$MP"
+
+      - name: Install the owner root policy
+        # policies/verified-root-os carries the owner-signed manifest of the original OS window
+        # and its verification record. build-verified-root-probe.py consumes that directory.
+        run: |
+          mkdir -p build/verified-root-os build/verified-root-systemos
+          cp "$DEVICE_DIR"/policies/verified-root-os/* build/verified-root-os/
+          cp "$DEVICE_DIR"/policies/verified-root-systemos/* build/verified-root-systemos/
+          ls -l build/verified-root-os build/verified-root-systemos
+
+      - name: Build the kernel
+        run: |
+          set -o pipefail
+          # The scratch Data volume identity is the seed the payload will carry; it is fresh on
+          # every run because hdiutil formats the container each time. Both passes need it: the
+          # build refuses DATA_MOUNT without a volume UUID.
+          if [ -f build/owner-data-fixture/seed.json ]; then
+            export XNU_OWNER_DATA_VOLUME_UUID
+            XNU_OWNER_DATA_VOLUME_UUID=$(python3 -c "import json;print(json.load(open('build/owner-data-fixture/seed.json'))['volume_uuid'])")
+            echo "seed volume uuid: $XNU_OWNER_DATA_VOLUME_UUID"
+          fi
+          # The verified-root archive is produced between two kernel passes: the probe builder
+          # reads bsd_init.o.json, which only a kernel pass writes, and the link force-loads the
+          # archive that pass then needs.
+          ./unixnu build kernel -D "$DEVICE_DIR" 2>&1 | tee "$RUNNER_TEMP/kernel-pass1.log" || true
+          # Run it unconditionally: the builder now locates the recipe itself and states what it
+          # is missing, which is more useful than a guard that hides the reason.
+          # The owner chain links the two-volume bundle: NativeUfsBlock::configureVerification()
+          # imports _verified_root_policies/_verified_root_policy_count, and only the SystemOS
+          # member defines them.
+          python3 scripts/build-verified-root-probe.py --component os --include-systemos 2>&1 | tee "$RUNNER_TEMP/verified-root.log" || true
+          # The bundle lands in build/verified-root-os-xnu-bundle; the plain os archive is the
+          # fallback, and the link reads whichever exists through XNU_VERIFIED_ROOT_ARCHIVE.
+          for candidate in build/verified-root-os-xnu-bundle/libVerifiedRootProbe.a build/verified-root-os-xnu/libVerifiedRootProbe.a; do
+            if [ -f "$candidate" ]; then
+              export XNU_VERIFIED_ROOT_ARCHIVE="$PWD/$candidate"
+              echo "verified root archive: $XNU_VERIFIED_ROOT_ARCHIVE"
+              break
+            fi
+          done
+          ./unixnu build kernel -D "$DEVICE_DIR" 2>&1 | tee "$RUNNER_TEMP/kernel.log"
+
+      - name: Kernel bootstrap diagnostics
+        # The kernel step first runs one pass that links without the driver archives and
+        # is tolerated only when it left compile records behind. Report which of the two
+        # happened: the record file, the bootstrap log, and whether the mockfs fixture and
+        # the board's UFS archive were part of the build.
+        if: failure()
+        run: |
+          set +e
+          echo "== compile records =="
+          ls -l out/*/*/*/tree/build/xnu/ios-obj/*/osfmk/DEVELOPMENT/startup.o.json
+          echo "== bootstrap log size =="
+          wc -l out/*/*/*/logs/kernel-bootstrap.log out/*/*/*/logs/kernel.log 2>/dev/null
+          echo "== bootstrap: startup/mockfs/KonaUfs =="
+          grep -n -E "startup\.o|mockfs|KonaUfs|sheng-ufs|kona-ufs|Undefined symbols|MOCKFS" \
+            out/*/*/*/logs/kernel-bootstrap.log 2>/dev/null | tail -n 25
+          echo "== bootstrap: errors (first) =="
+          grep -n -B2 -A8 -E "error:|fatal error" out/*/*/*/logs/kernel-bootstrap.log 2>/dev/null | head -n 160
+          echo "== bootstrap: bsd_init =="
+          grep -n -B4 -A12 "bsd_init\.c" out/*/*/*/logs/kernel-bootstrap.log 2>/dev/null | tail -n 120
+          echo "== bootstrap: tail =="
+          tail -n 40 out/*/*/*/logs/kernel-bootstrap.log 2>/dev/null
+          echo "== kernel build log (tail) =="
+          tail -n 60 out/*/*/*/logs/kernel.log 2>/dev/null
+          echo "== component build logs: errors and warnings =="
+          for f in out/*/*/*/logs/component-*.log; do
+            echo "--- $f ($(wc -l < "$f") lines)"
+            grep -n -B2 -A8 -E "error:|fatal error" "$f" | head -n 80
+            echo "--- first warnings"
+            grep -n -m5 -A3 -E "warning:" "$f"
+          done
+          echo "== archive outputs =="
+          ls -l out/*/*/*/tree/build/mockfs-fixture/libmockfs_fixture.a \
+                out/*/*/*/tree/build/sheng-ufs/libShengUfs.a \
+                out/*/*/*/tree/build/kona-ufs/*.a 2>&1
+          echo "== resolved kernel config =="
+          grep -n -E "MOCKFS|NATIVE_UFS|VIRTIO_BLOCK|VERIFIED_ROOT" out/*/*/*/.config 2>/dev/null | head -n 20
+
+      - name: Patch AMFI for the no-PMGR bring-up
+        # The payload builder refuses a native-ufs-root kernel whose AMFI "No PMGR?" call is
+        # not branched past. The prelinked kernel is board-specific, so apply the recorded
+        # patch here instead of teaching the shared payload builder about this board.
+        run: |
+          set -o pipefail
+          KERNEL=$(find out -path '*/kernel/kernel.macho' -type f | head -1)
+          test -n "$KERNEL"
+          echo "kernel: $KERNEL"
+          python3 device/scripts/patch-amfi-nopmgr.py "$KERNEL" 2>&1 | tee "$RUNNER_TEMP/amfi-patch.log"
+
+      - name: Wrap the static trust cache
+        # The board pins the wrapped module bundle, not the raw .trustcache IM4P that the
+        # IPSW extraction leaves behind. Derive the bundle from the original static module and
+        # let the wrapper refuse anything that is not the 21H461 module this board records.
+        run: |
+          set -o pipefail
+          TRUST_RAW=$(ls -S out/ipsw/*/*.trustcache 2>/dev/null | head -1)
+          test -n "$TRUST_RAW"
+          echo "raw trust cache: $TRUST_RAW"
+          python3 device/scripts/wrap-static-trustcache.py "$TRUST_RAW" build/trust.bundle 2>&1 | tee "$RUNNER_TEMP/trust-bundle.log"
+
+      - name: Build the payload
+        run: |
+          set -o pipefail
+          TRUST="$PWD/build/trust.bundle"
+          DATA="$PWD/build/owner-data-fixture/owner-data-32.cdr"
+          test -f "$TRUST"
+          test -f "$DATA"
+          echo "trust cache: $TRUST"
+          echo "Data seed: $DATA"
+          if [ -n "$TRUST" ]; then
+            ./unixnu build payload -D "$DEVICE_DIR" --unique-chip-id "${{ inputs.unique_chip_id }}" --trust-cache "$TRUST" --data-ramdisk "$DATA" --skip-setup 2>&1 | tee "$RUNNER_TEMP/payload.log"
+          else
+            ./unixnu build payload -D "$DEVICE_DIR" --unique-chip-id "${{ inputs.unique_chip_id }}" --skip-setup 2>&1 | tee "$RUNNER_TEMP/payload.log"
+          fi
+
+      - name: Collect the tree logs
+        if: always()
+        # scripts/unixnu/kernel.py writes each invocation into <tree>/logs/: kernel-bootstrap.log
+        # for the first pass (40 MB), kernel.log for the real build, and one log per component or
+        # archive. A failure whose cause is only there had no visible reason at all, so small
+        # logs travel whole and the large bootstrap log travels as its tail.
+        run: |
+          set +e
+          for f in out/*/*/*/logs/*.log; do
+            [ -f "$f" ] || continue
+            base=$(basename "$f")
+            size=$(wc -c < "$f")
+            if [ "$size" -gt 5000000 ]; then
+              tail -n 4000 "$f" > "$RUNNER_TEMP/tree-$base.tail"
+            else
+              cp "$f" "$RUNNER_TEMP/tree-$base"
+            fi
+          done
+          ls -l "$RUNNER_TEMP"/tree-* 2>/dev/null | tail -8
+
+      - name: Publish the build artifacts
+        if: always()
+        uses: actions/upload-artifact@v5
+
+      - name: Publish the build artifacts
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: boot-artifacts
+          path: |
+            out/**/kernel.macho
+            out/**/payload/**
+            build/owner-data-fixture/*.cdr
+            build/owner-data-fixture/seed.json
+            ${{ runner.temp }}/data-seed*.log
+            ${{ runner.temp }}/verified-root.log
+            ${{ runner.temp }}/kernel-pass1.log
+            ${{ runner.temp }}/tree-*
+          if-no-files-found: warn
+
+      - name: Report the failure
+        if: failure()
+        # Artifacts need a token to download, but annotations are readable through the
+        # API, so a failing run states its interesting log lines in the check run itself.
+        run: |
+          set +e
+          for f in "$RUNNER_TEMP"/*.log; do
+            [ -f "$f" ] || continue
+            echo "::group::$(basename "$f") errors"
+            grep -n -E 'error:|Error |ERROR|FAILED|fatal|undefined|not found|invalid|missing|required|cannot|unable|no such' "$f" | tail -n 12 | cut -c1-380 | while IFS= read -r line; do echo "::error::$line"; done
+            echo "::endgroup::"
+          done
+          for log in payload kernel; do
+            echo "::group::$log.log tail"
+            tail -n 8 "$RUNNER_TEMP/$log.log" 2>/dev/null | cut -c1-380 | while IFS= read -r line; do echo "::error::$log tail: $line"; done
+            echo "::endgroup::"
+          done
+          echo "::group::artifacts on disk"
+          ls -l out/**/kernel.macho 2>/dev/null | cut -c1-300 | while IFS= read -r line; do echo "::error::$line"; done
+          echo "::endgroup::"
+          exit 0
+
+      - name: Publish the logs to the ci-logs branch
+        # An artifact needs an authenticated download; a branch does not. Diagnostics
+        # are public build output, never secrets.
+        if: failure()
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/logs" && cd "$RUNNER_TEMP/logs"
+          git init -q .
+          git checkout -q --orphan ci-logs
+          cp "$RUNNER_TEMP"/*.log . 2>/dev/null || true
+          cat > MANIFEST.txt <<EOF
+          run: ${{ github.run_id }}
+          sha: ${{ github.sha }}
+          job: ${{ github.job }}
+          conclusion: failure
+          built: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
+          git add -A
+          git -c user.name=ci -c user.email=ci@invalid commit -q -m "logs for run ${{ github.run_id }} (${{ github.sha }})"
+          git push -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-logs --force
+          echo "published to the ci-logs branch"
+
+      - name: Publish logs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: kernel-logs
+          path: |
+            ${{ runner.temp }}/*.log
+            out/*/*/*/logs/kernel.log
+            out/*/*/*/logs/kernel-bootstrap.log
+            out/*/*/*/logs/component-*.log
+            out/*/*/*/tree/build/*/compile.log
+          if-no-files-found: warn

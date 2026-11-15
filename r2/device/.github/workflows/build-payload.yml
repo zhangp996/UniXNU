@@ -1,0 +1,75 @@
+name: build-payload
+
+# Builds this port's kernel and payload on a macOS runner: the kernel comes from the
+# framework branch that carries this port's components, the payload is built with the
+# repository's Data seed and Setup marked done by seed-data-skip-setup.py.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 180
+    steps:
+      - name: Check out the device repository
+        uses: actions/checkout@v5
+        with:
+          path: device
+
+      - name: Check out the framework
+        uses: actions/checkout@v5
+        with:
+          repository: zhangp996/UniXNU
+          ref: bringup-framework-2026-11-12
+          path: framework
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install host tools
+        run: brew install llvm lld mtools dtc unifdef
+
+      - name: Configure the kernel
+        working-directory: framework
+        run: ./unixnu defconfig instantnoodlep_defconfig -D ../device
+
+      - name: Build kernel
+        working-directory: framework
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./unixnu build kernel -D ../device
+
+      - name: Build payload with Setup skipped
+        working-directory: framework
+        env:
+          UNIXNU_UNIQUE_CHIP_ID: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID }}
+        run: |
+          set -euo pipefail
+          OUT=out/instantnoodlep/ipados-17.7.11-21H461/instantnoodlep
+          mkdir -p "$RUNNER_TEMP/amfi"
+          cp "$OUT/kernel/kernel.macho" "$RUNNER_TEMP/amfi/kernel.macho"
+          python3 ../device/scripts/patch-amfi-nopmgr.py "$RUNNER_TEMP/amfi/kernel.macho"
+          python3 ../device/scripts/patch-amfi-trustcache-gate.py "$RUNNER_TEMP/amfi/kernel.macho"
+          args=(--kernel "$RUNNER_TEMP/amfi/kernel.macho")
+          args+=(--unique-chip-id "$UNIXNU_UNIQUE_CHIP_ID")
+          args+=(--data-ramdisk ../device/seeds/owner-data-3g.dbr)
+          args+=(--skip-setup)
+          TC=$(ls out/ipsw/*/trust.bundle 2>/dev/null | head -1 || true)
+          if [ -n "${TC:-}" ]; then args+=(--trust-cache "$TC"); fi
+          ./unixnu build payload -D ../device "${args[@]}"
+
+      - name: Upload the payload
+        uses: actions/upload-artifact@v4
+        with:
+          name: payload-${{ github.run_attempt }}
+          path: framework/out/**/payload/payload.img
