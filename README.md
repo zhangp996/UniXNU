@@ -23,3 +23,14 @@ Build (Linux host, after placing the local inputs described in docs/MISSING-FILE
     bash tools/r2/build_payload.sh
 
 The previous fresh-core attempt is preserved on the fresh-core branch.
+
+## userdata (required before booting)
+
+The root and SystemOS images live in the userdata partition. Rebuild and flash it after any IPSW or
+layout change, otherwise the stale SHNGROOT windows make the storage driver return EINVAL and the
+kernel panics in pmap_assert_free under load:
+
+    python3 ./unixnu build userdata -D ../UniXNU-instantnoodlep
+    fastboot flash userdata <out>/userdata-root.img
+
+The sparse form (img2simg) is needed on Windows fastboot for images above ~4 GiB.
