@@ -1,0 +1,139 @@
+diff -ru a/bsd/kern/kern_mman.c b/bsd/kern/kern_mman.c
+--- a/bsd/kern/kern_mman.c	2026-11-11 17:35:37.585975418 +0800
++++ b/bsd/kern/kern_mman.c	2026-11-11 17:35:37.585975418 +0800
+@@ -1718,3 +1718,120 @@
+ 	return 0;
+ }
+ #endif /* CONFIG_CODE_DECRYPTION */
++
++/*
++ * Bring-up: name the image that owns a trapping user PC.
++ *
++ * Two views, because neither is complete alone.  The vm_map entry says whether the code is
++ * file backed and where inside the file it sits; the dyld image table says which image dyld
++ * believes owns the range, including images that are remapped or cached and so have no vnode
++ * in the process map.  SpringBoard and liveactivitiesd trap in ranges of the second kind.
++ */
++struct native_dyld_image_info {
++	uint64_t        image_load_address;
++	uint64_t        image_file_path;
++	uint64_t        image_file_mod_date;
++};
++
++struct native_dyld_all_image_infos {
++	uint32_t        version;
++	uint32_t        count;
++	uint64_t        array;
++};
++
++static void
++native_trap_dyld_image(uint64_t pc, const char *comm)
++{
++	struct native_dyld_all_image_infos infos;
++	struct native_dyld_image_info image;
++	mach_vm_address_t info_addr;
++	uint64_t        best_load = 0;
++	uint64_t        best_path = 0;
++	uint32_t        i, count;
++	char            path[1024];
++	size_t          path_len = 0;
++
++	info_addr = task_get_all_image_info_addr(current_task());
++	if (info_addr == 0) {
++		printf("XNU-DYLD-IMAGE: %s pc=0x%llx no image table\n",
++		    comm, (unsigned long long)pc);
++		return;
++	}
++	if (copyin((user_addr_t)info_addr, &infos, sizeof(infos)) != 0 ||
++	    infos.count == 0 || infos.count > 8192 || infos.array == 0) {
++		printf("XNU-DYLD-IMAGE: %s pc=0x%llx image table unreadable at 0x%llx\n",
++		    comm, (unsigned long long)pc, (unsigned long long)info_addr);
++		return;
++	}
++	count = infos.count;
++	for (i = 0; i < count; i++) {
++		if (copyin((user_addr_t)(infos.array + (uint64_t)i * sizeof(image)),
++		    &image, sizeof(image)) != 0) {
++			break;
++		}
++		if (image.image_load_address <= pc && image.image_load_address > best_load) {
++			best_load = image.image_load_address;
++			best_path = image.image_file_path;
++		}
++	}
++	if (best_load == 0 || pc - best_load > 0x40000000ULL) {
++		printf("XNU-DYLD-IMAGE: %s pc=0x%llx no image holds it (%u images)\n",
++		    comm, (unsigned long long)pc, count);
++		return;
++	}
++	path[0] = '\0';
++	if (best_path != 0 &&
++	    copyinstr((user_addr_t)best_path, path, sizeof(path), &path_len) != 0) {
++		path[0] = '\0';
++	}
++	printf("XNU-DYLD-IMAGE: %s pc=0x%llx %s+0x%llx load=0x%llx images=%u\n",
++	    comm, (unsigned long long)pc, path[0] != '\0' ? path : "?",
++	    (unsigned long long)(pc - best_load),
++	    (unsigned long long)best_load, count);
++}
++
++void native_trap_image(uint64_t pc);
++
++void
++native_trap_image(uint64_t pc)
++{
++	proc_t          p = current_proc();
++	const char     *comm = (p != PROC_NULL) ? p->p_comm : "?";
++	uintptr_t       vnode_address = 0;
++	uint32_t        vid = 0;
++	vnode_t         vp;
++	char            path[1024];
++	int             path_len = sizeof(path);
++	uint64_t        start = 0;
++	uint64_t        len = 0;
++
++	native_trap_dyld_image(pc, comm);
++
++	if (!find_region_details(current_task(), (vm_map_offset_t)pc,
++	    &vnode_address, &vid, &start, &len) || vnode_address == 0) {
++		printf("XNU-TRAP-IMAGE: %s pc=0x%llx not in a file-backed range\n",
++		    comm, (unsigned long long)pc);
++		return;
++	}
++	if (pc < start || pc >= start + len) {
++		/* The containing entry is anonymous; find_region_details() then returns the next
++		 * file-backed entry, which says nothing about this address. */
++		printf("XNU-TRAP-IMAGE: %s pc=0x%llx anonymous, next file 0x%llx-0x%llx\n",
++		    comm, (unsigned long long)pc,
++		    (unsigned long long)start, (unsigned long long)(start + len));
++		return;
++	}
++
++	path[0] = '\0';
++	vp = (vnode_t)vnode_address;
++	if (vnode_getwithvid(vp, vid) == 0) {
++		if (vn_getpath(vp, path, &path_len) != 0) {
++			path[0] = '\0';
++		}
++		vnode_put(vp);
++	}
++	printf("XNU-TRAP-IMAGE: %s pc=0x%llx file=%s off=0x%llx map=0x%llx+0x%llx\n",
++	    comm, (unsigned long long)pc, path[0] != '\0' ? path : "?",
++	    (unsigned long long)(pc - start),
++	    (unsigned long long)start, (unsigned long long)len);
++}
+diff -ru a/osfmk/arm64/sleh.c b/osfmk/arm64/sleh.c
+--- a/osfmk/arm64/sleh.c	2026-11-11 17:35:37.585975418 +0800
++++ b/osfmk/arm64/sleh.c	2026-11-11 17:35:37.595975417 +0800
+@@ -1239,6 +1239,11 @@
+ 	    (unsigned long long)get_saved_state_pc(state),
+ 	    (unsigned long long)get_saved_state_lr(state), esr,
+ 	    (unsigned long long)thread_tid(current_thread()));
++	{
++		/* Name the owning image before the process is torn down. */
++		extern void native_trap_image(uint64_t pc);
++		native_trap_image((uint64_t)get_saved_state_pc(state));
++	}
+ #if __has_feature(ptrauth_calls)
+ 	if (ESR_EC(esr) == ESR_EC_BRK_AARCH64 &&
+ 	    brk_comment_is_ptrauth(ISS_BRK_COMMENT(esr))) {

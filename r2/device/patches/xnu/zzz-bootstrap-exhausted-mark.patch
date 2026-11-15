@@ -1,0 +1,26 @@
+diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
+index 11de723..3c35d8b 100644
+--- a/osfmk/arm64/start.s
++++ b/osfmk/arm64/start.s
+@@ -619,9 +619,18 @@ Lkernelcache_base_found:
+ 
+ 	b Lbootstrap_tables_ready
+ Lbootstrap_tables_exhausted:
+-	// MMU is still off. Stop with the offending cursor/end preserved for
+-	// the early debugger rather than corrupting memory or forging a map.
+-	b Lbootstrap_tables_exhausted
++	// MMU is still off, so nothing can print. Mark the loader framebuffer, whose physical base is
++	// the "video" address the handoff screen prints, with a magenta block before spinning: an
++	// exhausted bootstrap page-table pool then reads as a visible square, not a silent hang.
++	movz	x9, #0x9C00, lsl #16
++	movz	w10, #0x00FF, lsl #16
++	movk	w10, #0x00FF
++	mov	x11, #1024
++Lbootstrap_tables_mark:
++	str	w10, [x9], #4
++	subs	x11, x11, #1
++	b.ne	Lbootstrap_tables_mark
++	b	Lbootstrap_tables_exhausted
+ Lbootstrap_tables_ready:
+ 	/* Ensure TTEs are visible */
+ 	dsb		ish

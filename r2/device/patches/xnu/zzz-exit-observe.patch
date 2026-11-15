@@ -1,0 +1,18 @@
+diff --git a/bsd/kern/kern_exit.c b/bsd/kern/kern_exit.c
+index 11a8212..38d6f64 100644
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -1503,6 +1503,13 @@ exit_with_reason(proc_t p, int rv, int *retval, boolean_t thread_can_terminate,
+ 	int error = 0;
+ 	bool proc_exiting = false;
+ 
++	/* Bring-up observation: one panel line per exiting process, with the exit reason the service
++	 * graph needs. No state is changed and no lock is taken. */
++	extern void native_exit_observe(const char *, int, int, int, long long);
++	native_exit_observe(p->p_comm, proc_getpid(p), rv,
++	    exit_reason ? exit_reason->osr_namespace : 0,
++	    exit_reason ? (long long)exit_reason->osr_code : 0);
++
+ #if DEVELOPMENT || DEBUG
+ 	/*
+ 	 * Debug boot-arg: panic here if matching process is exiting with non-zero code.

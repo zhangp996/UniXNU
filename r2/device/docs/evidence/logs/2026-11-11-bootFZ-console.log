@@ -1,0 +1,511 @@
+capture: opening COM14 at 2026-11-11T22:42:19.7693982+08:00
+QCOM XNU USB CDC ACM v1
+Darwin Kernel Version 23.6.0: Wed Nov 11 18:12:58 CST 2026; root:ios-obj/DEVELOPMENT_ARM64_BCM2837
+pmap_startup() init/release time: 114879 microsec
+pmap_startup() delayed init/release of 0 pages
+vm_page_bootstrap: 992410 free pages, 56166 wired pages, (up to 0 of which are delayed free)
+VM boostrap: 51 maps, 153 entries and 128 holes available
+Maximum number of VM swap files: 5
+bufferhdr               : 0xfffffff0009f9000 - 0xfffffff00117d000 (7M)
+gIOKitPageableFixed0    : 0xfffffff122000000 - 0xfffffff128000000 (96M)
+gIOKitPageableFixed2    : 0xfffffff128000000 - 0xfffffff12e000000 (96M)
+zone_meta               : 0xfffffff12e000000 - 0xfffffff134baa000 (107M)
+mb                      : 0xfffffff134baa000 - 0xfffffff13abaa000 (96M)
+zones                   : 0xfffffff13abaa000 - 0xfffffff73abaa000 (24G)
+bsd_pageable            : 0xfffffff73abaa000 - 0xfffffff73bc6c000 (16M)
+gIOKitPageableFixed3    : 0xfffffff73bc6c000 - 0xfffffff741c6c000 (96M)
+ipc_kernel_copy_map     : 0xfffffff741c6c000 - 0xfffffff74246c000 (8M)
+gIOKitPageableFixed1    : 0xfffffff74246c000 - 0xfffffff74846c000 (96M)
+ipc_kernel_map          : 0xfffffff74846c000 - 0xfffffff74a46c000 (32M)
+io_submap               : 0xfffffff74a46c000 - 0xfffffff74ac6c000 (8M)
+kmem_data_range         : 0xfffffff74ac6c000 - 0xfffffff979330000 (8G)
+kmem_ptr_range          : 0xfffffff979330000 - 0xfffffffa5c4f0000 (3633M)
+kmem_ptr_range_meta     : 0xfffffffa5c4f0000 - 0xfffffffa5c59b000 (684K)
+compressor              : 0xfffffffa5c59b000 - 0xfffffffb8459b000 (4736M)
+kmem_sprayqtn_range     : 0xfffffffb8459b000 - 0xfffffffbff678000 (1968M)
+kmem_large_ranges[1]    : 0 - 0 (0B)
+kmem_large_ranges[2]    : 0 - 0 (0B)
+kmem_large_ranges[3]    : 0 - 0 (0B)
+kmem_large_ranges[4]    : 0xfffffffb93bb6a00 - 0xfffffffbff678000 (1722M)
+kmem_large_ranges[5]    : 0xfffffff790944800 - 0xfffffff979330000 (7G)
+"vm_compressor_mode" is 8
+mapping deprecated VM_PAGER_FREEZER_DEFAULT to VM_PAGER_FREEZER_COMPRESSOR_NO_SWAP
+zone_init: pgzalloc  0xfffffff13abaa000:0xfffffff13b35b000 (7M) [984 slots]
+zone_init: map VM    0xfffffff13b35b000:0xfffffff22189a000 (3685M)
+zone_init: map RO    0xfffffff22189a000:0xfffffff26e504000 (1228M)
+zone_init: map GEN0  0xfffffff26e504000:0xfffffff354a43000 (3685M)
+zone_init: map GEN1  0xfffffff354a43000:0xfffffff43af82000 (3685M)
+zone_init: map GEN2  0xfffffff43af82000:0xfffffff5214c1000 (3685M)
+zone_init: map GEN3  0xfffffff5214c1000:0xfffffff607a00000 (3685M)
+zone_init: map DATA  0xfffffff607a00000:0xfffffff73abaa000 (4913M)
+zone_init: metadata  0xfffffff12e010000:0xfffffff134010000 (96M)
+zone_init: metabits  0xfffffff134010000:0xfffffff134b9a000 (11M)
+zone_init: extra     0:0 (0B)
+Unable to find vm tag  for btlog
+VM bootstrap done: 39 maps, 112 entries and 117 holes left
+OSLog stream configured: stream: 8192 bytes, cache: 2112 bytes
+OSLog stream verification: 0
+Firehose configured: 16 chunks, 8 io pages
+Long logs support configured: size: 16384
+Log queues configured: slot count: 32, per-slot size: 32768, total size: 1048576
+standard timeslicing quantum is 10000 us
+standard background quantum is 2500 us
+mig_table_max_displ = 54 mach_kobj_count = 372
+debug_log_init: Error!! gPanicBase is still not initialized
+debug_log_init: Error!! gPanicBase is still not initialized
+kdp_core zlib memory 0x7000
+Serial requested, consistent debug disabled or debug boot arg not present, configuring debugging over serial
+iBoot version: 
+iBoot Stage 2 version: 
+IONVRAM.cpp:initImageFormat:1433 - NVRAM size is 8192 bytes
+IONVRAM.cpp:getNVRAMProperties:1244 - _bankSize=0x2000, _bankCount=0x1, _currentBank=0
+IONVRAMCHRPHandler.cpp:unserializeImage:479 - NVRAM : commonPartitionOffset - 0x30, commonPartitionSize - 0x800, systemPartitionOffset - 0xffffffff, systemPartitionSize - 0
+lockdown_mode: lockdown mode in nvram is off
+Darwin Image4 Validator Version 6.3.0: Fri Jul 11 17:30:14 PDT 2025; root:AppleImage4-257.140.2~280/AppleImage4/RELEASE_ARM64
+calling mpo_policy_init for AppleImage4
+Security policy loaded: AppleImage4 hooks (AppleImage4)
+AppleImage4: no legacy blob present
+AppleImage4: magazine[pdmg]: failed to read nonce slot data: 2
+AppleImage4: magazine[cptx]: failed to read nonce slot data: 2
+AppleImage4: magazine[dvdi]: failed to read nonce slot data: 2
+AppleImage4: magazine[c1bt]: failed to read nonce slot data: 2
+AppleImage4: magazine[c1ab]: failed to read nonce slot data: 2
+AppleImage4: magazine[c1gn]: failed to read nonce slot data: 2
+AppleImage4: magazine[c1sm]: failed to read nonce slot data: 2
+AppleImage4: magazine[c1ep]: failed to read nonce slot data: 2
+AppleImage4: root power domain not yet available: 19
+AMFI: queried model name from device tree: iPad7,1
+calling mpo_policy_init for AMFI
+Security policy loaded: Apple Mobile File Integrity (AMFI)
+calling mpo_policy_init for Sandbox
+Security policy loaded: Seatbelt sandbox policy (Sandbox)
+attempting to load 2 external trust cache modules
+loaded external trust cache module: 0
+loaded external trust cache module: 1
+completed loading external trust cache modules
+No POST boot-arg set.
+AppleARMBootPerf: Error: profile handoff region not found (1)
+AppleARMBootPerf: Error: failed to publish profile data (1)
+AppleARMSFRManifest: Starting
+AppleARMSFRManifest: Error: Failed to open reg-entry /chosen/secure-boot-hashes
+AppleARMSFRManifest: Error: Failed to find property boot-manifest-hash
+AppleARMSFRManifest: Error: Failed to find manifest hash
+AppleARMSFRManifest: Error: Failed to locate manifest information
+AppleARMSFRManifest: Error: Failed to find entry /chosen/iBoot
+AppleARMSFRManifest: Error: Failed to publish sfr manifest
+virtual bool CoreAnalyticsHub::start(IOService *)::139:CoreAnalyticsHub start
+Registered CoreAnalyticsHub functions with xnu.virtual bool CoreAnalyticsHub::start(IOService *)::218:CoreAnalyticsHub start completed
+Copyright (c) 1982, 1986, 1989, 1991, 1993
+	The Regents of the University of California. All rights reserved.
+
+MAC Framework successfully initialized
+using 16384 buffer headers and 10240 cluster IO buffer headers
+ktriage_register_subsystem_strings: set subsystem 8 strings
+DISPLAY: probe entered (registered=0)
+DISPLAY: preModLoad(__kernel__)=0xfffffff521552e80
+DISPLAY: GOP console 0x9c000001 1080x480 depth=32 stride=4320
+DISPLAY: allocated NativeLegacyDisplay size=0x1ae0 legacy=1 mobilefb=1
+DISPLAY: bound parent meta=0xfffffff006b35940 raw=fffffff005f390b8 fffffff26e58f700 fffffff006b31400 fffffff607972e80
+DISPLAY: registered family meta=0xfffffff006b35940 name=IOMobileFramebufferLegacy size=0x18a0
+DISPLAY: meta[0] NativeLegacyDisplay size=0x1ae0 super=IOMobileFramebufferLegacy
+DISPLAY: meta[1] IOMobileFramebufferLegacy size=0x18a0 super=IOMobileFramebufferService
+DISPLAY: meta[2] IOMobileFramebufferService size=0x90 super=IOMobileFramebuffer
+DISPLAY: meta[3] IOMobileFramebuffer size=0x90 super=IOService
+DISPLAY: meta[4] IOService size=0x88 super=IORegistryEntry
+DISPLAY: meta[5] IORegistryEntry size=0x28 super=OSObject
+DISPLAY: meta[6] OSObject size=0x10 super=-
+DISPLAY: init ok phase=4
+DISPLAY: probe entered (registered=1)
+mbinit: done [96 MB total pool size, (96/0) split]
+dlil_init: Waiting for all the create dlil kernel threads to get scheduled at least once.
+dlil_init: All the created dlil kernel threads have been scheduled at least once. Proceeding.
+DISPLAY: late probe (load handled by offline-mobile-graphics-load)
+ifnet_attach: All kernel threads created for interface lo0 have been scheduled at least once. Proceeding.
+skip attaching fsw to lo0 using legacy TX modelcom.apple.AppleFSCompressionTypeZlib kmod start
+apfs_module_start:3232: load: com.apple.filesystems.apfs, v2236.140.6, apfs-2236.140.6, 2025/07/11
+ktriage_register_subsystem_strings: set subsystem 7 strings
+IOCPUInterruptController: not registry member at registerService()
+AppleImage4: magazine[cptx]: magazine data cannot be written: 30
+AppleImage4: magazine[zine]: magazine write failed; may be expected: 30
+[System Event] [541859956] [INFO] [Subsystem: nvram] [Event: sync] triggered
+IONVRAMCHRPHandler.cpp:serializeVariables:615 - No _nvramController
+IONVRAMCHRPHandler.cpp:sync:894 - serializeVariables failed, ret=0xe00002d8[System Event] [541925328] [INFO] [Subsystem: nvram] [Event: sync] completed with ret=e00002d8
+NativeUfs: published SystemOS
+dev_init:303: disk0 device accelerated crypto: 0 (compiled @ Jul 11 2025 17:34:16)
+dev_init:306: disk0 device_handle block size 4096 block count 806400 features 0 internal 
+nx_mount:1275: disk0 initializing cache w/hash_size 4096 and cache size 10064
+nx_mount:1617: disk0 checkpoint search: largest xid 14, best xid 14 @ 9
+nx_mount:1644: disk0 stable checkpoint indices: desc 8 data 16
+install_apfs_vfs_fs:8248: apfs: speculative telemetry feature ENABLED by boot-arg
+apfs_sysctl_register:1407: done registering sysctls.
+import_iboot_forwarded_roothash:3491: importing root hash (basesystem ? 0)...
+apfs_extract_root_hash_arm:13275: could not retrieve system-volume-auth-blob from device tree
+import_iboot_forwarded_roothash:3496: apfs_extract_root_hash_and_manifest failed with error: No such file or directory (2)
+NativeUfs: SystemOS volume 8846FE78-2910-4297-AF97-D59BB6F8FC16 ready
+NativeUfs: published OS
+dev_init:303: disk2s1 device accelerated crypto: 0 (compiled @ Jul 11 2025 17:34:16)
+dev_init:306: disk2s1 device_handle block size 4096 block count 1483776 features 0 internal 
+nx_mount:1275: disk2s1 initializing cache w/hash_size 4096 and cache size 10064
+DISPLAY: IOSurface kext rc=0x0
+nx_mount:1617: disk2s1 checkpoint search: largest xid 418, best xid 418 @ 3
+nx_mount:1644: disk2s1 stable checkpoint indices: desc 2 data 4
+NativeUfs: OS volume 04769D26-2CA0-4825-B443-E2E5F88300F2 ready
+com.apple.AppleFSCompressionTypeZlib load succeeded
+Setting up notifier for CoreAnalyticsHub
+dev_init:303: disk4 device accelerated crypto: 0 (compiled @ Jul 11 2025 17:34:16)
+dev_init:306: disk4 device_handle block size 4096 block count 786432 features 0 internal 
+nx_mount:1275: disk4 initializing cache w/hash_size 4096 and cache size 10064
+nx_mount:1617: disk4 checkpoint search: largest xid 8, best xid 8 @ 1
+nx_mount:1644: disk4 stable checkpoint indices: desc 0 data 0
+DISPLAY: IOSurface root found=1
+DISPLAY: IOSurfaceRoot 0xfffffff354887300 class=IOSurfaceRoot size=0x4a0 vtable=0xfffffff005d3b2b8
+DISPLAY:   vt[0]=0xfffffff004ba8c64
+DISPLAY:   vt[1]=0xfffffff004ba8d68
+DISPLAY:   vt[2]=0xfffffff00be82254
+DISPLAY:   vt[3]=0xfffffff00be81fec
+DISPLAY:   vt[4]=0xfffffff00be8222c
+DISPLAY:   vt[5]=0xfffffff00be8221c
+DISPLAY:   vt[6]=0xfffffff00be82268
+DISPLAY:   vt[7]=0xfffffff004ba8dac
+DISPLAY: nub class AppleARMIODevice
+DISPLAY: nub 0xfffffff520fea600 attach=1 start=1 mem=0x9c000001+0x1fa400
+DISPLAY: dt attach=1
+DISPLAY: seeded surface region 0xfffffff521610cf8 bytes=33554432
+virtual bool IOMobileFramebufferLegacy::start(IOService *)
+IOMFB: driver commit: 
+DISPLAY: chosen display-scale=2 rotation=0 ok=1
+DISPLAY: display attach=1 start=1
+DISPLAY: field scan of the 0x18a0 object
+  +0x000 = 0xfffffff007210758 vtable=0xfffffff00bfe1b88
+  +0x010 = 0xfffffff5215528c0 vtable=0xfffffff26e50e3d0
+  +0x018 = 0xfffffff52138f358 vtable=0xfffffff0071c28a0
+  +0x020 = 0xfffffff52138f240 vtable=0xfffffff0071c28a0
+  +0x028 = 0xfffffff354a5e680 vtable=0x0
+  +0x030 = 0xfffffff520fea600 vtable=0xfffffff005cbe4c8
+  +0x060 = 0xfffffff6079c4e00 vtable=0xfffffff0071c92a0
+  +0x1570 = 0xfffffff3549ef568 vtable=0x0
+  +0x1580 = 0xfffffff3549ef578 vtable=0x0
+  +0x1590 = 0xfffffff3549ef588 vtable=0x0
+  +0x15a0 = 0xfffffff3549ef598 vtable=0x0
+  +0x15b0 = 0xfffffff3549ef5a8 vtable=0x0
+  +0x15c0 = 0xfffffff3549ef5b8 vtable=0x0
+  +0x15d0 = 0xfffffff3549ef5c8 vtable=0x0
+  +0x15e0 = 0xfffffff3549ef5d8 vtable=0x0
+  +0x1600 = 0xfffffff354887300 vtable=0xfffffff005d3b2b8
+  +0x1608 = 0xfffffff6079222e0 vtable=0xfffffff0071caee0
+  +0x1610 = 0xfffffff43af2f290 vtable=0xfffffff0071ca9d0
+  +0x1620 = 0xfffffff520f6f7e0 vtable=0xfffffff005d3a808
+  +0x1638 = 0xfffffff521377e80 vtable=0xfffffff0071cad20
+  +0x1640 = 0xfffffff520fea600 vtable=0xfffffff005cbe4c8
+  +0x1648 = 0xfffffff354a7a320 vtable=0xfffffff0071cb6f0
+  +0x17c0 = 0xfffffff521610cf8 vtable=0xfffffff0071cb918
+  +0x17e8 = 0xfffffff3549ef7e0 vtable=0x0
+  +0x17f8 = 0xfffffff73ab80790 vtable=0x8000010d22000000
+  +0x1868 = 0xfffffff26e5e7850 vtable=0x8000010d22000000
+DISPLAY: field scan done (26 pointer slots)
+DISPLAY: surfaces default=0 temp=0xfffffff520f6f7e0
+DISPLAY: adopted default surface 0xfffffff520f6f7e0 sid=1 region=0xfffffff521610cf8 descriptor=0xfffffff521610ec8
+Waiting on <dict ID="0"><key>IOProviderClass</key><string ID="1">IOMedia</string><key>IOPropertyMatch</key><dict ID="2"><key>UUID</key><string ID="3">04769D26-2CA0-4825-B443-E2E5F88300F2</string></dict></dict>
+Got boot device = IOService:/NativeUfs/NativeUfsBlock/IOBlockStorageDriver/Native OS Media/IOGUIDPartitionScheme/Untitled 1@1/AppleAPFSContainerScheme/AppleAPFSMedia/AppleAPFSContainer/DawnUpdate21H461.J120J121J207J208OS@1
+BSD root: disk3s1, major 1, minor 6
+spec_open : si_devbsdunit initialized to (2), throttle_mask is (0xc), isssd is (0)
+disk3s1: device is not readable.
+mockfs_mountroot failed: 13
+apfs_vfsop_mountroot:2965: apfs: mountroot called!
+spec_open : si_devbsdunit initialized to (2), throttle_mask is (0xc), isssd is (0)
+dev_init:303: disk3 device accelerated crypto: 0 (compiled @ Jul 11 2025 17:34:16)
+dev_init:306: disk3 device_handle block size 4096 block count 1483776 features 0 internal 
+nx_mount:1275: disk3 initializing cache w/hash_size 4096 and cache size 10064
+nx_mount:1617: disk3 checkpoint search: largest xid 418, best xid 418 @ 3
+nx_mount:1644: disk3 stable checkpoint indices: desc 2 data 4
+apfs_vfsop_mount:2675: disk3 Promoter has been locked 
+fs_lookup_root_snapshot_name:373: disk3s1 failed to get root-snapshot-name from DT
+apfs_find_named_root_snapshot_xid:2035: disk3s1 failed to retrieve default root snapshot xid: No such file or directory (2)
+apfs_find_named_root_snapshot_xid:2073: disk3s1 The global payload bytes pointer is NULL
+apfs_vfsop_mount:2714: disk3s1 failed to find named root snapshot: Need authenticator (81)
+apfs_log_op_with_proc:3091: disk3s1 mounting volume DawnUpdate21H461.J120J121J207J208OS, requested by: kernel_task (pid 0); parent: kernel_task (pid 0)
+handle_mount:817: disk3s1 vol-uuid: 04769D26-2CA0-4825-B443-E2E5F88300F2 block size: 4096 block count: 1483776 (unencrypted; flags: 0x1; features: 8.0.12)
+handle_mount:830: disk3s1 setting dev block size to 4096 from 512
+apfs_log_op_with_proc:3091: disk3s1 mount-complete volume DawnUpdate21H461.J120J121J207J208OS, requested by: kernel_task (pid 0); parent: kernel_task (pid 0)
+is_root_hash_authentication_required_ios:472: disk3s1 Release kext, booting xid: 0
+is_root_hash_authentication_required:555: disk3s1 Root Volume, root hash authentication is required
+VM Swap Subsystem is ON
+No POST boot-arg set.
+spec_open : si_devbsdunit initialized to (0), throttle_mask is (0x3), isssd is (0)
+spec_open : si_devbsdunit initialized to (0), throttle_mask is (0x3), isssd is (0)
+dev_init:303: disk1 device accelerated crypto: 0 (compiled @ Jul 11 2025 17:34:16)
+dev_init:306: disk1 device_handle block size 4096 block count 806400 features 0 internal 
+nx_mount:1275: disk1 initializing cache w/hash_size 4096 and cache size 10064
+Failed to open swap file 30
+vm_swap_create_file failed @ 34 secs
+nx_mount:1617: disk1 checkpoint search: largest xid 14, best xid 14 @ 9
+nx_mount:1644: disk1 stable checkpoint indices: desc 8 data 16
+apfs_log_op_with_proc:3091: disk1s1 mounting volume DawnUpdate21H461.J120J121J207J208SystemCryptex, requested by: init (pid 1); parent: kernel_task (pid 0)
+handle_mount:817: disk1s1 vol-uuid: 8846FE78-2910-4297-AF97-D59BB6F8FC16 block size: 4096 block count: 806400 (unencrypted; flags: 0x1; features: 28.0.2)
+handle_mount:830: disk1s1 setting dev block size to 4096 from 512
+apfs_log_op_with_proc:3091: disk1s1 mount-complete volume DawnUpdate21H461.J120J121J207J208SystemCryptex, requested by: init (pid 1); parent: kernel_task (pid 0)
+RWBLK-DIAG: online=1 memory=0 sparse=0xfffffff97bef0000 isBig=0 capacity=6291456 logical=3221225472 nonzero=0 ok=1
+SEL-DIAG: disk5s1 seedInfo=1 base=0 bytes=3221225472
+SEL-DIAG: end selected=1 matches=1
+spec_open : si_devbsdunit initialized to (4), throttle_mask is (0x30), isssd is (0)
+spec_open : si_devbsdunit initialized to (4), throttle_mask is (0x30), isssd is (0)
+dev_init:303: disk5 device accelerated crypto: 0 (compiled @ Jul 11 2025 17:34:16)
+dev_init:306: disk5 device_handle block size 4096 block count 786432 features 0 internal 
+nx_mount:1275: disk5 initializing cache w/hash_size 4096 and cache size 10064
+nx_mount:1617: disk5 checkpoint search: largest xid 8, best xid 8 @ 1
+nx_mount:1644: disk5 stable checkpoint indices: desc 0 data 0
+spaceman_metazone_init:111: disk5 no metazone for device 0, of size 3221225472 bytes, block_size 4096
+apfs_log_op_with_proc:3091: disk5s1 mounting volume OwnerData, requested by: init (pid 1); parent: kernel_task (pid 0)
+handle_mount:817: disk5s1 vol-uuid: E553E004-A6C6-4992-B474-25EB0F160524 block size: 4096 block count: 786432 (unencrypted; flags: 0x1; features: 1.0.2)
+spaceman_scan_free_blocks:3878: disk5 scan took 0.000213 s (no trims)
+spaceman_fxc_print_stats:473: disk5 dev 0 smfree 782974/786432 table 1/130 blocks 782974 782974:782974:782974 100.00% range 3458:782974 99.56% scans 1
+handle_mount:830: disk5s1 setting dev block size to 4096 from 512
+apfs_log_op_with_proc:3091: disk5s1 mount-complete volume OwnerData, requested by: init (pid 1); parent: kernel_task (pid 0)
+ram watchdog backend not registered: 22
+BLK: disk0 size=3303014400 uuid=-
+BLK: disk1 size=3303014400 uuid=E886F82C-EE56-4B52-AF5F-E70BF46320C4
+BLK: disk3 size=6077546496 uuid=50F8A67F-AFC1-4A1B-BCBB-82162674C67F
+BLK: disk5 size=3221225472 uuid=96803782-563E-4DD0-BFD1-AE6D3A4F59B8
+BLK: disk1s1 size=3303014400 uuid=8846FE78-2910-4297-AF97-D59BB6F8FC16
+BLK: disk3s1 size=6077546496 uuid=04769D26-2CA0-4825-B443-E2E5F88300F2
+BLK: disk5s1 size=3221225472 uuid=E553E004-A6C6-4992-B474-25EB0F160524
+BLK: disk2 size=6077580800 uuid=-
+BLK: disk2s1 size=6077546496 uuid=9232A33A-5F8A-4A09-9A43-E7D8BCFCF4BC
+BLK: disk4 size=3221225472 uuid=-
+owner watchdog override ready
+load_init_program: attempting to load /usr/appleinternal/sbin/launchd.development
+load_init_program: attempting to load /sbin/launchd
+shared_region: 0x5b15b05f3bec5b47 [1(launchd)] check_np(0x16ebcbbb0) vm_shared_region_start_address() failed
+shared_region: 0x5b15b05f3bec5b47 [1(launchd)] check_np(0x16ebcb150) vm_shared_region_start_address() failed
+AMFI: finished: 1 0
+skip attaching fsw to lo0 using legacy TX modelcom.apple.xpc.launchd|1970-01-01 00:01:19.115240 <Notice>: boot-mode set by sysctl: main
+com.apple.xpc.launchd|1970-01-01 00:01:19.121202 <Notice>: hello, launchd UUID: 4B525992-8C69-315E-A51A-CC9433E45B51
+com.apple.xpc.launchd|1970-01-01 00:01:19.121738 <Notice>: Darwin Bootstrapper Version 7.0.0: Tue Mar 11 22:08:20 PDT 2025; root:libxpc_executables-2748.140.10.703.1~1/launchd/RELEASE_ARM64
+com.apple.xpc.launchd|1970-01-01 00:01:19.122224 <Notice>: boot-args = -v serial=3 debug=0x14e -no_slto_panic amfi_get_out_of_my_way=1 native-ufs-root=1 native-ufs-allow-unverified=1 root-unverified=1 native-ufs-diagnostics=1 qcom-usb-debug=1 offline-legacy-register=1 offline-legacy-gop=1 offline-legacy-unit-scale=2 offline-legacy-pm=1 offline-legacy-validate=1 offline-legacy-transfer=1 offline-legacy-cpu-present=1 offline-legacy-phase=4 offline-mobile-graphics-load=1 offline-mobile-graphics-client=1
+com.apple.xpc.launchd|1970-01-01 00:01:19.130649 (system) <Notice>: entering ondemand mode
+com.apple.xpc.launchd|1970-01-01 00:01:19.131136 (system) <Notice>: created
+com.apple.xpc.launchd|1970-01-01 00:01:19.142109 (exclaves-boot) <Notice>: Doing boot task
+com.apple.xpc.launchd|1970-01-01 00:01:19.143496 (fsck) <Notice>: Doing boot task
+failed to get filesystem info
+fsck: not booting main or diagnostic OS. Skipping fsck on OS container
+XNU-EXIT: fsck pid=2 code=0 ns=0 sub=0x0 cs=0x22002301
+com.apple.xpc.launchd|1970-01-01 00:01:19.726731 (mount-phase-1) <Notice>: Doing boot task
+failed to get filesystem info
+failed to get filesystem info
+mount: data volume missing, but not required in env: 0
+DT_get_fstab_entries:12205: failed to get filesystem entry at: /filesystems/fstab
+ERROR: BindFS bindfs_mount: lookup of /private/preboot/0833E96F5CE39D8FC742B51AA14D7E1C298D3F6AEDDF62E9264B6779647570877526FD095D14BF45A61355E234CE15A6/usr/standalone/firmware failed error: 2
+XNU-EXIT: mount pid=3 code=0 ns=0 sub=0x0 cs=0x22002301
+com.apple.xpc.launchd|1970-01-01 00:01:19.797809 (data-protection) <Notice>: Doing boot task
+init_data_protection: No SEP present on this device
+XNU-EXIT: seputil pid=4 code=0 ns=0 sub=0x0 cs=0x22002301
+com.apple.xpc.launchd|1970-01-01 00:01:19.859428 (finish-obliteration) <Notice>: Doing boot task
+Obliterator: In INIT check
+Thu Jan  1 00:01:20 1970: checkOblitNVRAMkey: IORegistryEntryGetProperty failed, may be does not exist [gF: 0x0000000000000000]
+Obliterator: No obliteration needed, continue booting, returning 0
+XNU-EXIT: mobile_obliterat pid=5 code=0 ns=0 sub=0x0 cs=0x22002b09
+com.apple.xpc.launchd|1970-01-01 00:01:20.074720 (detect-installed-roots) <Notice>: Doing boot task
+com.apple.xpc.launchd|1970-01-01 00:01:20.075408 <Notice>: No cookie from system volume
+com.apple.xpc.launchd|1970-01-01 00:01:20.075986 <Notice>: No cookie: /private/preboot/0833E96F5CE39D8FC742B51AA14D7E1C298D3F6AEDDF62E9264B6779647570877526FD095D14BF45A61355E234CE15A6/.roots-installed
+XNU-EXIT: launchd pid=6 code=1 ns=0 sub=0x0 cs=0x22002301
+com.apple.xpc.launchd|1970-01-01 00:01:20.076403 (commit-boot-mode) <Notice>: Doing boot task
+com.apple.xpc.launchd|1970-01-01 00:01:20.076811 <Notice>: boot-mode committed: main
+com.apple.xpc.launchd|1970-01-01 00:01:20.077214 (restore-datapartition) <Notice>: Doing boot task
+com.apple.xpc.launchd|1970-01-01 00:01:20.094561 (restore-datapartition) <Notice>: optional boot task not present
+com.apple.xpc.launchd|1970-01-01 00:01:20.095014 (mount-phase-2) <Notice>: Doing boot task
+failed to get filesystem info
+failed to get filesystem info
+mount: data volume missing, but not required in env: 0
+DT_get_fstab_entries:12205: failed to get filesystem entry at: /filesystems/fstab
+ERROR: BindFS bindfs_mount: lookup of /private/var/hardware/FactoryData/System/Library/Caches/com.apple.factorydata failed error: 2
+XNU-EXIT: apfs_boot_util pid=7 code=0 ns=0 sub=0x0 cs=0x22002301
+com.apple.xpc.launchd|1970-01-01 00:01:20.167795 (init-with-data-volume) <Notice>: Doing boot task
+com.apple.xpc.launchd|1970-01-01 00:01:20.205431 (fixup-mobile-tmp) <Notice>: Doing boot task
+com.apple.xpc.launchd|1970-01-01 00:01:20.206464 (fixup-mobile-tmp) <Notice>: /private/var/mobile/tmp already exists, skipping
+com.apple.xpc.launchd|1970-01-01 00:01:20.206871 (fixup-mobile-tmp) <Notice>: Finished boot task
+com.apple.xpc.launchd|1970-01-01 00:01:20.207276 (MSUEarlyBootTask) <Notice>: Doing boot task
+XNU-EXIT: MSUEarlyBootTask pid=9 code=1 ns=0 sub=0x0 cs=0x22002b09
+MSUEarlyBootTask: MSUEarlyBootTask running
+main: Content from the ramdisk will be present at /private/var/MobileSoftwareUpdate//0833e96f5ce39d8fc742b51aa14d7e1c298d3f6aeddf62e9264b6779647570877526fd095d14bf45a61355e234ce15a6-MSUData if it exists
+MSUEarlyBootTask: I have nothing to do. Goodbye!!
+XNU-EXIT: MSUEarlyBootTask pid=8 code=0 ns=0 sub=0x0 cs=0x22002b09
+com.apple.xpc.launchd|1970-01-01 00:01:20.540914 (fips) <Notice>: Doing boot task
+About to call the FIPS_POST function in the corecrypto.dylib
+Tracing: disabled
+FIPSPOST_USER [1546925271] fipspost_post:154: [FIPSPOST][Module-ID] Apple corecrypto Module v14.0 [Apple ARM, User, Software, SL1]
+FIPSPOST_USER [1547209612] fipspost_post:162: PASSED: (12 ms) - fipspost_post_hmac
+FIPSPOST_USER [1547327299] fipspost_post:166: PASSED: (4 ms) - fipspost_post_integrity
+FIPSPOST_USER [1547366426] fipspost_post:170: PASSED: (0 ms) - fipspost_post_indicator
+FIPSPOST_USER [1547401037] fipspost_post:171: PASSED: (0 ms) - fipspost_post_aes_ecb
+FIPSPOST_USER [1547434510] fipspost_post:172: PASSED: (0 ms) - fipspost_post_aes_cbc
+FIPSPOST_USER [1547772410] fipspost_post:173: PASSED: (15 ms) - fipspost_post_rsa_sig
+FIPSPOST_USER [1548408181] fipspost_post:174: PASSED: (31 ms) - fipspost_post_ecdsa
+FIPSPOST_USER [1548463278] fipspost_post:175: PASSED: (1 ms) - fipspost_post_ecdh
+FIPSPOST_USER [1548497192] fipspost_post:176: PASSED: (0 ms) - fipspost_post_aes_ccm
+FIPSPOST_USER [1548528111] fipspost_post:177: PASSED: (0 ms) - fipspost_post_aes_cmac
+FIPSPOST_USER [1548560913] fipspost_post:178: PASSED: (0 ms) - fipspost_post_hkdf
+FIPSPOST_USER [1549278501] fipspost_post:179: PASSED: (35 ms) - fipspost_post_pbkdf
+FIPSPOST_USER [1549310285] fipspost_post:180: PASSED: (0 ms) - fipspost_post_drbg_hmac
+FIPSPOST_USER [1549340320] fipspost_post:182: PASSED: (0 ms) - fipspost_post_kdf_ctr
+FIPSPOST_USER [1549368830] fipspost_post:183: PASSED: (0 ms) - fipspost_post_kdf_ctr_cmac
+FIPSPOST_USER [1549395672] fipspost_post:184: PASSED: (0 ms) - fipspost_post_aes_gcm
+FIPSPOST_USER [1549421669] fipspost_post:185: PASSED: (0 ms) - fipspost_post_aes_xts
+FIPSPOST_USER [1549448439] fipspost_post:186: PASSED: (0 ms) - fipspost_post_tdes_ecb
+FIPSPOST_USER [1549473711] fipspost_post:187: PASSED: (0 ms) - fipspost_post_drbg_ctr
+FIPSPOST_USER [1550518307] fipspost_post:189: PASSED: (53 ms) - fipspost_post_ffdh
+FIPSPOST_USER [1551163435] fipspost_post:190: PASSED: (32 ms) - fipspost_post_rsa_enc_dec
+FIPSPOST_USER [1551188065] fipspost_post:191: PASSED: (0 ms) - fipspost_post_shake
+FIPSPOST_USER [1551210942] fipspost_post:210: all tests PASSED (223 ms)
+Returned from calling the FIPS_POST function in the corecrypto.dylib: result = true
+XNU-EXIT: cc_fips_test pid=10 code=0 ns=0 sub=0x0 cs=0x22002301
+com.apple.xpc.launchd|1970-01-01 00:01:20.797304 (keybag) <Notice>: Doing boot task
+****** DEVICE HAS EPHEMERAL DATA VOLUME, SKIP INIT ****
+XNU-EXIT: keybagd pid=11 code=0 ns=0 sub=0x0 cs=0xa2002b09
+com.apple.xpc.launchd|1970-01-01 00:01:20.975439 (usermanagerd) <Notice>: Doing boot task
+****** DEVICE HAS EPHEMERAL DATA VOLUME, SKIP INIT ****
+XNU-EXIT: usermanagerd pid=12 code=0 ns=0 sub=0x0 cs=0x22002b09
+com.apple.xpc.launchd|1970-01-01 00:01:21.096674 (dirs_cleaner) <Notice>: Doing boot task
+Couldn't build index for com.apple.dirs_cleaner: Not eligible for acceleration
+XNU-EXIT: dirs_cleaner pid=13 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: xpcroleaccountd pid=14 code=0 ns=0 sub=0x0 cs=0x22002301
+Couldn't build index for com.apple.init_featureflags: Not eligible for acceleration
+[System Event] [1563006447] [INFO] [Subsystem: launchd] [Event: exclaves-boot] Doing boot task
+[System Event] [1563043895] [INFO] [Subsystem: launchd] [Event: fsck] Doing boot task
+[System Event] [1563756594] [INFO] [Subsystem: launchd] [Event: mount-phase-1] Doing boot task
+[System Event] [1563792551] [INFO] [Subsystem: launchd] [Event: data-protection] Doing boot task
+[System Event] [1563947012] [INFO] [Subsystem: launchd] [Event: finish-obliteration] Doing boot task
+[System Event] [1564323848] [INFO] [Subsystem: launchd] [Event: detect-installed-roots] Doing boot task
+[System Event] [1564495039] [INFO] [Subsystem: launchd] [Event: commit-boot-mode] Doing boot task
+[System Event] [1565097398] [INFO] [Subsystem: launchd] [Event: restore-datapartition] Doing boot task
+[System Event] [1565308049] [INFO] [Subsystem: launchd] [Event: restore-datapartition] optional boot task not present
+[System Event] [1565347011] [INFO] [Subsystem: launchd] [Event: mount-phase-2] Doing boot task
+[System Event] [1565920063] [INFO] [Subsystem: launchd] [Event: init-with-data-volume] Doing boot task
+[System Event] [1566296835] [INFO] [Subsystem: launchd] [Event: fixup-mobile-tmp] Doing boot task
+[System Event] [1566452838] [INFO] [Subsystem: launchd] [Event: fixup-mobile-tmp] /private/var/mobile/tmp already exists, skipping
+[System Event] [1566494483] [INFO] [Subsystem: launchd] [Event: fixup-mobile-tmp] Finished boot task
+[System Event] [1566650769] [INFO] [Subsystem: launchd] [Event: MSUEarlyBootTask] Doing boot task
+[System Event] [1566690123] [INFO] [Subsystem: launchd] [Event: fips] Doing boot task
+[System Event] [1566844724] [INFO] [Subsystem: launchd] [Event: keybag] Doing boot task
+[System Event] [1568175700] [INFO] [Subsystem: launchd] [Event: usermanagerd] Doing boot task
+[System Event] [1568329858] [INFO] [Subsystem: launchd] [Event: dirs_cleaner] Doing boot task
+com.apple.xpc.launchd|1970-01-01 00:01:21.130850 <Notice>: launchd logging initialized. name: com.apple.xpc.launchd pid: 1
+com.apple.xpc.launchd|1970-01-01 00:01:21.130865 (xpcroleaccountd) <Notice>: Doing boot task
+[System Event] [1568670247] [INFO] [Subsystem: launchd] [Event: xpcroleaccountd] Doing boot task
+com.apple.xpc.launchd|1970-01-01 00:01:21.164848 (init_featureflags) <Notice>: Doing boot task
+[System Event] [1568985699] [INFO] [Subsystem: launchd] [Event: init_featureflags] Doing boot task
+XNU-EXIT: init_featureflag pid=15 code=0 ns=0 sub=0x0 cs=0x22002301
+com.apple.xpc.launchd|1970-01-01 00:01:22.114054 (auearlyboot) <Notice>: Doing boot task
+auearlyboot: -[FudEarlyBoot doFUDEarlyBoot:](): Starting Early Boot
+[System Event] [1578023947] [INFO] [Subsystem: launchd] [Event: auearlyboot] Doing boot task
+auearlyboot: -[AppleFirmwareUpdateController getEarlyBootListInternal:]: Pending critical earlyBoot entries (
+)
+auearlyboot: No Early Boot Accessories
+auearlyboot: -[FudEarlyBoot calculateTimeTakenForEarlyBootEntries] Time Taken to wait for critical earlyBoot entries: 0.000000 sec
+auearlyboot: -[FudEarlyBoot doFUDEarlyBoot:](): End Early Boot
+auearlyboot: Exitng Early Boot
+XNU-EXIT: auearlyboot pid=16 code=0 ns=0 sub=0x0 cs=0x22002301
+com.apple.xpc.launchd|1970-01-01 00:01:22.207172 (tzinit) <Notice>: Doing boot task
+Couldn't build index for com.apple.tzinit: Not eligible for acceleration
+tzinit: Unable to locate data; resetting to system partition: No such file or directory
+XNU-EXIT: tzinit pid=17 code=0 ns=0 sub=0x0 cs=0x22002301
+[System Event] [1579082683] [INFO] [Subsystem: launchd] [Event: tzinit] Doing boot task
+XNU-EXIT: FinishRestoreFro pid=18 code=0 ns=0 sub=0x0 cs=0xa2002b09
+XNU-EXIT: finish_demo_rest pid=19 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: sysstatuscheck pid=20 code=256 ns=0 sub=0x0 cs=0x22002301
+Couldn't build index for com.apple.prng_seedctl: Not eligible for acceleration
+kern.prng.user_reseed_count: (-1) (2) No such file or directory
+failed to load kernel prng seed: (-76) (2) No such file or directory
+failed to load virtual random: (-147) (-536870212)
+XNU-EXIT: prng_seedctl pid=21 code=3328 ns=0 sub=0x0 cs=0x22002301
+0 Found valid port: 7683 Valid: 1
+1 Found valid port: 0 Valid: 0
+2 Found valid port: 0 Valid: 0
+Using default cache paths
+Code: /System/Library/xpc/launchd.plist Sig: /System/Library/xpc/launchd.plist.sig
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Process 22 is checking if a cdhash is in the trust cache
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Returning IOReturn 0x0 to process 22
+cdhash: {length = 20, bytes = 0x1dceadc254af12d78ea5ac8e8c6458dfdae5470e} is trusted
+Attached signature to file, checking ...
+Trying to send bytes to launchd: 7683 4096
+Sending validated cache to launchd
+Cache sent to launchd successfully
+XNU-EXIT: launchd_cache_lo pid=22 code=0 ns=0 sub=0x0 cs=0x22002301
+Couldn't build index for com.apple.init_exclavekit: Not eligible for acceleration
+AMFI: Launch Constraint Violation (not enforcing), error info: c[6]p[2]m[3]e[255], (Process was launched as a system service unexpectedly but met System Service constraints) launching proc[vc: 1 pid: 23]: /usr/libexec/init_exclavekit, launch type 1, failure proc [vc: 1 pid: 1]: /sbin/launchd
+XNU-EXIT: init_exclavekit pid=23 code=0 ns=0 sub=0x0 cs=0x22002301
+com.apple.xpc.launchd|1969-12-31 16:01:22.243501 (finish-restore) <Notice>: Doing boot task
+[System Event] [1591460321] [INFO] [Subsystem: launchd] [Event: finish-restore] Doing boot task
+com.apple.xpc.launchd|1969-12-31 16:01:22.266948 (finish-demo-restore) <Notice>: Doing boot task
+[System Event] [1595559357] [INFO] [Subsystem: launchd] [Event: finish-demo-restore] Doing boot task
+com.apple.xpc.launchd|1969-12-31 16:01:22.291253 (sysstatuscheck) <Notice>: Doing boot task
+[System Event] [1597726291] [INFO] [Subsystem: launchd] [Event: sysstatuscheck] Doing boot task
+com.apple.xpc.launchd|1969-12-31 16:01:22.311879 (prng_seedctl) <Notice>: Doing boot task
+[System Event] [1598475689] [INFO] [Subsystem: launchd] [Event: prng_seedctl] Doing boot task
+com.apple.xpc.launchd|1969-12-31 16:01:22.341416 (launchd_cache_loader) <Notice>: Doing boot task
+[System Event] [1598713522] [INFO] [Subsystem: launchd] [Event: launchd_cache_loader] Doing boot task
+com.apple.xpc.launchd|1969-12-31 16:01:22.590202 (workload-properties-init) <Notice>: Doing boot task
+[System Event] [1598954148] [INFO] [Subsystem: launchd] [Event: workload-properties-init] Doing boot task
+com.apple.xpc.launchd|1969-12-31 16:01:22.590337 (init-exclavekit) <Notice>: Doing boot task
+[System Event] [1599198922] [INFO] [Subsystem: launchd] [Event: init-exclavekit] Doing boot task
+com.apple.xpc.launchd|1969-12-31 16:01:22.940730 (boot) <Notice>: Early boot complete. Continuing system boot.
+[System Event] [1599522737] [INFO] [Subsystem: launchd] [Event: boot] Early boot complete. Continuing system boot.
+Couldn't build index for com.apple.distnoted: Not eligible for acceleration
+amfid[47] triggered unnest of range 0x202200000->0x202400000 of DYLD shared region in VM map 0x5b15b05e08bc6aff. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+amfid[47] triggered unnest of range 0x202400000->0x207600000 of DYLD shared region in VM map 0x5b15b05e08bc6aff. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+KextLog: driverkitd is not active
+KextLog: Loading FileSet KC(s)
+KextLog: driverkitd is active
+XNU-TRAP: pc=0x100695b0c lr=0x100695b0c esr=0xf2000001 tid=348
+XNU-DYLD-IMAGE: watchdogd pc=0x100695b0c /usr/libexec/watchdogd+0xab0c load=0x10068b000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x100695b0c file=/usr/libexec/watchdogd off=0xab0c map=0x10068b000+0x10000
+XNU-EXIT: watchdogd pid=52 code=5 ns=2 sub=0x5 cs=0x22002301
+MobileGestaltHel[97] triggered unnest of range 0x202200000->0x202400000 of DYLD shared region in VM map 0x5b15b05e08bc8c3f. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+MobileGestaltHel[97] triggered unnest of range 0x202400000->0x207600000 of DYLD shared region in VM map 0x5b15b05e08bc8c3f. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+XNU-TRAP: pc=0x1dd84e4f8 lr=0x1dd84e4cc esr=0xf2000001 tid=481
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1dd84e4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1dd831000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1dd84e4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=102 code=5 ns=2 sub=0x5 cs=0x22012301
+static IOReturn IOMobileFramebufferUserClient::s_map_display_type(IOMobileFramebufferUserClient *, void *, IOExternalMethodArguments *) UserClient display type is 0 
+text-fixup: BTAudioHALPlugin+0x38bec (8 bytes) applied
+XNU-EXIT: bluetoothd pid=81 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1dd84e4f8 lr=0x1dd84e4cc esr=0xf2000001 tid=606
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1dd84e4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1dd831000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1dd84e4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=114 code=5 ns=2 sub=0x5 cs=0x22012301
+XNU-TRAP: pc=0x1dd84e4f8 lr=0x1dd84e4cc esr=0xf2000001 tid=611
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1dd84e4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1dd831000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1dd84e4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=115 code=5 ns=2 sub=0x5 cs=0x22012301
+XNU-EXIT: DumpPanic pid=48 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=117 code=0 ns=0 sub=0x0 cs=0x22002301
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Process 98 is checking if a cdhash is in the trust cache
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Returning IOReturn 0x0 to process 98
+XNU-EXIT: IOMFB_FDR_Loader pid=85 code=256 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: com.apple.datami pid=101 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=80 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1dd84e4f8 lr=0x1dd84e4cc esr=0xf2000001 tid=711
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1dd84e4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1dd831000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1dd84e4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=126 code=5 ns=2 sub=0x5 cs=0x22012301
+XNU-EXIT: bluetoothd pid=130 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=120 code=0 ns=0 sub=0x0 cs=0x22002301
+ifnet_attach: Waiting for all kernel threads created for interface utun0 to get scheduled at least once.
+ifnet_attach: All kernel threads created for interface utun0 have been scheduled at least once. Proceeding.
+_dlil_attach_flowswitch_nexus: not attaching flowswitch to utun0
+tccd[39] triggered unnest of range 0x202200000->0x202400000 of DYLD shared region in VM map 0x5b15b05d2272d2df. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+tccd[39] triggered unnest of range 0x202400000->0x207600000 of DYLD shared region in VM map 0x5b15b05d2272d2df. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+tx_flush:1338: disk5 xid 28 tx stats: # 20 owait 0 0us finish 20 bar2 20 f 3 enter 297 fq 8 20 173us close 0us prep 885us flush 1040us
+XNU-EXIT: fairplayd.A2 pid=132 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1dd84e4f8 lr=0x1dd84e4cc esr=0xf2000001 tid=890
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1dd84e4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1dd831000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1dd84e4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=140 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[140] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=141 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x10061eb0c lr=0x10061eb0c esr=0xf2000001 tid=555
+XNU-DYLD-IMAGE: watchdogd pc=0x10061eb0c /usr/libexec/watchdogd+0xab0c load=0x100614000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x10061eb0c file=/usr/libexec/watchdogd off=0xab0c map=0x100614000+0x10000
+XNU-EXIT: watchdogd pid=99 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[99] crashed: watchdogd. Too many corpses being created.
+request_power_change second_external 0 powerstate1 fdisplaytype 0
+DISPLAY: swap accepted=1 reason=0 request=0xfffffff521bcc000 surface=0xfffffff520f72480 req_surfaces=fffffff520f72480,0,0,0

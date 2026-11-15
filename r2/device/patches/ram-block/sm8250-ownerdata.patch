@@ -1,0 +1,38 @@
+--- a/NativeRamBlock.cpp
++++ b/NativeRamBlock.cpp
+@@ -98,8 +98,20 @@
+         overlayBits = static_cast<uint8_t *>(IOMallocZero(bb * persist::kBlock));
+         stage = static_cast<uint8_t *>(IOMallocZero(kStagePages * persist::kBlock));
+         StoreOps ops;
+-        persist::Open result = overlayBits && stage ? overlay.open(ops, pages, seedHash, mode == 1, overlayBits, discardRequested())
+-                                                          : persist::Open::Failed;
++        // A blank store may be initialized. Preserve foreign, stale, and damaged stores.
++        bool safe = overlayBits && stage && ops.read(0, 1, stage);
++        if (safe && persist::checkHeader(stage, pages, seedHash, nullptr)) {
++          const auto zeroBlock = [](const uint8_t *block) {
++            for (unsigned i = 0; i < persist::kBlock; ++i)
++              if (block[i]) return false;
++            return true;
++          };
++          safe = zeroBlock(stage);
++          for (uint64_t b = 1; safe && b <= bb; ++b)
++            safe = ops.read(b, 1, stage) && zeroBlock(stage);
++        }
++        persist::Open result = safe ? overlay.open(ops, pages, seedHash, mode == 1, overlayBits)
++                                    : persist::Open::Failed;
+         native_data_persist_header = static_cast<uint32_t>(overlay.header);
+         if (result == persist::Open::Failed) {
+           native_data_persist_state = 4;
+@@ -141,6 +153,12 @@
+         }
+         native_data_persist_present = overlay.present;
+         native_data_persist_gpt_after = native_ufs_store_gpt_check();
++        if (native_data_persist_gpt || native_data_persist_gpt_after)
++          native_data_persist_state = 4;
++        IOLog("UFS-DATA overlay state=%u header=%u gpt=%u/%u pages=%llu present=%llu\n",
++              native_data_persist_state, native_data_persist_header,
++              native_data_persist_gpt, native_data_persist_gpt_after,
++              pages, overlay.present);
+       }
+     }
+     IOLockUnlock(gate);

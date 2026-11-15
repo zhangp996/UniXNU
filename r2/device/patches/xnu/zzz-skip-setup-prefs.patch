@@ -1,0 +1,129 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+index 356bd57..e3f8089 100644
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -7727,6 +7727,116 @@ native_launchd_overlay(const char *name, const char *body, size_t length)
+ 	}
+ }
+ 
++
++/* Runtime equivalent of --skip-setup: seed-data-skip-setup.py merges these preference domains into
++ * the Data seed before boot.  The Linux build host cannot run hdiutil, so the same five domains are
++ * written here instead, before launchd starts, into /private/var/mobile/Library/Preferences. */
++static void
++native_pref_write(const char *name, const char *body, size_t length)
++{
++	static const char dir[] = "/private/var/mobile/Library/Preferences";
++	vfs_context_t ctx = vfs_context_current();
++	vnode_t vp = NULLVP, dvp = NULLVP;
++	char path[160];
++	int error;
++
++	native_gpu_addon_mkdir("/private/var", "mobile", ctx);
++	native_gpu_addon_mkdir("/private/var/mobile", "Library", ctx);
++	native_gpu_addon_mkdir("/private/var/mobile/Library", "Preferences", ctx);
++	if (vnode_lookup(dir, 0, &dvp, ctx)) {
++		printf("skip-setup: %s missing\n", dir);
++		return;
++	}
++	vnode_put(dvp);
++	if (snprintf(path, sizeof(path), "%s/%s.plist", dir, name) >= (int)sizeof(path)) {
++		return;
++	}
++	error = vnode_open(path, FWRITE | O_CREAT | O_TRUNC, 0644, 0, &vp, ctx);
++	if (error) {
++		printf("skip-setup: %s open %d\n", name, error);
++		return;
++	}
++	(void)vn_rdwr(UIO_WRITE, vp, (caddr_t)(uintptr_t)body, (int)length, 0, UIO_SYSSPACE,
++	    IO_NODELOCKED, vfs_context_ucred(ctx), NULL, current_proc());
++	(void)VNOP_FSYNC(vp, MNT_WAIT, ctx);
++	(void)vnode_close(vp, FWRITE, ctx);
++	printf("skip-setup: %s written\n", name);
++}
++
++static void
++native_skip_setup_write(void)
++{
++	/* setup-skip=0 leaves the setup state alone so the Hello / Setup Assistant path can run;
++	 * the CI payload writes the same preferences ahead of time. */
++	{
++		uint32_t skip = 1;
++		if (PE_parse_boot_argn("setup-skip", &skip, sizeof(skip)) && skip == 0) {
++			return;
++		}
++	}
++	static const char pb[] =
++	    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
++	    "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
++	    "<plist version=\"1.0\"><dict>"
++	    "<key>SetupDone</key><true/>"
++	    "<key>SetupFinishedAllSteps</key><true/>"
++	    "<key>SetupVersion</key><integer>11</integer>"
++	    "<key>daemonizeNeedsToRun</key><false/>"
++	    "</dict></plist>\n";
++	static const char nbd[] =
++	    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
++	    "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
++	    "<plist version=\"1.0\"><dict>"
++	    "<key>ShouldRunDiagnosticsMiniBuddy</key><false/>"
++	    "<key>ShouldRunHSA2MiniBuddy</key><false/>"
++	    "<key>ShouldRunKeychainSyncMiniBuddy</key><false/>"
++	    "<key>ShouldRunMesaMiniBuddy</key><false/>"
++	    "<key>ShouldRunPaymentMiniBuddy</key><false/>"
++	    "<key>ShouldRunStandardMiniBuddy</key><false/>"
++	    "<key>SilentICDPUpgrade</key><false/>"
++	    "</dict></plist>\n";
++	static const char sb[] =
++	    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
++	    "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
++	    "<plist version=\"1.0\"><dict>"
++	    "<key>BKNoWatchdogs</key><true/>"
++	    "<key>FBLaunchWatchdogExceptions</key><dict><key>com.apple.purplebuddy</key><real>100</real></dict>"
++	    "<key>MCForceShowCloudConfigurationUI</key><false/>"
++	    "<key>SBDisableAutoDim</key><true/>"
++	    "<key>SBDontDimOrLockOnAC</key><true/>"
++	    "<key>SBDisableIdleSleep</key><true/>"
++	    "</dict></plist>\n";
++	static const char mg[] =
++	    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
++	    "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
++	    "<plist version=\"1.0\"><dict>"
++	    "<key>LastSystemVersion</key><string>21H461</string>"
++	    "<key>DMUserDataDisposition</key><dict><key>SyntheticDidUpgrade</key><false/>"
++	    "<key>buildVersion</key><string>21H461</string></dict>"
++	    "</dict></plist>\n";
++	static const char mc[] =
++	    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
++	    "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
++	    "<plist version=\"1.0\"><dict>"
++	    "<key>LockdownActivationIndicatesCloudConfigurationAvailable</key><false/>"
++	    "</dict></plist>\n";
++
++	/* The official tool also creates these four directories under /private/var/containers. */
++	native_gpu_addon_mkdir("/private/var", "containers", vfs_context_current());
++	native_gpu_addon_mkdir("/private/var/containers", "Bundle", vfs_context_current());
++	native_gpu_addon_mkdir("/private/var/containers", "Data", vfs_context_current());
++	native_gpu_addon_mkdir("/private/var/containers/Data", "System", vfs_context_current());
++	native_gpu_addon_mkdir("/private/var/containers", "Shared", vfs_context_current());
++	native_gpu_addon_mkdir("/private/var/containers/Shared", "SystemGroup", vfs_context_current());
++	native_gpu_addon_mkdir("/private/var/containers", "Temp", vfs_context_current());
++
++	native_pref_write("com.apple.purplebuddy", pb, sizeof(pb) - 1);
++	native_pref_write("com.apple.purplebuddy.notbackedup", nbd, sizeof(nbd) - 1);
++	native_pref_write("com.apple.springboard", sb, sizeof(sb) - 1);
++	native_pref_write("com.apple.migration", mg, sizeof(mg) - 1);
++	native_pref_write("com.apple.managedconfiguration.notbackedup", mc, sizeof(mc) - 1);
++}
++
+ static void
+ native_gpu_addon_prepare(proc_t p, user_addr_t scratch)
+ {
+@@ -7776,6 +7866,7 @@ native_gpu_addon_prepare(proc_t p, user_addr_t scratch)
+ 		    "<key>POSIXSpawnType</key><string>Interactive</string>"
+ 		    "</dict></plist>\n";
+ 		native_launchd_overlay("com.unixnu.chronodboot", boot_job, sizeof(boot_job) - 1);
++		native_skip_setup_write();
+ 		}
+ 	}
+ 	native_gpu_addon_mount(p, scratch, 0x600, daemons_source, sizeof(daemons_source), daemons_point, sizeof(daemons_point),

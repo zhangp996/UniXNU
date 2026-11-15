@@ -1,0 +1,24 @@
+--- a/osfmk/ipc/mach_msg.c
++++ b/osfmk/ipc/mach_msg.c
+@@ -858,6 +858,21 @@
+ 		mr = mach_msg_copyin_user_header(&send_uctx, options);
+ 		if (mr != MACH_MSG_SUCCESS) {
+ 			return mr;
+ 		}
++		/* msgtrace: log the header of every send made by one process, to see whether launchd is
++		 * ever asked for a service (boot argument msg-trace=<pid>). */
++		{
++			extern int PE_parse_boot_argn(const char *, void *, unsigned int);
++			uint32_t trace_pid = 0;
++			if (PE_parse_boot_argn("msg-trace", &trace_pid, sizeof(trace_pid)) && trace_pid != 0 &&
++			    proc_getpid(current_proc()) == (int)trace_pid) {
++				mach_msg_user_header_t *hdr = &send_uctx.send_header;
++				printf("MSGTRACE: id=%u size=%u remote=%x bits=%x\n",
++				    (unsigned)hdr->msgh_id, (unsigned)hdr->msgh_size,
++				    (unsigned)hdr->msgh_remote_port, (unsigned)hdr->msgh_bits);
++			}
++		}
+ 
+ 		mr = mach_msg_trap_send(&send_uctx, options,
+ 		    args->timeout, args->priority);
+ 	}

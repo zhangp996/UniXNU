@@ -1,0 +1,31 @@
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+int _check_cdhash_in_trustcache(struct proc *, user_addr_t): Only allowed processes can check the trustcache
+KextLog: driverkitd is not active
+KextLog: Loading FileSet KC(s)
+KextLog: driverkitd is active
+amfid[47] triggered unnest of range 0x1e9000000->0x1e9200000 of DYLD shared region in VM map 0xc9f76a29c4ae5b2b. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+amfid[47] triggered unnest of range 0x1e9200000->0x1ee400000 of DYLD shared region in VM map 0xc9f76a29c4ae5b2b. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+XNU-EXIT: IOMFB_FDR_Loader pid=85 code=256 ns=0 sub=0x0
+XNU-EXIT: watchdogd pid=52 code=5 ns=2 sub=0x5
+XNU-EXIT: keybagd pid=45 code=9 ns=1 sub=0x4
+XNU-EXIT: rapportd pid=78 code=9 ns=1 sub=0x4
+XNU-EXIT: AppleCredentialM pid=75 code=9 ns=1 sub=0x4
+XNU-EXIT: mobiletimerd pid=50 code=9 ns=1 sub=0x4
+XNU-EXIT: amfid pid=47 code=9 ns=1 sub=0x4
+XNU-EXIT: sleepd pid=68 code=9 ns=1 sub=0x4
+MobileGestaltHel[95] triggered unnest of range 0x1e9000000->0x1e9200000 of DYLD shared region in VM map 0xc9f76a29c4b6b5eb. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+MobileGestaltHel[95] triggered unnest of range 0x1e9200000->0x1ee400000 of DYLD shared region in VM map 0xc9f76a29c4b6b5eb. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+XNU-EXIT: rapportd pid=96 code=9 ns=1 sub=0x4
+XNU-EXIT: securityd pid=104 code=9 ns=1 sub=0x4

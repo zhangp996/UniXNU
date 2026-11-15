@@ -1,0 +1,14 @@
+diff --git a/osfmk/ipc/ipc_pset.c b/osfmk/ipc/ipc_pset.c
+index 33bc3f8..75d9c7b 100644
+--- a/osfmk/ipc/ipc_pset.c
++++ b/osfmk/ipc/ipc_pset.c
+@@ -765,6 +765,9 @@ filt_machportattach(struct knote *kn, __unused struct kevent_qos_s *kev)
+ 
+ 	if (bits & MACH_PORT_TYPE_RECEIVE) {
+ 		kn->kn_filtid = EVFILTID_MACH_PORT;
++		/* Board bring-up: which ports are ever armed for kqueue.  Only the identity is printed, so this
++		 * needs no process ABI and no lock beyond the one the lookup already took. */
++		printf("KNOTE attach name=%x port=%p\n", (unsigned)name, (void *)ip_object_to_port(object));
+ 		return filt_portattach(kn, ip_object_to_port(object));
+ 	}
+ 

@@ -1,0 +1,21 @@
+XNU-EXIT: liveactivitiesd pid=101 code=5 ns=2 sub=0x5 cs=0x22012301
+XNU-EXIT: liveactivitiesd pid=107 code=5 ns=2 sub=0x5 cs=0x22012301
+XNU-EXIT: SpringBoard pid=27 code=5 ns=2 sub=0x5 cs=0x22002301
+XNU-EXIT: liveactivitiesd pid=115 code=5 ns=2 sub=0x5 cs=0x22012301
+tx_flush:1338: disk5 xid 28 tx stats: # 20 owait 0 0us finish 20 bar2 20 f 1 enter 187 fq 6 17 158us close 0us prep 276us flush 564us
+text-fixup: BTAudioHALPlugin+0x38bec (8 bytes) applied
+XNU-EXIT: SpringBoard pid=117 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[117] crashed: SpringBoard. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=81 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: liveactivitiesd pid=119 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[119] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=122 code=0 ns=0 sub=0x0 cs=0x22002301
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Process 103 is checking if a cdhash is in the trust cache
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Returning IOReturn 0x0 to process 103
+XNU-EXIT: SpringBoard pid=125 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[125] crashed: SpringBoard. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=126 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=112 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: liveactivitiesd pid=128 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[128] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: fairplayd.A2 pid=127 code=0 ns=0 sub=0x0 cs=0x22002301

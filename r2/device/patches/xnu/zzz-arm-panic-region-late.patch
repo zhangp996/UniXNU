@@ -1,0 +1,20 @@
+--- a/pexpert/arm/pe_init.c
++++ b/pexpert/arm/pe_init.c
+@@ -202,6 +202,17 @@
+ {
+ 	static int last_console = -1;
+ 
++	/*
++	 * Device: the device-tree panic region can only be mapped once the kernel VM
++	 * exists, and check_for_panic_log() first runs from PE_create_console(),
++	 * before that. Arm it again on the later console calls so a panic below this
++	 * point (including the deferred frame-buffer mapping) leaves its text in DRAM
++	 * for PanicLogDxe to print on the next boot.
++	 */
++	if (kernel_map != VM_MAP_NULL) {
++		check_for_panic_log();
++	}
++
+ 	if (info && (info != &PE_state.video)) {
+ 		info->v_scale = PE_state.video.v_scale;
+ 	}

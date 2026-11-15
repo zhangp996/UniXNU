@@ -1,0 +1,29 @@
+XNU-EXIT: liveactivitiesd pid=118 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[118] crashed: liveactivitiesd. Too many corpses being created.
+text-fixup: BTAudioHALPlugin+0x38bec (8 bytes) applied
+tx_flush:1338: disk5 xid 28 tx stats: # 20 owait 0 0us finish 20 bar2 20 f 1 enter 202 fq 2 11 92us close 0us prep 305us flush 598us
+XNU-EXIT: bluetoothd pid=81 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=121 code=0 ns=0 sub=0x0 cs=0x22002301
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Process 101 is checking if a cdhash is in the trust cache
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Returning IOReturn 0x0 to process 101
+XNU-EXIT: liveactivitiesd pid=126 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[126] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: SpringBoard pid=128 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[128] crashed: SpringBoard. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=130 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: DumpPanic pid=48 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: SpringBoard pid=136 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[136] crashed: SpringBoard. Too many corpses being created.
+XNU-EXIT: liveactivitiesd pid=137 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[137] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: fairplayd.A2 pid=117 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=139 code=0 ns=0 sub=0x0 cs=0x22002301
+tccd[39] triggered unnest of range 0x202c00000->0x202e00000 of DYLD shared region in VM map 0xa43c6213f3ddfd8f. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+tccd[39] triggered unnest of range 0x202e00000->0x208200000 of DYLD shared region in VM map 0xa43c6213f3ddfd8f. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+XNU-EXIT: fairplayd.A2 pid=138 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: SpringBoard pid=140 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[140] crashed: SpringBoard. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=148 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=141 code=0 ns=0 sub=0x0 cs=0x22002301
+Couldn't build index for com.apple.aggregated: Not eligible for acceleration
+XNU-EXIT: com.apple.datami pid=103 code=0 ns=0 sub=0x0 cs=0x22002301

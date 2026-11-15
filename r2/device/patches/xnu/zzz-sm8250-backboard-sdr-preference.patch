@@ -1,0 +1,21 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -7885,7 +7885,18 @@
+ 	native_pref_write("com.apple.purplebuddy.notbackedup", nbd, sizeof(nbd) - 1);
+ 	native_pref_write("com.apple.springboard", sb, sizeof(sb) - 1);
+ 	native_pref_write("com.apple.migration", mg, sizeof(mg) - 1);
++	/* Original CoreAnimation reads this Boolean from backboardd preferences; false keeps the 8-bit BGRA
++	 * (SDR) framebuffer instead of a deep/10-bit one (reference r73). */
++	static const char bbd[] =
++	    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
++	    "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
++	    "<plist version=\"1.0\"><dict><key>CAEnableDeepFramebuffer</key><false/></dict></plist>\n";
+ 	native_pref_write("com.apple.managedconfiguration.notbackedup", mc, sizeof(mc) - 1);
++	{
++		unsigned sdr = 0;
++		if (PE_parse_boot_argn("smgop", &sdr, sizeof(sdr)) && sdr == 1)
++			native_pref_write("com.apple.backboardd", bbd, sizeof(bbd) - 1);
++	}
+ }
+ 
+ static void

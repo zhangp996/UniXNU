@@ -1,0 +1,123 @@
+capture: opening COM14 at 2026-11-11T19:39:40.3088872+08:00
+request_power_change second_external 0 powerstate1 fdisplaytype 0
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=260
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=27 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[27] crashed: SpringBoard. Too many corpses being created.
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=963
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=150 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[150] crashed: SpringBoard. Too many corpses being created.
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=1008
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=152 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[152] crashed: SpringBoard. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=153 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=149 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1c2aca4f8 lr=0x1c2aca4cc esr=0xf2000001 tid=1028
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1c2aca4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1c2aad000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1c2aca4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=154 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[154] crashed: liveactivitiesd. Too many corpses being created.
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=1050
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=156 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[156] crashed: SpringBoard. Too many corpses being created.
+tx_flush:1338: disk5 xid 48 tx stats: # 40 owait 0 0us finish 40 bar2 40 f 3 enter 29 fq 6 11 147us close 0us prep 259us flush 520us
+XNU-EXIT: fairplayd.A2 pid=155 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: com.apple.datami pid=128 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: mtmergeprops pid=79 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=157 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=1080
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=158 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[158] crashed: SpringBoard. Too many corpses being created.
+XNU-TRAP: pc=0x1c2aca4f8 lr=0x1c2aca4cc esr=0xf2000001 tid=1093
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1c2aca4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1c2aad000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1c2aca4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=159 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[159] crashed: liveactivitiesd. Too many corpses being created.
+ifnet_attach: Waiting for all kernel threads created for interface utun0 to get scheduled at least once.
+ifnet_attach: All kernel threads created for interface utun0 have been scheduled at least once. Proceeding.
+_dlil_attach_flowswitch_nexus: not attaching flowswitch to utun0
+Couldn't build index for com.apple.aggregated: Not eligible for acceleration
+XNU-EXIT: fairplayd.A2 pid=161 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=1146
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=164 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[164] crashed: SpringBoard. Too many corpses being created.
+tx_flush:1338: disk5 xid 68 tx stats: # 60 owait 0 0us finish 60 bar2 60 f 3 enter 149 fq 4 11 117us close 1us prep 911us flush 1074us
+XNU-EXIT: bluetoothd pid=166 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=1192
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=167 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[167] crashed: SpringBoard. Too many corpses being created.
+XNU-TRAP: pc=0x1c2aca4f8 lr=0x1c2aca4cc esr=0xf2000001 tid=1208
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1c2aca4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1c2aad000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1c2aca4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=169 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[169] crashed: liveactivitiesd. Too many corpses being created.
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=1231
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=172 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[172] crashed: SpringBoard. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=173 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=1265
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=175 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[175] crashed: SpringBoard. Too many corpses being created.
+XNU-TRAP: pc=0x1c2aca4f8 lr=0x1c2aca4cc esr=0xf2000001 tid=1279
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1c2aca4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1c2aad000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1c2aca4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=177 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[177] crashed: liveactivitiesd. Too many corpses being created.
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=1289
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=178 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[178] crashed: SpringBoard. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=179 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=170 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=1318
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=181 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[181] crashed: SpringBoard. Too many corpses being created.
+XNU-TRAP: pc=0x1c2aca4f8 lr=0x1c2aca4cc esr=0xf2000001 tid=1337
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1c2aca4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1c2aad000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1c2aca4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=182 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[182] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: fairplayd.A2 pid=180 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=1363
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=183 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[183] crashed: SpringBoard. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=184 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1c2aca4f8 lr=0x1c2aca4cc esr=0xf2000001 tid=1405
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1c2aca4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1c2aad000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1c2aca4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=187 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[187] crashed: liveactivitiesd. Too many corpses being created.
+XNU-TRAP: pc=0x1a05a4744 lr=0x1a05a4744 esr=0xf2000000 tid=1440
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a05a4744 /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0xf744 load=0x1a0595000 images=1236
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a05a4744 not in a file-backed range
+XNU-EXIT: SpringBoard pid=194 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[194] crashed: SpringBoard. Too many corpses being created.
+XNU-EXIT: fairplayd.A2 pid=186 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=195 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1c2aca4f8 lr=0x1c2aca4cc esr=0xf2000001 tid=1481
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1c2aca4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1c2aad000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1c2aca4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=197 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[197] crashed: liveactivitiesd. Too many corpses being created.

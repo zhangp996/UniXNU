@@ -1,0 +1,17 @@
+# Firmware build from the board's own DXE set, 2026-11-09
+# Host: WSL2 Ubuntu 22.04, UniXNU 8ec13bb1077502e53e8ba3b82c56842589b5c837
+# UEFI tree: fresh Mu-Silicium checkout + Platforms/OnePlus/instantnoodlepPkg
+#            + Binaries/instantnoodlep (93 modules extracted from this phone's xbl_a)
+
+build -p Platforms/OnePlus/instantnoodlepPkg/instantnoodlep.dsc -a AARCH64 -b DEBUG -t CLANGPDB \
+  -D FD_BASE=0x9f000000 -D FD_SIZE=0x300000 -D FD_BLOCKS=768 -D ENABLE_SECUREBOOT=1 \
+  -D DEVICE_MODEL=1 -D MEMORY_PROTECTION=TRUE -D SHIP_MODE=FALSE -D BUILDID_STRING=instantnoodlep-research
+
+Duplicates with the generic SiliciumPkg components were dropped by FILE_GUID (26 modules),
+leaving 67 board modules in the DSC/FDF.
+
+SILICIUM_UEFI.fd  3145728 bytes  sha256 188a52f64d33b1a24e6cabea70cbec1088b5d76a9c2125b7a29b7d99e7840c32
+
+Raw resources embedded from the phone FV: uefiplat.cfg, BDS_Menu.cfg, logo1.bmp,
+Panel_oppo19811_samsung_1440_3168_dsc_cmd.xml, Panel_oppo19065_samsung_1440_3168_dsc_cmd.xml.
+

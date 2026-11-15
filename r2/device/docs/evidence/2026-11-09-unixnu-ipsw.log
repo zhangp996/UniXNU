@@ -1,0 +1,21 @@
+# unixnu ipsw info / fetch, 2026-11-09
+# Host: WSL2 Ubuntu 22.04, UniXNU 8ec13bb1077502e53e8ba3b82c56842589b5c837
+# IPSW: /mnt/d/迅雷下载/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw
+
+17.7.11 (21H461) j120ap  local
+      557517  AOP
+     1094225  AVE
+   24102932  Ap,SystemVolumeCanonicalMetadata
+    3303014400  Cryptex1,SystemOS     044-76034-038.dmg
+       35260  DeviceTree            Firmware/all_flash/DeviceTree.j120ap.im4p
+    16238580  KernelCache           kernelcache.release.ipad7
+  5157406069  OS                    044-76040-038.dmg
+
+fetched:
+  out/ipsw/21H461/kernelcache.decompressed   46415872 bytes
+  out/ipsw/21H461/DeviceTree.j120ap.im4p        35260 bytes
+  out/ipsw/21H461/044-76040-038.dmg.trustcache  59519 bytes
+  out/ipsw/21H461/044-76034-038.dmg.trustcache   1871 bytes
+
+make-adt.py (dummy chip id, structural check):
+  ADT: /tmp/kernel.macho.adt (13852 bytes)

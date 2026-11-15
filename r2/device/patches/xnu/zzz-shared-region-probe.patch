@@ -1,0 +1,21 @@
+diff --git a/bsd/vm/vm_unix.c b/bsd/vm/vm_unix.c
+index 8696353..0b1777c 100644
+--- a/bsd/vm/vm_unix.c
++++ b/bsd/vm/vm_unix.c
+@@ -2746,7 +2746,15 @@ _shared_region_map_and_slide(
+ 	}
+ 
+ 	/* map the file(s) into that shared region's submap */
+-	kr = vm_shared_region_map_file(shared_region, files_count, sr_file_mappings);
++	{
++		/* Bring-up measurement: does dyld ever reach the shared-region mapping at all?  Every service
++		 * failing with the same status is what an unmapped shared region looks like. */
++		extern unsigned long native_sr_map_calls;
++		extern unsigned long native_sr_map_failures;
++		native_sr_map_calls++;
++		kr = vm_shared_region_map_file(shared_region, files_count, sr_file_mappings);
++		if (kr) native_sr_map_failures++;
++	}
+ 	if (kr != KERN_SUCCESS) {
+ 		SHARED_REGION_TRACE_ERROR(("shared_region: %p [%d(%s)] map(): "
+ 		    "vm_shared_region_map_file() failed kr=0x%x\n",

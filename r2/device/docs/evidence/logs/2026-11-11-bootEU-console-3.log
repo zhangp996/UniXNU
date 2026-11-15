@@ -1,0 +1,51 @@
+capture: opening COM14 at 2026-11-11T17:46:09.8037246+08:00
+XNU-TRAP: pc=0x10051db0c lr=0x10051db0c esr=0xf2000001 tid=1323
+XNU-DYLD-IMAGE: watchdogd pc=0x10051db0c /usr/libexec/watchdogd+0xab0c load=0x100513000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x10051db0c file=/usr/libexec/watchdogd off=0xab0c map=0x100513000+0x10000
+XNU-TRAP: pc=0x1c4f3e4f8 lr=0x1c4f3e4cc esr=0xf2000001 tid=1419
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1c4f3e4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1c4f21000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1c4f3e4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=196 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[196] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: watchdogd pid=177 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[177] crashed: watchdogd. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=199 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=194 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=204 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=201 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1009e8b0c lr=0x1009e8b0c esr=0xf2000001 tid=1462
+XNU-DYLD-IMAGE: watchdogd pc=0x1009e8b0c /usr/libexec/watchdogd+0xab0c load=0x1009de000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x1009e8b0c file=/usr/libexec/watchdogd off=0xab0c map=0x1009de000+0x10000
+XNU-EXIT: watchdogd pid=200 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[200] crashed: watchdogd. Too many corpses being created.
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Process 99 is checking if a cdhash is in the trust cache
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Returning IOReturn 0x0 to process 99
+XNU-EXIT: fairplayd.A2 pid=206 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1c4f3e4f8 lr=0x1c4f3e4cc esr=0xf2000001 tid=1518
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1c4f3e4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1c4f21000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1c4f3e4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=207 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[207] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=210 code=0 ns=0 sub=0x0 cs=0x22002301
+Couldn't build index for com.apple.coresymbolicationd: Not eligible for acceleration
+XNU-TRAP: pc=0x10042eb0c lr=0x10042eb0c esr=0xf2000001 tid=1543
+XNU-DYLD-IMAGE: watchdogd pc=0x10042eb0c /usr/libexec/watchdogd+0xab0c load=0x100424000 images=159
+XNU-TRAP: pc=0x1a2a272ec lr=0x1a2a272ec esr=0xf2000000 tid=1561
+XNU-DYLD-IMAGE: SpringBoard pc=0x1a2a272ec /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0x1e2ec load=0x1a2a09000 images=1235
+XNU-TRAP-IMAGE: SpringBoard pc=0x1a2a272ec not in a file-backed range
+XNU-EXIT: SpringBoard pid=214 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[214] crashed: SpringBoard. Too many corpses being created.
+XNU-TRAP-IMAGE: watchdogd pc=0x10042eb0c file=/usr/libexec/watchdogd off=0xab0c map=0x100424000+0x10000
+XNU-EXIT: watchdogd pid=205 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[205] crashed: watchdogd. Too many corpses being created.
+XNU-EXIT: fairplayd.A2 pid=213 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=216 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: corecaptured pid=150 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: com.apple.datami pid=198 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x100e4eb0c lr=0x100e4eb0c esr=0xf2000001 tid=1591
+XNU-DYLD-IMAGE: watchdogd pc=0x100e4eb0c /usr/libexec/watchdogd+0xab0c load=0x100e44000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x100e4eb0c file=/usr/libexec/watchdogd off=0xab0c map=0x100e44000+0x10000
+XNU-EXIT: watchdogd pid=215 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[215] crashed: watchdogd. Too many corpses being created.
+XNU-EXIT: fairplayd.A2 pid=218 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=221 code=0 ns=0 sub=0x0 cs=0x22002301

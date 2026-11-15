@@ -1,0 +1,16 @@
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -1871,6 +1871,13 @@
+ 
+ 	sync(p, (void *)NULL, (int *)NULL);
+ 
++#if XNU_QCOM_USB_DEBUG
++	{
++		extern void qcom_owner_report(void);
++		qcom_owner_report();
++	}
++#endif
++
+ 	if (p->p_exit_reason == OS_REASON_NULL) {
+ 		panic_with_options(0, NULL, DEBUGGER_OPTION_INITPROC_PANIC, "%s -- no exit reason available -- (signal %d, exit status %d %s)",
+ 		    prefix_str, WTERMSIG(rv), WEXITSTATUS(rv), ((proc_getcsflags(p) & CS_KILLED) ? "CS_KILLED" : ""));

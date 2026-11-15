@@ -1,0 +1,17 @@
+--- a/osfmk/arm64/sleh.c
++++ b/osfmk/arm64/sleh.c
+@@ -1231,6 +1231,14 @@
+ 	mach_msg_type_number_t     numcodes  = 2;
+ 
+ 	boot_progress_user_breakpoint(state, esr);
++	/* Bring-up: name the instruction that trapped.  SpringBoard and liveactivitiesd die of a SIGTRAP
++	 * whose exit reason carries no text, so the user PC is the only way to find the function -
++	 * symbolise it against the shared cache afterwards.  A Swift trap arrives here as ESR_EC_BRK_AARCH64,
++	 * not through handle_uncategorized. */
++	printf("XNU-TRAP: pc=0x%llx lr=0x%llx esr=0x%x tid=%llu\n",
++	    (unsigned long long)get_saved_state_pc(state),
++	    (unsigned long long)get_saved_state_lr(state), esr,
++	    (unsigned long long)thread_tid(current_thread()));
+ #if __has_feature(ptrauth_calls)
+ 	if (ESR_EC(esr) == ESR_EC_BRK_AARCH64 &&
+ 	    brk_comment_is_ptrauth(ISS_BRK_COMMENT(esr))) {

@@ -1,0 +1,39 @@
+diff --git a/bsd/kern/kern_exit.c b/bsd/kern/kern_exit.c
+index 427ab6c..9b8e293 100644
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -1878,14 +1878,26 @@ proc_handle_critical_exit(proc_t p, int rv)
+ 	}
+ #endif
+ 
+-	if (p->p_exit_reason == OS_REASON_NULL) {
+-		panic_with_options(0, NULL, DEBUGGER_OPTION_INITPROC_PANIC, "%s -- no exit reason available -- (signal %d, exit status %d %s)",
+-		    prefix_str, WTERMSIG(rv), WEXITSTATUS(rv), ((proc_getcsflags(p) & CS_KILLED) ? "CS_KILLED" : ""));
+-	} else {
+-		panic_with_options(0, NULL, DEBUGGER_OPTION_INITPROC_PANIC, "%s %s -- exit reason namespace %d subcode 0x%llx description: %." LAUNCHD_PANIC_REASON_STRING_MAXLEN "s",
+-		    ((proc_getcsflags(p) & CS_KILLED) ? "CS_KILLED" : ""),
+-		    prefix_str, p->p_exit_reason->osr_namespace, p->p_exit_reason->osr_code,
+-		    exit_reason_desc ? exit_reason_desc : "none");
++	/*
++	 * Bring-up: a userland service that exits is recorded, not fatal and not printed. Only the
++	 * initproc's exit stops the boot. Printing here would take the console locks while the
++	 * process lock is held, the lock order that stalls the board; the record is lock-free and
++	 * native-exit-report=1 turns it into one readable stop.
++	 */
++	{
++		extern void native_exit_note(const char *, int, int, int);
++		native_exit_note(prefix_str, proc_getpid(p), WTERMSIG(rv), WEXITSTATUS(rv));
++	}
++	if (p == initproc) {
++		if (p->p_exit_reason == OS_REASON_NULL) {
++			panic_with_options(0, NULL, DEBUGGER_OPTION_INITPROC_PANIC, "%s -- no exit reason available -- (signal %d, exit status %d %s)",
++			    prefix_str, WTERMSIG(rv), WEXITSTATUS(rv), ((proc_getcsflags(p) & CS_KILLED) ? "CS_KILLED" : ""));
++		} else {
++			panic_with_options(0, NULL, DEBUGGER_OPTION_INITPROC_PANIC, "%s %s -- exit reason namespace %d subcode 0x%llx description: %." LAUNCHD_PANIC_REASON_STRING_MAXLEN "s",
++			    ((proc_getcsflags(p) & CS_KILLED) ? "CS_KILLED" : ""),
++			    prefix_str, p->p_exit_reason->osr_namespace, p->p_exit_reason->osr_code,
++			    exit_reason_desc ? exit_reason_desc : "none");
++		}
+ 	}
+ }
+ 

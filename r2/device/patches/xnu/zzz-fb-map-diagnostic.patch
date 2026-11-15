@@ -1,0 +1,21 @@
+diff --git a/osfmk/console/video_console.c b/osfmk/console/video_console.c
+index 766f1cd..ec6e12d 100644
+--- a/osfmk/console/video_console.c
++++ b/osfmk/console/video_console.c
+@@ -2813,12 +2813,16 @@ initialize_screen(PE_Video * boot_vinfo, unsigned int op)
+ 	boolean_t graphics_now;
+ 	uint32_t delay;
+ 
++	kprintf("FB-DIAG: enter boot_vinfo=%p pa=0x%lx map=%p phase=%d\n", (void *)boot_vinfo,
++	    (unsigned long)deferred_fb_pa, (void *)kernel_map, (int)startup_phase);
+ 	if ((boot_vinfo == NULL) && (deferred_fb_pa != 0) && (kernel_map != VM_MAP_NULL) &&
+ 	    (startup_phase >= STARTUP_SUB_KMEM)) {
+ 		static PE_Video deferred_video;
+ 		vm_offset_t     virt;
+ 
+ 		virt = ml_io_map_unmappable(deferred_fb_pa, deferred_fb_len, VM_WIMG_WCOMB);
++		kprintf("FB-DIAG: map result virt=0x%lx len=0x%lx\n", (unsigned long)virt,
++		    (unsigned long)deferred_fb_len);
+ 		if (virt != 0) {
+ 			deferred_video.v_baseAddr = virt;
+ 			deferred_video.v_rowBytes = deferred_fb_rowbytes;

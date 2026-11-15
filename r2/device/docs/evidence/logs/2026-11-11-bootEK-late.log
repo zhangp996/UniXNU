@@ -1,0 +1,17 @@
+KextLog: driverkitd is not active
+KextLog: Loading FileSet KC(s)
+KextLog: driverkitd is active
+XNU-EXIT: IOMFB_FDR_Loader pid=85 code=256 ns=0 sub=0x0 cs=0x22002301
+MobileGestaltHel[92] triggered unnest of range 0x1e7e00000->0x1e8000000 of DYLD shared region in VM map 0x854d50b46fd58ee7. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+MobileGestaltHel[92] triggered unnest of range 0x1e8000000->0x1ed200000 of DYLD shared region in VM map 0x854d50b46fd58ee7. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+XNU-EXIT: watchdogd pid=52 code=5 ns=2 sub=0x5 cs=0x22002301
+XNU-EXIT: watchdogd pid=94 code=5 ns=2 sub=0x5 cs=0x22002301
+XNU-EXIT: AppleCredentialM pid=75 code=9 ns=1 sub=0x4 cs=0x1
+XNU-EXIT: mobiletimerd pid=50 code=9 ns=1 sub=0x4 cs=0x1
+XNU-EXIT: rapportd pid=78 code=9 ns=1 sub=0x4 cs=0x1
+XNU-EXIT: amfid pid=47 code=9 ns=1 sub=0x4 cs=0x1
+XNU-EXIT: sleepd pid=68 code=9 ns=1 sub=0x4 cs=0x1
+XNU-EXIT: keybagd pid=45 code=9 ns=1 sub=0x4 cs=0x1
+XNU-EXIT: rapportd pid=96 code=9 ns=1 sub=0x4 cs=0x1
+XNU-EXIT: securityd pid=105 code=9 ns=1 sub=0x4 cs=0x1
+XNU-EXIT: SpringBoard pid=27 code=5 ns=2 sub=0x5 cs=0x22002301

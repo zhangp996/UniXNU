@@ -1,0 +1,92 @@
+unixnu: on Linux the kernel step uses the toolchain of scripts/linux/setup-toolchain.py; --skip-setup and seed-data-grow need macOS hdiutil
+device   /mnt/d/新建文件夹/UniXNU-instantnoodlep (instantnoodlep)
+output   /mnt/d/新建文件夹/UniXNU/out/instantnoodlep/ipados-17.7.11-21H461/instantnoodlep
+config   /mnt/d/新建文件夹/UniXNU/out/instantnoodlep/ipados-17.7.11-21H461/instantnoodlep/.config
+profile  arch                     /mnt/d/新建文件夹/UniXNU/profiles/arch/arm64
+profile  soc                      /mnt/d/新建文件夹/UniXNU/out/feeds/UniXNU-sm8250-common-671ba905
+profile  os                       /mnt/d/新建文件夹/UniXNU/profiles/os/ipados-17.7.11-21H461
+profile  device                   /mnt/d/新建文件夹/UniXNU-instantnoodlep
+component ArmCpu                  arm64
+component ArmDTPlatform           arm64
+component DarwinBoot              firmware
+component SoftwareAES             os
+component XnuPrelink              tool
+patch    01 /mnt/d/新建文件夹/UniXNU/patches/xnu/apple-only-cpu-tunables.patch
+patch    02 /mnt/d/新建文件夹/UniXNU/patches/xnu/architectural-timer-entry.patch
+patch    03 /mnt/d/新建文件夹/UniXNU/patches/xnu/armvirt-platform-personality.patch
+patch    04 /mnt/d/新建文件夹/UniXNU/patches/xnu/cxx-flag-dependencies.patch
+patch    05 /mnt/d/新建文件夹/UniXNU/patches/xnu/disabled-deferred-reclaim.patch
+patch    06 /mnt/d/新建文件夹/UniXNU/patches/xnu/external-archive-dependencies.patch
+patch    07 /mnt/d/新建文件夹/UniXNU/patches/xnu/kernel-sdk-root.patch
+patch    08 /mnt/d/新建文件夹/UniXNU/patches/xnu/local-availability.patch
+patch    09 /mnt/d/新建文件夹/UniXNU/patches/xnu/mockfs-intermediate-lookup.patch
+patch    10 /mnt/d/新建文件夹/UniXNU/patches/xnu/mockfs-memory-device-width.patch
+patch    11 /mnt/d/新建文件夹/UniXNU/patches/xnu/mockfs-statfs.patch
+patch    12 /mnt/d/新建文件夹/UniXNU/patches/xnu/mockfs-test-file.patch
+patch    13 /mnt/d/新建文件夹/UniXNU/patches/xnu/mockfs-typed-allocation.patch
+patch    14 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-4k-bootstrap-capacity.patch
+patch    15 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-4k-signature-hash-cache.patch
+patch    16 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-4k-user-abi.patch
+patch    17 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-aes-personality.patch
+patch    18 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-arm-pan.patch
+patch    19 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-dt-panic-region.patch
+patch    20 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-lookup-trace.patch
+patch    21 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-priv-work-interval.patch
+patch    22 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-quiet-managed-page-report.patch
+patch    23 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-text-fixup.patch
+patch    24 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-trust-cache-runtime.patch
+patch    25 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-union-getattrlistbulk.patch
+patch    26 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-union-lower-directory.patch
+patch    27 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-work-interval-soft-fail.patch
+patch    28 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-work-interval-trace.patch
+patch    29 /mnt/d/新建文件夹/UniXNU/patches/xnu/native-work-interval-instance.patch
+patch    30 /mnt/d/新建文件夹/UniXNU/patches/xnu/non-apple-cache-monitor.patch
+patch    31 /mnt/d/新建文件夹/UniXNU/patches/xnu/non-apple-iommu-bootstrap.patch
+patch    32 /mnt/d/新建文件夹/UniXNU/patches/xnu/non-apple-pmap-field.patch
+patch    33 /mnt/d/新建文件夹/UniXNU/patches/xnu/null-root-media.patch
+patch    34 /mnt/d/新建文件夹/UniXNU/patches/xnu/offline-component-load-probes.patch
+patch    35 /mnt/d/新建文件夹/UniXNU/patches/xnu/offline-legacy-start.patch
+patch    36 /mnt/d/新建文件夹/UniXNU/patches/xnu/offline-native-gpu-broker.patch
+patch    37 /mnt/d/新建文件夹/UniXNU/patches/xnu/offline-owner-boot-manifest.patch
+patch    38 /mnt/d/新建文件夹/UniXNU/patches/xnu/offline-owner-cache-carrier.patch
+patch    39 /mnt/d/新建文件夹/UniXNU/patches/xnu/offline-owner-root-binding-audit.patch
+patch    40 /mnt/d/新建文件夹/UniXNU/patches/xnu/offline-owner-root-crypto-probe.patch
+patch    41 /mnt/d/新建文件夹/UniXNU/patches/xnu/offline-owner-systemos-mount.patch
+patch    42 /mnt/d/新建文件夹/UniXNU/patches/xnu/offline-owner-z-air-init.patch
+patch    43 /mnt/d/新建文件夹/UniXNU/patches/xnu/offline-pgz-alignment-probe.patch
+patch    44 /mnt/d/新建文件夹/UniXNU/patches/xnu/pgz-aligned-validation.patch
+patch    45 /mnt/d/新建文件夹/UniXNU/patches/xnu/public-entitlements-header.patch
+patch    46 /mnt/d/新建文件夹/UniXNU/patches/xnu/published-freezer-condition.patch
+patch    47 /mnt/d/新建文件夹/UniXNU/patches/xnu/source-corecrypto14-bootstrap.patch
+patch    48 /mnt/d/新建文件夹/UniXNU/patches/xnu/source-machine-layer.patch
+patch    49 /mnt/d/新建文件夹/UniXNU/patches/xnu/source-pthread-bootstrap.patch
+patch    50 /mnt/d/新建文件夹/UniXNU/patches/xnu/zzw-native-adreno-sandbox-grant.patch
+patch    51 /mnt/d/新建文件夹/UniXNU/patches/xnu/zzwb-native-sandbox-grant-set-properties.patch
+patch    52 /mnt/d/新建文件夹/UniXNU/patches/xnu/zzx-pmap-sync-64bit-pa.patch
+patch    53 /mnt/d/新建文件夹/UniXNU/patches/xnu/zzy-native-gpu-addon-mount.patch
+patch    54 /mnt/d/新建文件夹/UniXNU/patches/xnu/zzy-staged-system-apps.patch
+patch    55 /mnt/d/新建文件夹/UniXNU/patches/xnu/zzyb-native-cryptex-os-view.patch
+patch    56 /mnt/d/新建文件夹/UniXNU/patches/xnu/zzyc-owner-skip-launch-constraints.patch
+patch    57 /mnt/d/新建文件夹/UniXNU/patches/xnu/zzz-boot-progress.patch
+patch    58 /mnt/d/新建文件夹/UniXNU/kits/XnuPrelink/patches/xnu-10063.141.1-security-init.patch
+patch    59 /mnt/d/新建文件夹/UniXNU/kits/XnuPrelink/patches/xnu-10063.141.1-sparse-index.patch
+driver   ArmCpu                   base
+driver   ArmDTPlatform            base
+driver   DarwinBoot               base
+driver   SoftwareAES              base
+kit      XnuPrelink               base
+package  device                   device
+package  main                     base
+patch    libpthread               base
+patch    mesa                     base
+patch    xnu                      device
+patch    xnu-12377                base
+refer    AvailabilityVersions     git pinned 933f9360f1b7
+refer    IOStorageFamily          git pinned e45fbe30a787
+refer    corecrypto-2023          git pinned 11fba65b12d8
+refer    edk2                     git pinned cfb93724a06f
+refer    libdispatch              git pinned 30fe6a7d9453
+refer    libplatform              git pinned a00a4cc36da2
+refer    libpthread               git pinned c0e60fb5ecfc
+refer    xnu                      git pinned d8b80295118e
+soc      sm8250                   git pinned 3481a8bfd60f

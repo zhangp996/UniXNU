@@ -1,0 +1,21 @@
+diff --git a/osfmk/ipc/ipc_pset.c b/osfmk/ipc/ipc_pset.c
+index 37ace88..69afb12 100644
+--- a/osfmk/ipc/ipc_pset.c
++++ b/osfmk/ipc/ipc_pset.c
+@@ -903,6 +903,16 @@ filt_portevent(struct knote *kn, long hint __assert_only)
+ void
+ ipc_pset_prepost(struct waitq_set *wqs, struct waitq *waitq)
+ {
++	/* Board diagnostic: the only notify path for a knote attached to a port set.  If this never
++	 * runs, a pset client (launchd, lsd) can never be woken by a message on a member port. */
++	{
++		static unsigned prepost_trace;
++		if (__atomic_load_n(&prepost_trace, __ATOMIC_RELAXED) < 100) {
++			__atomic_add_fetch(&prepost_trace, 1, __ATOMIC_RELAXED);
++			kprintf("PREPOST wqs=%p waitq=%p pset=%p\n", (void *)wqs, (void *)waitq,
++			    (void *)ips_from_waitq(wqs));
++		}
++	}
+ 	KNOTE(&ips_from_waitq(wqs)->ips_klist, (long)waitq);
+ }
+ 

@@ -1,0 +1,21 @@
+diff --git a/bsd/kern/kern_exit.c b/bsd/kern/kern_exit.c
+index 427ab6c..cedf413 100644
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -1909,6 +1909,16 @@ proc_prepareexit(proc_t p, int rv, boolean_t perf_notify)
+ 	    p->p_exit_reason ? p->p_exit_reason->osr_namespace : 0,
+ 	    p->p_exit_reason ? p->p_exit_reason->osr_code : 0);
+ 
++	/*
++	 * Bring-up: only launchd's exit is critical here. A leading DEVELOPMENT kernel marks every
++	 * job with a crash behaviour, and proc_handle_critical_exit never returns by design, so a
++	 * service that exits ends the boot. Clearing the behaviour for everything but the init
++	 * program takes the release path the function was written to have, instead of returning
++	 * from a path the kernel treats as terminal.
++	 */
++	if (p != initproc) {
++		p->p_crash_behavior = 0;
++	}
+ 	if (p->p_crash_behavior != 0 || p == initproc) {
+ 		proc_handle_critical_exit(p, rv);
+ 	}

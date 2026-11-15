@@ -1,0 +1,2 @@
+# Device prerequisites applied before the OS series.
+00-pmgr-run-hook.patch

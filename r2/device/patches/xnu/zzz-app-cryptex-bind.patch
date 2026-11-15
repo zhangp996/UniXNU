@@ -1,0 +1,17 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+index 2c03d8c..cb35b76 100644
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -7542,6 +7542,12 @@ native_cryptex_os_view(proc_t p, user_addr_t scratch)
+ 		return;
+ 	}
+ 	native_cryptex_os_stage = 4;
++	/* The App cryptex: iPadOS keeps the system applications and the daemons beside them under
++	 * /System/Cryptexes/App, which the root volume only links into. Without it launchd reports
++	 * "Missing executable" for those jobs (SpringBoard among them), so bind it from the same
++	 * preboot tree that carries the OS cryptex. Never fatal: the stage records how far it got. */
++	error = native_cryptex_os_bind(p, scratch, "/private/preboot/Cryptexes/App", "/System/Cryptexes/App", 0);
++	native_cryptex_os_stage = error ? 40 : 5;
+ 	error = vnode_lookup("/System/Cryptexes/OS/System/Library/ExtensionKit/Extensions/WebContentExtension.appex/Info.plist", 0, &probe,
+ 	    vfs_context_current());
+ 	if (!error) {

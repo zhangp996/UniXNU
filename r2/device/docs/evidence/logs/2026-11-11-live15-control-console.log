@@ -1,0 +1,121 @@
+capture: opening COM14 at 2026-11-11T22:17:45.9503696+08:00
+XNU-EXIT: fairplayd.A2 pid=197 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: com.apple.datami pid=189 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1ac8932ec lr=0x1ac8932ec esr=0xf2000000 tid=1435
+XNU-DYLD-IMAGE: SpringBoard pc=0x1ac8932ec /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0x1e2ec load=0x1ac875000 images=1235
+XNU-TRAP-IMAGE: SpringBoard pc=0x1ac8932ec not in a file-backed range
+XNU-EXIT: SpringBoard pid=201 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[201] crashed: SpringBoard. Too many corpses being created.
+XNU-TRAP: pc=0x1cedaa4f8 lr=0x1cedaa4cc esr=0xf2000001 tid=1457
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1cedaa4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1ced8d000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1cedaa4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=202 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[202] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: fairplayd.A2 pid=203 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=204 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=206 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=205 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x100916b0c lr=0x100916b0c esr=0xf2000001 tid=1419
+XNU-DYLD-IMAGE: watchdogd pc=0x100916b0c /usr/libexec/watchdogd+0xab0c load=0x10090c000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x100916b0c file=/usr/libexec/watchdogd off=0xab0c map=0x10090c000+0x10000
+XNU-EXIT: watchdogd pid=193 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[193] crashed: watchdogd. Too many corpses being created.
+tx_flush:1338: disk5 xid 68 tx stats: # 60 owait 0 0us finish 60 bar2 60 f 3 enter 437 fq 8 18 198us close 0us prep 1067us flush 4195304us
+XNU-TRAP: pc=0x1cedaa4f8 lr=0x1cedaa4cc esr=0xf2000001 tid=1542
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1cedaa4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1ced8d000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1cedaa4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=210 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[210] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=214 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=212 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=218 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=217 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1ac8932ec lr=0x1ac8932ec esr=0xf2000000 tid=1641
+XNU-DYLD-IMAGE: SpringBoard pc=0x1ac8932ec /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0x1e2ec load=0x1ac875000 images=1235
+XNU-TRAP-IMAGE: SpringBoard pc=0x1ac8932ec not in a file-backed range
+XNU-EXIT: SpringBoard pid=219 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[219] crashed: SpringBoard. Too many corpses being created.
+XNU-TRAP: pc=0x10081bb0c lr=0x10081bb0c esr=0xf2000001 tid=1577
+XNU-DYLD-IMAGE: watchdogd pc=0x10081bb0c /usr/libexec/watchdogd+0xab0c load=0x100811000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x10081bb0c file=/usr/libexec/watchdogd off=0xab0c map=0x100811000+0x10000
+XNU-EXIT: watchdogd pid=207 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[207] crashed: watchdogd. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=223 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=222 code=0 ns=0 sub=0x0 cs=0x22002301
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Process 99 is checking if a cdhash is in the trust cache
+static IOReturn AppleMobileFileIntegrityUserClient::isCdhashInTrustCache(OSObject *, void *, IOExternalMethodArguments *): Returning IOReturn 0x0 to process 99
+XNU-EXIT: bluetoothd pid=228 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=229 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: corecaptured pid=169 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1008dab0c lr=0x1008dab0c esr=0xf2000001 tid=1668
+XNU-DYLD-IMAGE: watchdogd pc=0x1008dab0c /usr/libexec/watchdogd+0xab0c load=0x1008d0000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x1008dab0c file=/usr/libexec/watchdogd off=0xab0c map=0x1008d0000+0x10000
+XNU-EXIT: watchdogd pid=220 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[220] crashed: watchdogd. Too many corpses being created.
+XNU-EXIT: com.apple.datami pid=215 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1cedaa4f8 lr=0x1cedaa4cc esr=0xf2000001 tid=1775
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1cedaa4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1ced8d000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1cedaa4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=233 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[233] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=234 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=235 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=237 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x100e05b0c lr=0x100e05b0c esr=0xf2000001 tid=1803
+XNU-DYLD-IMAGE: watchdogd pc=0x100e05b0c /usr/libexec/watchdogd+0xab0c load=0x100dfb000 images=159
+XNU-EXIT: fairplayd.A2 pid=238 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP-IMAGE: watchdogd pc=0x100e05b0c file=/usr/libexec/watchdogd off=0xab0c map=0x100dfb000+0x10000
+XNU-EXIT: watchdogd pid=231 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[231] crashed: watchdogd. Too many corpses being created.
+XNU-TRAP: pc=0x1007ccb0c lr=0x1007ccb0c esr=0xf2000001 tid=1851
+XNU-DYLD-IMAGE: watchdogd pc=0x1007ccb0c /usr/libexec/watchdogd+0xab0c load=0x1007c2000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x1007ccb0c file=/usr/libexec/watchdogd off=0xab0c map=0x1007c2000+0x10000
+XNU-EXIT: watchdogd pid=239 code=5 ns=2 sub=0x5 cs=0x22002301
+XNU-EXIT: bluetoothd pid=243 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=244 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x100bbeb0c lr=0x100bbeb0c esr=0xf2000001 tid=1919
+XNU-DYLD-IMAGE: watchdogd pc=0x100bbeb0c /usr/libexec/watchdogd+0xab0c load=0x100bb4000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x100bbeb0c file=/usr/libexec/watchdogd off=0xab0c map=0x100bb4000+0x10000
+XNU-EXIT: watchdogd pid=246 code=5 ns=2 sub=0x5 cs=0x22002301
+XNU-EXIT: bluetoothd pid=255 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=256 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1000fcb0c lr=0x1000fcb0c esr=0xf2000001 tid=1979
+XNU-DYLD-IMAGE: watchdogd pc=0x1000fcb0c /usr/libexec/watchdogd+0xab0c load=0x1000f2000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x1000fcb0c file=/usr/libexec/watchdogd off=0xab0c map=0x1000f2000+0x10000
+XNU-EXIT: watchdogd pid=257 code=5 ns=2 sub=0x5 cs=0x22002301
+XNU-EXIT: bluetoothd pid=259 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=260 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x100717b0c lr=0x100717b0c esr=0xf2000001 tid=2016
+XNU-DYLD-IMAGE: watchdogd pc=0x100717b0c /usr/libexec/watchdogd+0xab0c load=0x10070d000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x100717b0c file=/usr/libexec/watchdogd off=0xab0c map=0x10070d000+0x10000
+XNU-EXIT: watchdogd pid=262 code=5 ns=2 sub=0x5 cs=0x22002301
+XNU-EXIT: com.apple.datami pid=242 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=263 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=264 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1ac8932ec lr=0x1ac8932ec esr=0xf2000000 tid=2044
+XNU-DYLD-IMAGE: SpringBoard pc=0x1ac8932ec /System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices+0x1e2ec load=0x1ac875000 images=1235
+XNU-TRAP-IMAGE: SpringBoard pc=0x1ac8932ec not in a file-backed range
+XNU-EXIT: SpringBoard pid=265 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[265] crashed: SpringBoard. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=266 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=267 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x100856b0c lr=0x100856b0c esr=0xf2000001 tid=2079
+XNU-DYLD-IMAGE: watchdogd pc=0x100856b0c /usr/libexec/watchdogd+0xab0c load=0x10084c000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x100856b0c file=/usr/libexec/watchdogd off=0xab0c map=0x10084c000+0x10000
+XNU-EXIT: watchdogd pid=268 code=5 ns=2 sub=0x5 cs=0x22002301
+Process[268] crashed: watchdogd. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=269 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=270 code=0 ns=0 sub=0x0 cs=0x22002301
+accountsd[126] triggered unnest of range 0x1f3800000->0x1f3a00000 of DYLD shared region in VM map 0x417e33cbe0158a93. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+accountsd[126] triggered unnest of range 0x1f3a00000->0x1f8c00000 of DYLD shared region in VM map 0x417e33cbe0158a93. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+XNU-TRAP: pc=0x1cedaa4f8 lr=0x1cedaa4cc esr=0xf2000001 tid=2104
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1cedaa4f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1ced8d000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1cedaa4f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=271 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[271] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: bluetoothd pid=272 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=274 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=275 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=276 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=278 code=0 ns=0 sub=0x0 cs=0x22002301
+com.apple.xpc.launchd|1969-12-31 16:06:43.556608 (user/501/com.apple.WebBookmarks.webbookmarksd [168]) <Error>: Missing executable detected. Job: 'com.apple.WebBookmarks.webbookmarksd' Executable: '/System/Cryptexes/App/usr/libexec/webbookmarksd'

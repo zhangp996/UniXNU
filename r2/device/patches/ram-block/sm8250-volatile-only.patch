@@ -1,0 +1,140 @@
+--- a/NativeRamBlock.cpp
++++ b/NativeRamBlock.cpp
+@@ -32,12 +32,7 @@
+ uint8_t native_ram_block_seed_sha256[32];
+ // Optional persistence of the changed pages through a board-provided store window (see PersistOverlay.h). All weak: a build
+ // without the provider keeps the volatile disk.
+-unsigned native_ufs_store_mode(void) __attribute__((weak_import));
+-int native_ufs_store_open(uint64_t, uint64_t *, const char **) __attribute__((weak_import));
+-int native_ufs_store_read(uint64_t, uint32_t, void *) __attribute__((weak_import));
+-int native_ufs_store_write(uint64_t, uint32_t, const void *) __attribute__((weak_import));
+-int native_ufs_store_sync(void) __attribute__((weak_import));
+-unsigned native_ufs_store_gpt_check(void) __attribute__((weak_import));
++// No persistent-store interface is selected by this board.
+ // Diagnostics. state: 0 off, 1 blank (read-only probe), 2 resumed, 3 fresh, 4 refused/failed, 5 degraded after an I/O error,
+ // 6 resumed read-only (probe). header: persist::checkHeader result.
+ volatile uint32_t native_data_persist_state = 0, native_data_persist_header = 9, native_data_persist_gpt = 0xff, native_data_persist_gpt_after = 0xff;
+@@ -65,84 +60,12 @@
+   // Direct mode (the store is open read-write): changed pages live in the store window only, never in RAM; reads of them go to the
+   // window. A failed store write stops all further writes (a page the system was told is written must be on the medium).
+   bool direct = false, directFailed = false;
+-  struct StoreOps {
+-    bool read(uint64_t b, uint32_t n, void *d) { __atomic_fetch_add(&native_data_persist_loaded, n, __ATOMIC_RELAXED); return native_ufs_store_read(b, n, d); }
+-    bool write(uint64_t b, uint32_t n, const void *s) { return native_ufs_store_write(b, n, s); }
+-    bool sync() { return native_ufs_store_sync(); }
+-  };
+-  void persistFailed() { overlay.active = false; native_data_persist_state = 5; __atomic_fetch_add(&native_data_persist_errors, 1, __ATOMIC_RELAXED); }
+ public:
+-  // Called once, before the Data volume is mounted (native_ram_block_volume_seed): open the store window, put the pages that
+-  // earlier boots changed back into the sparse disk, and from then on write changed pages through. The seed identity
+-  // (seedHash) is not affected. Any refusal or error leaves the disk volatile, exactly as without persistence.
+-  // sheng-data-reset=1 or 2 starts the overlay over (the old pages are dropped, not applied); 2 also asks for Setup (BootWatchdogPolicy.c).
+-  static bool discardRequested() { uint32_t v = 0; return PE_parse_boot_argn("sheng-data-reset", &v, sizeof v) && (v == 1 || v == 2); }
++  // Volatile-only board variant. No persistent backend is linked or called.
+   void attachStore() {
+     if (!gate) return;
+     IOLockLock(gate);
+-    if (storeAttached) { IOLockUnlock(gate); return; }
+     storeAttached = true;
+-    unsigned mode = &native_ufs_store_mode ? native_ufs_store_mode() : 0;
+-    if (mode && (sparse.pages || isBig) && &native_ufs_store_open && &native_ufs_store_read && &native_ufs_store_write &&
+-        &native_ufs_store_sync && &native_ufs_store_gpt_check) {
+-      uint64_t pages = (isBig ? big.bytes : sparse.bytes) / 4096, first = 0;
+-      const char *why = "";
+-      native_data_persist_pages = pages;
+-      native_data_persist_gpt = native_ufs_store_gpt_check();
+-      if (!native_ufs_store_open(persist::windowBlocks(pages), &first, &why)) {
+-        native_data_persist_state = 4;
+-        IOLog("NativeRamBlock: persistent store refused: %s\n", why);
+-      } else {
+-        native_data_persist_first_lba = first;
+-        uint64_t bb = persist::bitmapBlocks(pages);
+-        overlayBits = static_cast<uint8_t *>(IOMallocZero(bb * persist::kBlock));
+-        stage = static_cast<uint8_t *>(IOMallocZero(kStagePages * persist::kBlock));
+-        StoreOps ops;
+-        persist::Open result = overlayBits && stage ? overlay.open(ops, pages, seedHash, mode == 1, overlayBits, discardRequested())
+-                                                          : persist::Open::Failed;
+-        native_data_persist_header = static_cast<uint32_t>(overlay.header);
+-        if (result == persist::Open::Failed) {
+-          native_data_persist_state = 4;
+-          overlay.active = false;
+-        } else if (result == persist::Open::Blank) {
+-          native_data_persist_state = 1;
+-        } else if (result == persist::Open::Fresh) {
+-          native_data_persist_state = 3;
+-          direct = mode == 2;
+-        } else if (mode == 2) {
+-          // Resumed read-write: nothing is copied into RAM. The window answers for every page whose bit is set.
+-          direct = true;
+-          native_data_persist_state = 2;
+-        } else {
+-          struct Loader {
+-            NativeRamBlock *self;
+-            bool operator()(uint64_t i, const uint8_t *page) {
+-              if (i >= self->sparse.bytes / 4096) return false;
+-              if (!self->sparse.pages[i]) {
+-                uint8_t *fresh = static_cast<uint8_t *>(IOMallocZero(4096));
+-                if (!fresh) return false;
+-                self->sparse.pages[i] = fresh;
+-                self->sparse.resident += 4096;
+-              }
+-              memcpy(self->sparse.pages[i], page, 4096);
+-              __atomic_fetch_add(&native_data_persist_loaded, 1, __ATOMIC_RELAXED);
+-              return true;
+-            }
+-          } load = { this };
+-          if (overlay.forEachPresent(ops, load, stage, kStagePages)) {
+-            native_data_persist_state = mode == 1 ? 6 : 2;
+-            native_ram_block_resident_bytes = sparse.resident;
+-          } else {
+-            // A partly restored disk would be worse than a volatile one, but the pages already copied are consistent
+-            // overlay content; stop writing back and let the system decide what it can mount.
+-            native_data_persist_state = 4;
+-            overlay.active = false;
+-          }
+-        }
+-        native_data_persist_present = overlay.present;
+-        native_data_persist_gpt_after = native_ufs_store_gpt_check();
+-      }
+-    }
+     IOLockUnlock(gate);
+   }
+ 
+@@ -292,37 +215,7 @@
+       uint64_t copy(uint64_t at,const void *p,uint64_t n){return buffer->writeBytes(at,p,n);}
+     } ops={buffer};
+     bool write=buffer->getDirection()==kIODirectionOut;
+-    if(direct){
+-      struct BufferOps {
+-        IOMemoryDescriptor *buffer;
+-        uint64_t read(uint64_t at,void *p,uint64_t n){return buffer->readBytes(at,p,n);}
+-        uint64_t copy(uint64_t at,const void *p,uint64_t n){return buffer->writeBytes(at,p,n);}
+-      } bops={buffer};
+-      StoreOps store;bool storeError=false;
+-      if(write && directFailed)actual=0;
+-      else actual=isBig?directDiskIO(big,overlay,store,stage,kStagePages,write,block*512,bytes,bops,&storeError)
+-                       :directDiskIO(sparse,overlay,store,stage,kStagePages,write,block*512,bytes,bops,&storeError);
+-      if(storeError){
+-        if(write)directFailed=true;
+-        native_data_persist_state=5;__atomic_fetch_add(&native_data_persist_errors,1,__ATOMIC_RELAXED);
+-      }
+-      if(write && actual){__atomic_fetch_add(&native_data_persist_writes,(actual+4095)/4096,__ATOMIC_RELAXED);__atomic_fetch_add(&native_data_persist_syncs,1,__ATOMIC_RELAXED);native_data_persist_present=overlay.present;}
+-    } else {
+     actual=ramSparseIO(sparse,write,block*512,bytes,ops,noMemory);
+-    }
+-    if(!direct && write && actual==bytes && overlay.active && !overlay.readOnly){
+-      StoreOps store;
+-      uint64_t firstPage=block*512/4096,lastPage=(block*512+bytes-1)/4096;
+-      for(uint64_t i=firstPage;i<=lastPage && overlay.active;){
+-        uint32_t n=0;
+-        while(n<kStagePages && i+n<=lastPage && sparse.pages[i+n]){memcpy(stage+(uint64_t)n*persist::kBlock,sparse.pages[i+n],persist::kBlock);++n;}
+-        if(!n || !overlay.writeRun(store,i,n,stage)){persistFailed();break;}
+-        __atomic_fetch_add(&native_data_persist_writes,n,__ATOMIC_RELAXED);
+-        __atomic_fetch_add(&native_data_persist_syncs,1,__ATOMIC_RELAXED);   // one run = one durable commit
+-        native_data_persist_present=overlay.present;
+-        i+=n;
+-      }
+-    }
+     if(write)__atomic_fetch_add(&native_ram_block_writes,1,__ATOMIC_RELAXED);
+     else __atomic_fetch_add(&native_ram_block_reads,1,__ATOMIC_RELAXED);
+     native_ram_block_resident_bytes=isBig?big.resident:sparse.resident;

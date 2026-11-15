@@ -1,0 +1,15 @@
+{
+  "base_revision": "25c57e0e9b68bf452dd1986914525edc9d2320bc",
+  "base_sha256": "e2ace3522943df38806ef2006525371691beaf0199f971266bd849d4f5253391",
+  "variant_sha256": "b54485135733d275791d6d441639305ff4c307066c147d589aa8339146d3ad03",
+  "operations": [
+    {
+      "old": "        persist::Open result = overlayBits && stage ? overlay.open(ops, pages, seedHash, mode == 1, overlayBits, discardRequested())\n                                                          : persist::Open::Failed;",
+      "new": "        // A blank store may be initialized. Preserve foreign, stale, and damaged stores.\n        bool safe = overlayBits && stage && ops.read(0, 1, stage);\n        if (safe && persist::checkHeader(stage, pages, seedHash, nullptr)) {\n          const auto zeroBlock = [](const uint8_t *block) {\n            for (unsigned i = 0; i < persist::kBlock; ++i)\n              if (block[i]) return false;\n            return true;\n          };\n          safe = zeroBlock(stage);\n          for (uint64_t b = 1; safe && b <= bb; ++b)\n            safe = ops.read(b, 1, stage) && zeroBlock(stage);\n        }\n        persist::Open result = safe ? overlay.open(ops, pages, seedHash, mode == 1, overlayBits)\n                                    : persist::Open::Failed;"
+    },
+    {
+      "old": "        native_data_persist_gpt_after = native_ufs_store_gpt_check();\n",
+      "new": "        native_data_persist_gpt_after = native_ufs_store_gpt_check();\n        if (native_data_persist_gpt || native_data_persist_gpt_after)\n          native_data_persist_state = 4;\n        IOLog(\"UFS-DATA overlay state=%u header=%u gpt=%u/%u pages=%llu present=%llu\\n\",\n              native_data_persist_state, native_data_persist_header,\n              native_data_persist_gpt, native_data_persist_gpt_after,\n              pages, overlay.present);\n"
+    }
+  ]
+}

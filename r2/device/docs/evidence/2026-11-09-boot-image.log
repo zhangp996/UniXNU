@@ -1,0 +1,23 @@
+# Payload and boot image, 2026-11-09
+# Host: WSL2 Ubuntu 22.04, UniXNU 8ec13bb1077502e53e8ba3b82c56842589b5c837
+
+python3 ./unixnu build payload -D ../UniXNU-instantnoodlep \
+  --unique-chip-id 0123456789abcdef \
+  --trust-cache out/ipsw/21H461/trust.bundle
+  -> payload/payload.img  92,274,688 bytes (88 MiB)
+     trust bundle sha256 7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7
+     (built by scripts/bundle-ipsw-trust.py from the two 21H461 modules)
+
+python3 ./unixnu bootimg -D ../UniXNU-instantnoodlep --uefi ../uefi-instantnoodlep \
+  --dtb ../uefi-instantnoodlep/Resources/DTBs/instantnoodlep.dtb
+  -> boot/boot.img  94,339,072 bytes  sha256 2d6158277e87ce1885de31870a3598135b60a419cb2b145318fb845bbcd5c8df
+     header v1, pagesize 4096, ramdisk_bytes 92,274,688
+     fd_sha256    188a52f64d33b1a24e6cabea70cbec1088b5d76a9c2125b7a29b7d99e7840c32
+     dtb_sha256   f7fa0c06d6719bd9a04f3a39be7fd117a527ced59904b5c76da8ae37c5de27f7
+     shim_bytes   112
+
+Note: the platform seed above is a placeholder, so the image proves packing, not
+production identity. The local UniXNU checkout carries a one-line workaround in
+scripts/unixnu/bootimg.py: the integrated assembler leaves the BootShim
+image_size field as FD_SIZE only, and llvm-objcopy cannot resolve the
+_Payload-_Head relocation, so the field is rewritten to len(shim)+FD_SIZE.

@@ -1,0 +1,67 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -6155,6 +6155,55 @@
+ 
+ _Atomic uint64_t libmalloc_experiment_factors = 0;
+ 
++/* GF's retail CoreAnimation policy: make the linear-framebuffer environment
++ * setting available before the original backboardd or QuartzCore initializes. */
++static void
++sm8250_backboard_linear_env(struct image_params *imgp, const load_result_t *load_result)
++{
++    static const uint8_t uuid[16] = {0xa0,0x7c,0x4b,0x68,0xd9,0x6d,0x32,0xce,0x98,0xd8,0x01,0x80,0x75,0x58,0x54,0x71};
++    static const char path[] = "/usr/libexec/backboardd";
++    static const char key[] = "CA_DISABLE_FRAMEBUFFER_COMPRESSION=";
++    static const char entry[] = "CA_DISABLE_FRAMEBUFFER_COMPRESSION=1";
++    unsigned gop = 0, metal = 0;
++    if (memcmp(load_result->uuid, uuid, sizeof(uuid)) ||
++        !(imgp->ip_flags & IMGPF_IS_64BIT_ADDR) ||
++        strcmp(imgp->ip_strings + sizeof(EXECUTABLE_KEY) - 1, path) ||
++        !PE_parse_boot_argn("smgop", &gop, sizeof(gop)) || gop != 1 ||
++        !PE_parse_boot_argn("sm8250-gpu-alioth", &metal, sizeof(metal)) || metal != 12) return;
++
++    char *cursor = imgp->ip_endargv;
++    if (imgp->ip_envc < 0 || cursor > imgp->ip_endenvv ||
++        imgp->ip_strendp != imgp->ip_endenvv ||
++        imgp->ip_strspace < 0 || imgp->ip_argspace < 0) return;
++    for (int i = 0; i < imgp->ip_envc; i++) {
++        const size_t space = (size_t)(imgp->ip_endenvv - cursor);
++        const size_t length = strnlen(cursor, space);
++        if (length == space) return;
++        if (length >= sizeof(key) - 1 && !memcmp(cursor, key, sizeof(key) - 1)) {
++            printf("SMGOP74 backboardd linear env already set\n");
++            return;
++        }
++        cursor += length + 1;
++    }
++    const size_t old_padding = (size_t)(imgp->ip_endenvv - cursor);
++    if (old_padding >= sizeof(uint64_t)) return;
++    const size_t strings = (size_t)imgp->ip_strspace + old_padding;
++    const size_t arguments = (size_t)imgp->ip_argspace + old_padding;
++    if (strings < sizeof(entry)) return;
++    const size_t padding = (strings - sizeof(entry)) % sizeof(uint64_t);
++    const size_t used = sizeof(entry) + padding;
++    if (strings < used || arguments < used + sizeof(uint64_t)) return;
++
++    memcpy(cursor, entry, sizeof(entry));
++    memset(cursor + sizeof(entry), 0, padding);
++    imgp->ip_strendp = imgp->ip_endenvv = cursor + used;
++    imgp->ip_strspace = (int)(strings - used);
++    imgp->ip_argspace = (int)(arguments - used - sizeof(uint64_t));
++    imgp->ip_envc++;
++    printf("SMGOP74 backboardd linear env installed\n");
++}
++
++
+ static int
+ exec_add_apple_strings(struct image_params *imgp,
+     const load_result_t *load_result)
+@@ -6164,6 +6213,8 @@
+ 	thread_t new_thread;
+ 	ipc_port_t sright;
+ 	uint64_t local_experiment_factors = 0;
++
++	sm8250_backboard_linear_env(imgp, load_result);
+ 
+ 	/* exec_save_path stored the first string */
+ 	imgp->ip_applec = 1;

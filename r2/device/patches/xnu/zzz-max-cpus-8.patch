@@ -1,0 +1,11 @@
+--- a/pexpert/pexpert/arm64/board_config.h
++++ b/pexpert/pexpert/arm64/board_config.h
+@@ -134,7 +134,7 @@
+ #include <pexpert/arm64/BCM2837.h>
+ 
+ #define MAX_L2_CLINE                   6
+-#define MAX_CPUS                       4
++#define MAX_CPUS                       8 /* 8 cores, flat MPIDR 0x000..0x700; the 4/3/1 grouping is cache topology */
+ #define MAX_CPU_CLUSTERS               1
+ 
+ #define CORE_NCTRS                     8 /* Placeholder; KPC is not enabled for this target */

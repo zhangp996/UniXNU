@@ -1,0 +1,18 @@
+--- a/bsd/kern/bsd_init.c
++++ b/bsd/kern/bsd_init.c
+@@ -1104,7 +1104,14 @@
+ 			}
+ #endif
+ 			if (autherr && !owner_authorized) {
+-				panic("rootvp not authenticated after mounting");
++				// Bring-up: a root published without the owner-signed policy cannot be authenticated,
++				// and this port has no policy chain yet. root-unverified=1 accepts that explicitly for
++				// one image; without the argument the check stays fail-closed.
++				int unverified_root = 0;
++				PE_parse_boot_argn("root-unverified", &unverified_root, sizeof(unverified_root));
++				if (!unverified_root) {
++					panic("rootvp not authenticated after mounting");
++				}
+ 			}
+ #if defined(XNU_OWNER_ROOT_TRUST) && XNU_OWNER_ROOT_TRUST
+ 			{

@@ -1,0 +1,23 @@
+diff --git a/osfmk/ipc/ipc_pset.c b/osfmk/ipc/ipc_pset.c
+index 33bc3f8..c33995b 100644
+--- a/osfmk/ipc/ipc_pset.c
++++ b/osfmk/ipc/ipc_pset.c
+@@ -336,6 +336,18 @@ filt_port_filter_result(struct knote *kn, ipc_port_t port)
+ 		return result;
+ 	}
+ 
++	/* Board diagnostic: the mach-port filter saw a queued message on an armed port.  If this
++	 * line appears for the port the probe reports as q=1 w=0, the kernel side of the wake ran
++	 * and the remaining gap is the workloop scheduling the receiver.  Capped for readability. */
++	{
++		static unsigned machport_events;
++		if (__atomic_load_n(&machport_events, __ATOMIC_RELAXED) < 200) {
++			__atomic_add_fetch(&machport_events, 1, __ATOMIC_RELAXED);
++			kprintf("MPORT event port=%p kn=%p filter=%d\n",
++			    (void *)port, (void *)kn, kn->kn_filter);
++		}
++	}
++
+ 	result = FILTER_ACTIVE;
+ 	if (kn->kn_sfflags & MACH_RCV_MSG) {
+ 		result |= FILTER_ADJUST_EVENT_QOS(first->ikm_qos_override);

@@ -1,0 +1,13 @@
+--- a/bsd/kern/bsd_init.c
++++ b/bsd/kern/bsd_init.c
+@@ -1519,6 +1519,10 @@
+ 	kminit();
+ #if XNU_QCOM_USB_DEBUG
+ 	qcom_usb_start_worker_once();
++	{
++		extern void qcom_usb_board_check(void);
++		qcom_usb_board_check();
++	}
+ #endif
+ 
+ 	/*

@@ -1,0 +1,2483 @@
+Add the display stack: a built-in IOSurface and an IOMobileFramebuffer that
+drives the bootloader's framebuffer.
+
+Ported from the OnePlus 9 port, which runs the same 1080x2400 panel and is in the
+same situation: the bootloader leaves framebuffer memory in RAM that the panel
+scans out by itself, so no DPU work is needed to get an image. KebabSurface
+publishes that memory as an IOSurface, KebabFramebuffer (AppleCLCD, an
+IOMobileFramebuffer) copies CoreAnimation's swaps into it on the CPU and drives
+vsync from a 60 Hz timer.
+
+Includes the sibling's later fixes: a repeated lookup of a surface this client
+already owns reports it with -1 instead of counting a second reference, and the
+console is muted with a flag rather than switched, because the console switch
+writes a read-only-late variable on arm64. IOCoreSurfaceRoot gets a personality so
+IOSurface.framework can connect, and the canvas dimensions are published on the
+platform expert, which is the parent this framework version reads them from.
+
+Completes the display ABI the iOS 16 backboardd calls. SwapEnd now queues the swap
+record and the vsync timer presents it, so the backend is replaceable; SwapWait(6)
+waits for that completion with a bounded timeout and distinguishes completed,
+timed out and never queued. The selectors 12/15/17/22/27/29/33/50/55/57/68/74/79/83/84
+are implemented where this port has the state to answer (power, display device,
+display area, dot pitch, frame info, displayed surface) and return
+kIOReturnUnsupported where honouring them would need a DPU, a backlight or a
+parameter block that does not exist; unknown selectors no longer return a zeroed
+success. IOSurface gains values (9/0xa/0xb) backed by a real property dictionary
+and bulk attachments (0x1b) copied into the shared state page. The display is
+presented as the iPhone X identity userland expects, 1125x2436 at 3x, while the
+panel, canvas and default surface stay at the bootloader's 1080x2400; the CPU copy
+maps logical coordinates to the panel and clips the margin.
+
+--- a/iokit/conf/files.arm64
++++ b/iokit/conf/files.arm64
+@@ -4,6 +4,8 @@
+ iokit/Kernel/IOPMrootDomain.cpp    					optional iokitcpp
+ 
+ # SMP
++iokit/Kernel/arm/KebabSurface.cpp                              optional iokitcpp
++iokit/Kernel/arm/KebabFramebuffer.cpp                          optional iokitcpp
+ iokit/Kernel/arm/AppleARMSMP.cpp    					optional iokitcpp
+ 
+ # NEGRONI device-tree platform (empty translation unit on other boards)
+--- a/iokit/Kernel/arm/KebabPlatformExpert.cpp
++++ b/iokit/Kernel/arm/KebabPlatformExpert.cpp
+@@ -6,6 +6,13 @@
+ #include <pexpert/arm64/board_config.h>
+ 
+ #if defined(KEBAB)
++
++class IOService;   /* only needed as the provider pointer type */
++
++/* Started directly from processTopLevel: no /arm-io nub publishes the
++ * display node, and the driver only needs a provider to attach to. */
++class AppleCLCD;
++extern "C" int kebab_display_start(IOService *provider);
+ #include <IOKit/IOPlatformExpert.h>
+ #include <IOKit/IODeviceTreeSupport.h>
+ #include <IOKit/IOLib.h>
+@@ -62,6 +69,9 @@
+ 		cpus->release();
+ 	}
+ 	createNubs(this, IODTFindMatchingEntries(root, kIODTExclusive, excludeList()));
++
++	/* Bring the panel up so IOMobileFramebuffer.framework finds it. */
++	kebab_display_start(this);
+ }
+ 
+ bool
+--- a/iokit/KernelConfigTables.cpp
++++ b/iokit/KernelConfigTables.cpp
+@@ -55,6 +55,11 @@
+     "     'IONameMatch'     = 'oneplus,kebab';"
+     "     'IOProbeScore'    = 9000:32;"
+     "   },"
++    "   {"
++    "     'IOClass'         = IOCoreSurfaceRoot;"
++    "     'IOProviderClass' = IOResources;"
++    "     'IOMatchCategory' = IOCoreSurfaceRoot;"
++    "   },"
+ #endif
+     "   {"
+     "     'IOClass'         = IOPanicPlatform;"
+diff --git a/iokit/Kernel/arm/KebabSurface.h b/iokit/Kernel/arm/KebabSurface.h
+new file mode 100644
+--- /dev/null
++++ b/iokit/Kernel/arm/KebabSurface.h
+@@ -0,0 +1,76 @@
++/*
++ * Built-in IOSurface for KEBAB (see KebabSurface.cpp).
++ *
++ * Shared with KebabFramebuffer.cpp: the framebuffer looks surfaces up by
++ * id when a swap names them and publishes the panel memory itself as the
++ * default framebuffer surface.
++ */
++#ifndef _KEBAB_SURFACE_H
++#define _KEBAB_SURFACE_H
++
++#include <pexpert/arm64/board_config.h>
++
++#if defined(KEBAB)
++#include <IOKit/IOMemoryDescriptor.h>
++#include <IOKit/IOBufferMemoryDescriptor.h>
++#include <libkern/c++/OSObject.h>
++#include <mach/mach_types.h>
++
++#define KEBAB_SURFACE_MAX_PLANES        20
++
++class OSDictionary;
++
++struct kebab_surface_plane {
++	uint32_t width, height, bytesPerRow, offset, size;
++	uint16_t bytesPerElement;
++	uint8_t  elementWidth, elementHeight;
++};
++
++class KebabSurface : public OSObject {
++	OSDeclareDefaultStructors(KebabSurface);
++
++public:
++	uint32_t id;
++	uint32_t width, height, bytesPerRow, offset, pixelFormat, allocSize;
++	uint16_t bytesPerElement;
++	uint8_t  elementWidth, elementHeight;
++	uint32_t cacheMode, planeCount, parentID;
++	struct kebab_surface_plane planes[KEBAB_SURFACE_MAX_PLANES];
++
++	/*
++	 * IOSurface values (selectors 9/0xa/0xb). The dictionary is the merged
++	 * property set; generation and valueSize are also published in the
++	 * shared state page at +0x20 and +0x28 for clients that poll it.
++	 */
++	OSDictionary *values;
++	uint32_t      generation;
++	uint32_t      valueSize;
++
++	IOMemoryDescriptor       *memory;       /* pixels (buffer or physical) */
++	IOOptionBits              mapCache;     /* cache mode for user mappings */
++	IOBufferMemoryDescriptor *state;        /* shared state page, read-only for users */
++	IOMemoryMap              *kernelMap;    /* lazily created for kernel copies */
++
++	bool init() APPLE_KEXT_OVERRIDE { return OSObject::init(); }
++	void free() APPLE_KEXT_OVERRIDE;
++
++	/* Kernel address of the pixels (mapped on first use), or 0. */
++	uintptr_t kernelAddress();
++};
++
++/* Retained surface for an id, or NULL. */
++KebabSurface *kebab_surface_copy(uint32_t id);
++
++/*
++ * Publish physical memory (the panel framebuffer) as a surface. Returns a
++ * retained surface that stays in the id table until released by the caller
++ * and every user.
++ */
++KebabSurface *kebab_surface_create_physical(uint64_t phys, uint32_t width,
++    uint32_t height, uint32_t bytesPerRow, uint32_t pixelFormat);
++
++/* Send right for the surface in task (IOSurfaceLookupFromMachPort). */
++mach_port_name_t kebab_surface_port_in_task(KebabSurface *surface, task_t task);
++
++#endif /* KEBAB */
++#endif /* _KEBAB_SURFACE_H */
+diff --git a/iokit/Kernel/arm/KebabSurface.cpp b/iokit/Kernel/arm/KebabSurface.cpp
+new file mode 100644
+--- /dev/null
++++ b/iokit/Kernel/arm/KebabSurface.cpp
+@@ -0,0 +1,1369 @@
++/*
++ * Built-in IOSurface for KEBAB.
++ *
++ * Apple's IOSurface kext is closed. IOSurface.framework (iOS 16.7) finds
++ * IOServiceNameMatching("IOCoreSurfaceRoot"), opens it with type 0 and
++ * talks to the user client below:
++ *
++ *   sel 13  limits: struct out 0x18, u16 at +0x16 must be 1 (ABI version),
++ *           +0 offset alignment mask, +4 bytes-per-row alignment mask
++ *   sel 0   create: scalar [parent id], struct in = serialized property
++ *           dictionary (binary or XML), struct out = lock result (0xa68)
++ *   sel 4   lookup by id: scalar [id], struct out = lock result
++ *   sel 34  lookup by mach port: scalar [port name], struct out = lock result
++ *   sel 35  create mach port: scalars [id, options], scalar out [port name]
++ *   sel 9   set value: scalars [id] (or an 8-byte {id, pad} header) and a
++ *           serialized [value, key] pair or dictionary to merge; out = the
++ *           new generation
++ *   sel 10  update non-bulk value cache: out = {u32, generation,
++ *           serialized non-bulk dictionary}
++ *   sel 11  remove value: [id] and a NUL-terminated key (empty = all)
++ *   sel 27  set bulk attachments (struct 0x88, 0x1b): copy the changed
++ *           fields into the shared state page at +0x30
++ *   traps   0/1 use count +/- (id, category), 2 lock / 3 unlock
++ *           (id, options, &seed), 4/5 release (id)
++ *
++ * The lock result tells the library where the surface lives in the
++ * caller's address space: +0 pixels, +8 shared state page (registry id,
++ * seed at +0xc, values generation at +0x20 and its serialized size at
++ * +0x28, bulk attachments from +0x30), +0x10 timestamps, then id, sizes
++ * and geometry (layout in kebab_surface_fill_result). Every surface is
++ * wired kernel memory mapped into each task that creates or looks it up;
++ * mappings are counted per client and dropped on release or close.
++ *
++ * Selectors this kernel does not implement return kIOReturnUnsupported
++ * instead of a zeroed success: a client that believes an unimplemented
++ * call worked reads garbage.
++ */
++#include "KebabSurface.h"
++
++#if defined(KEBAB)
++#include <IOKit/IOService.h>
++#include <IOKit/IOUserClient.h>
++#include <IOKit/IOKitKeys.h>
++#include <IOKit/IOLib.h>
++#include <IOKit/IOLocks.h>
++#include <IOKit/system.h>
++#include <libkern/c++/OSArray.h>
++#include <libkern/c++/OSDictionary.h>
++#include <libkern/c++/OSNumber.h>
++#include <libkern/c++/OSSerialize.h>
++#include <libkern/c++/OSString.h>
++#include <libkern/c++/OSUnserialize.h>
++#include <sys/proc.h>
++
++enum {
++	kKebabSurfaceCreate             = 0,
++	kKebabSurfaceLookup             = 4,
++	kKebabSurfaceSetValue           = 9,
++	kKebabSurfaceUpdateValueCache   = 10,
++	kKebabSurfaceRemoveValue        = 11,
++	kKebabSurfaceLimits             = 13,
++	kKebabSurfaceSetBulkAttachments = 27,   /* 0x1b */
++	kKebabSurfaceLookupFromPort     = 34,   /* 0x22 */
++	kKebabSurfaceCreatePort         = 35,   /* 0x23 */
++};
++
++enum {
++	kKebabSurfaceTrapIncrementUse   = 0,
++	kKebabSurfaceTrapDecrementUse   = 1,
++	kKebabSurfaceTrapLock           = 2,
++	kKebabSurfaceTrapUnlock         = 3,
++	kKebabSurfaceTrapRelease        = 4,
++	kKebabSurfaceTrapReleaseFailed  = 5,
++};
++
++#define KEBAB_SURFACE_RESULT_SIZE       0xa68
++#define KEBAB_SURFACE_MAX_ID            4096
++#define KEBAB_SURFACE_MAX_DIM           16384
++#define KEBAB_SURFACE_MAX_ALLOC         (256u << 20)
++#define KEBAB_SURFACE_MAX_PROPS         (64u << 10)
++#define KEBAB_SURFACE_ROW_ALIGN         64
++#define KEBAB_SURFACE_TIMESTAMPS        0x800   /* offset in the state page */
++#define KEBAB_SURFACE_STATE_SEED        0xc     /* u32 in the state page */
++#define KEBAB_SURFACE_STATE_GENERATION  0x20    /* u32, values generation */
++#define KEBAB_SURFACE_STATE_VALUE_SIZE  0x28    /* u32, serialized values size */
++#define KEBAB_SURFACE_STATE_BULK        0x30    /* bulk attachment fields */
++#define KEBAB_SURFACE_VALUES_MAX        (64u << 10)
++#define kIOSurfaceLockReadOnly          0x1
++
++static IOLock       *kebab_surface_lock;
++static KebabSurface *kebab_surface_table[KEBAB_SURFACE_MAX_ID];
++static uint32_t      kebab_surface_users[KEBAB_SURFACE_MAX_ID];
++static uint32_t      kebab_surface_next_id = 1;
++static uint32_t      kebab_surface_creates_logged;
++static uint64_t      kebab_surface_wired;       /* bytes of buffer surfaces */
++#define KEBAB_SURFACE_WIRED_MAX         (1536ull << 20)
++
++OSDefineMetaClassAndStructors(KebabSurface, OSObject);
++
++void
++KebabSurface::free()
++{
++	if (OSDynamicCast(IOBufferMemoryDescriptor, memory) != NULL) {
++		OSAddAtomic64(-(SInt64)allocSize, (volatile SInt64 *)&kebab_surface_wired);
++	}
++	OSSafeReleaseNULL(kernelMap);
++	OSSafeReleaseNULL(values);
++	OSSafeReleaseNULL(memory);
++	OSSafeReleaseNULL(state);
++	OSObject::free();
++}
++
++uintptr_t
++KebabSurface::kernelAddress()
++{
++	IOBufferMemoryDescriptor *buffer = OSDynamicCast(IOBufferMemoryDescriptor, memory);
++	if (buffer != NULL) {
++		return (uintptr_t)buffer->getBytesNoCopy();
++	}
++	IOLockLock(kebab_surface_lock);
++	if (kernelMap == NULL && memory != NULL) {
++		kernelMap = memory->map(kIOMapWriteCombineCache);
++	}
++	IOLockUnlock(kebab_surface_lock);
++	return kernelMap != NULL ? (uintptr_t)kernelMap->getVirtualAddress() : 0;
++}
++
++static uint32_t *
++kebab_surface_seed(KebabSurface *s)
++{
++	/* The state page is page-aligned, so the seed is naturally aligned; the
++	 * integer cast keeps the compiler from warning about the byte pointer. */
++	return (uint32_t *)(uintptr_t)((uint8_t *)s->state->getBytesNoCopy() +
++	    KEBAB_SURFACE_STATE_SEED);
++}
++
++/*
++ * Give the surface an id and a table slot; the table holds one retain and a
++ * user count (creators, client mappings, kernel holders). Lock held.
++ */
++static bool
++kebab_surface_insert_locked(KebabSurface *s)
++{
++	for (uint32_t n = 0; n < KEBAB_SURFACE_MAX_ID - 1; n++) {
++		uint32_t id = kebab_surface_next_id;
++		kebab_surface_next_id = id + 1 < KEBAB_SURFACE_MAX_ID ? id + 1 : 1;
++		if (kebab_surface_table[id] == NULL) {
++			s->id = id;
++			s->retain();
++			kebab_surface_table[id] = s;
++			kebab_surface_users[id] = 1;
++			*(uint64_t *)s->state->getBytesNoCopy() = id;   /* registry id */
++			return true;
++		}
++	}
++	return false;
++}
++
++/* Add a user to a surface that may have left the table (port lookups). */
++static bool
++kebab_surface_get(KebabSurface *s)
++{
++	bool ok = true;
++	IOLockLock(kebab_surface_lock);
++	if (kebab_surface_table[s->id] == s) {
++		kebab_surface_users[s->id]++;
++	} else if (kebab_surface_table[s->id] == NULL) {
++		s->retain();
++		kebab_surface_table[s->id] = s;
++		kebab_surface_users[s->id] = 1;
++	} else {
++		ok = false;
++	}
++	IOLockUnlock(kebab_surface_lock);
++	return ok;
++}
++
++/* Drop a user; the last one removes the surface from the table. */
++static void
++kebab_surface_put(KebabSurface *s)
++{
++	bool drop = false;
++	IOLockLock(kebab_surface_lock);
++	if (kebab_surface_table[s->id] == s && --kebab_surface_users[s->id] == 0) {
++		kebab_surface_table[s->id] = NULL;
++		drop = true;
++	}
++	IOLockUnlock(kebab_surface_lock);
++	if (drop) {
++		s->release();
++	}
++}
++
++KebabSurface *
++kebab_surface_copy(uint32_t id)
++{
++	KebabSurface *s = NULL;
++	if (id == 0 || id >= KEBAB_SURFACE_MAX_ID || kebab_surface_lock == NULL) {
++		return NULL;
++	}
++	IOLockLock(kebab_surface_lock);
++	s = kebab_surface_table[id];
++	if (s != NULL) {
++		s->retain();
++	}
++	IOLockUnlock(kebab_surface_lock);
++	return s;
++}
++
++/* The table lock; the framebuffer may publish a surface before the root starts. */
++static void
++kebab_surface_init_lock(void)
++{
++	if (kebab_surface_lock == NULL) {
++		IOLock *lock = IOLockAlloc();
++		if (!OSCompareAndSwapPtr(NULL, lock, &kebab_surface_lock)) {
++			IOLockFree(lock);
++		}
++	}
++}
++
++static KebabSurface *
++kebab_surface_alloc(void)
++{
++	kebab_surface_init_lock();
++	KebabSurface *s = OSTypeAlloc(KebabSurface);
++	if (s == NULL || !s->init()) {
++		OSSafeReleaseNULL(s);
++		return NULL;
++	}
++	s->state = IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
++	    kIODirectionInOut | kIOMemoryKernelUserShared, page_size, page_size);
++	if (s->state == NULL) {
++		s->release();
++		return NULL;
++	}
++	bzero(s->state->getBytesNoCopy(), page_size);
++	s->values = NULL;
++	s->generation = 0;
++	s->valueSize = 0;
++	return s;
++}
++
++static bool
++kebab_surface_publish(KebabSurface *s)
++{
++	bool ok;
++	IOLockLock(kebab_surface_lock);
++	ok = kebab_surface_insert_locked(s);
++	IOLockUnlock(kebab_surface_lock);
++	return ok;
++}
++
++KebabSurface *
++kebab_surface_create_physical(uint64_t phys, uint32_t width, uint32_t height,
++    uint32_t bytesPerRow, uint32_t pixelFormat)
++{
++	KebabSurface *s = kebab_surface_alloc();
++	if (s == NULL) {
++		return NULL;
++	}
++	s->width = width;
++	s->height = height;
++	s->bytesPerRow = bytesPerRow;
++	s->bytesPerElement = 4;
++	s->elementWidth = s->elementHeight = 1;
++	s->pixelFormat = pixelFormat;
++	s->allocSize = (uint32_t)round_page(bytesPerRow * height);
++	s->memory = IOMemoryDescriptor::withPhysicalAddress(phys, s->allocSize, kIODirectionInOut);
++	s->mapCache = kIOMapWriteCombineCache;
++	if (s->memory == NULL || !kebab_surface_publish(s)) {
++		s->release();
++		return NULL;
++	}
++	return s;
++}
++
++mach_port_name_t
++kebab_surface_port_in_task(KebabSurface *s, task_t task)
++{
++	mach_port_name_t name = 0;
++	IOUserClient::copyPortNameForObjectInTask(task, s, &name);
++	return name;
++}
++
++static uint32_t
++kebab_dict_u32(OSDictionary *dict, const char *key, uint32_t def)
++{
++	OSNumber *n = OSDynamicCast(OSNumber, dict->getObject(key));
++	return n != NULL ? n->unsigned32BitValue() : def;
++}
++
++static uint32_t
++kebab_div_up(uint32_t a, uint32_t b)
++{
++	return b > 1 ? (a + b - 1) / b : a;
++}
++
++static uint32_t
++kebab_row_bytes(uint32_t width, uint32_t ew, uint32_t bpe)
++{
++	uint64_t row = (uint64_t)kebab_div_up(width, ew) * bpe;
++	return (uint32_t)((row + KEBAB_SURFACE_ROW_ALIGN - 1) & ~(uint64_t)(KEBAB_SURFACE_ROW_ALIGN - 1));
++}
++
++/* Geometry from the creation properties (IOSurface.h keys). */
++static IOReturn
++kebab_surface_layout(KebabSurface *s, OSDictionary *props)
++{
++	uint64_t end;
++
++	s->width = kebab_dict_u32(props, "IOSurfaceWidth", 0);
++	s->height = kebab_dict_u32(props, "IOSurfaceHeight", 0);
++	s->bytesPerElement = (uint16_t)kebab_dict_u32(props, "IOSurfaceBytesPerElement", 4);
++	s->elementWidth = (uint8_t)kebab_dict_u32(props, "IOSurfaceElementWidth", 1);
++	s->elementHeight = (uint8_t)kebab_dict_u32(props, "IOSurfaceElementHeight", 1);
++	s->pixelFormat = kebab_dict_u32(props, "IOSurfacePixelFormat", 0);
++	s->cacheMode = kebab_dict_u32(props, "IOSurfaceCacheMode", 0);
++	s->offset = kebab_dict_u32(props, "IOSurfaceOffset", 0);
++	if (s->width > KEBAB_SURFACE_MAX_DIM || s->height > KEBAB_SURFACE_MAX_DIM ||
++	    s->bytesPerElement > 64 || s->elementWidth == 0 || s->elementHeight == 0) {
++		return kIOReturnBadArgument;
++	}
++	s->bytesPerRow = kebab_dict_u32(props, "IOSurfaceBytesPerRow",
++	    kebab_row_bytes(s->width, s->elementWidth, s->bytesPerElement));
++	if (s->bytesPerRow < (uint64_t)kebab_div_up(s->width, s->elementWidth) * s->bytesPerElement) {
++		return kIOReturnBadArgument;
++	}
++	end = (uint64_t)s->offset + (uint64_t)s->bytesPerRow * kebab_div_up(s->height, s->elementHeight);
++
++	OSArray *planes = OSDynamicCast(OSArray, props->getObject("IOSurfacePlaneInfo"));
++	s->planeCount = 0;
++	if (planes != NULL) {
++		uint64_t next = s->offset;
++		if (planes->getCount() > KEBAB_SURFACE_MAX_PLANES) {
++			return kIOReturnBadArgument;
++		}
++		for (unsigned int i = 0; i < planes->getCount(); i++) {
++			OSDictionary *pd = OSDynamicCast(OSDictionary, planes->getObject(i));
++			struct kebab_surface_plane *p = &s->planes[i];
++			if (pd == NULL) {
++				return kIOReturnBadArgument;
++			}
++			p->width = kebab_dict_u32(pd, "IOSurfacePlaneWidth", s->width);
++			p->height = kebab_dict_u32(pd, "IOSurfacePlaneHeight", s->height);
++			p->bytesPerElement = (uint16_t)kebab_dict_u32(pd, "IOSurfacePlaneBytesPerElement", 1);
++			p->elementWidth = (uint8_t)kebab_dict_u32(pd, "IOSurfacePlaneElementWidth", 1);
++			p->elementHeight = (uint8_t)kebab_dict_u32(pd, "IOSurfacePlaneElementHeight", 1);
++			if (p->width > KEBAB_SURFACE_MAX_DIM || p->height > KEBAB_SURFACE_MAX_DIM ||
++			    p->bytesPerElement > 64 || p->elementWidth == 0 || p->elementHeight == 0) {
++				return kIOReturnBadArgument;
++			}
++			p->bytesPerRow = kebab_dict_u32(pd, "IOSurfacePlaneBytesPerRow",
++			    kebab_row_bytes(p->width, p->elementWidth, p->bytesPerElement));
++			p->offset = kebab_dict_u32(pd, "IOSurfacePlaneOffset", (uint32_t)next);
++			p->size = kebab_dict_u32(pd, "IOSurfacePlaneSize",
++			    p->bytesPerRow * kebab_div_up(p->height, p->elementHeight));
++			next = round_page((uint64_t)p->offset + p->size);
++			if ((uint64_t)p->offset + p->size > end) {
++				end = (uint64_t)p->offset + p->size;
++			}
++		}
++		s->planeCount = planes->getCount();
++	}
++
++	uint64_t alloc = kebab_dict_u32(props, "IOSurfaceAllocSize", 0);
++	if (alloc < end) {
++		alloc = end;
++	}
++	alloc = round_page(alloc);
++	if (alloc == 0 || alloc > KEBAB_SURFACE_MAX_ALLOC) {
++		return kIOReturnNoMemory;
++	}
++	s->allocSize = (uint32_t)alloc;
++	return kIOReturnSuccess;
++}
++
++/* Per-client mapping of one surface. */
++class KebabSurfaceRef : public OSObject {
++	OSDeclareDefaultStructors(KebabSurfaceRef);
++
++public:
++	KebabSurface *surface;
++	IOMemoryMap  *data;
++	IOMemoryMap  *state;
++	uint32_t      count;
++
++	bool init() APPLE_KEXT_OVERRIDE { return OSObject::init(); }
++	void free() APPLE_KEXT_OVERRIDE;
++};
++
++OSDefineMetaClassAndStructors(KebabSurfaceRef, OSObject);
++
++void
++KebabSurfaceRef::free()
++{
++	OSSafeReleaseNULL(data);
++	OSSafeReleaseNULL(state);
++	if (surface != NULL) {
++		kebab_surface_put(surface);
++		surface->release();
++		surface = NULL;
++	}
++	OSObject::free();
++}
++
++class IOCoreSurfaceRoot : public IOService {
++	OSDeclareDefaultStructors(IOCoreSurfaceRoot);
++
++public:
++	bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
++};
++
++OSDefineMetaClassAndStructors(IOCoreSurfaceRoot, IOService);
++
++bool
++IOCoreSurfaceRoot::start(IOService *provider)
++{
++	if (!IOService::start(provider)) {
++		return false;
++	}
++	kebab_surface_init_lock();
++	setProperty(kIOUserClientClassKey, "IOSurfaceRootUserClient");
++	registerService();
++	IOLog("KEBAB SURF: IOCoreSurfaceRoot registered\n");
++	return true;
++}
++
++class IOSurfaceRootUserClient : public IOUserClient {
++	OSDeclareDefaultStructors(IOSurfaceRootUserClient);
++
++	task_t   fTask;
++	IOLock  *fLock;
++	OSArray *fRefs;
++
++	KebabSurfaceRef *findRef(uint32_t id, unsigned int *index);
++	IOReturn addRef(KebabSurface *s, KebabSurfaceRef **refOut, bool *existing);
++	IOReturn returnSurface(KebabSurface *s, IOExternalMethodArguments *args);
++	IOReturn create(IOExternalMethodArguments *args);
++
++public:
++	bool initWithTask(task_t owningTask, void *securityID, UInt32 type) APPLE_KEXT_OVERRIDE;
++	void free() APPLE_KEXT_OVERRIDE;
++	IOReturn clientClose(void) APPLE_KEXT_OVERRIDE;
++	IOReturn externalMethod(uint32_t selector, IOExternalMethodArguments *args,
++	    IOExternalMethodDispatch *dispatch, OSObject *target,
++	    void *reference) APPLE_KEXT_OVERRIDE;
++	IOExternalTrap *getTargetAndTrapForIndex(IOService **targetP, UInt32 index) APPLE_KEXT_OVERRIDE;
++
++	IOReturn trapUseCount(void *id, void *category, void *, void *, void *, void *);
++	IOReturn trapLock(void *id, void *options, void *seedOut, void *, void *, void *);
++	IOReturn trapUnlock(void *id, void *options, void *seedOut, void *, void *, void *);
++	IOReturn trapRelease(void *id, void *, void *, void *, void *, void *);
++};
++
++OSDefineMetaClassAndStructors(IOSurfaceRootUserClient, IOUserClient);
++
++static uint64_t kebab_surf_logged;      /* selectors / traps already logged (< 64) */
++
++static void
++kebab_surf_log_once(const char *what, uint32_t n)
++{
++	uint32_t bit = (what[0] == 't' ? 48 : 0) + n;
++	if (bit >= 64 || (kebab_surf_logged & (1ULL << bit))) {
++		return;
++	}
++	kebab_surf_logged |= 1ULL << bit;
++	char name[32];
++	proc_selfname(name, sizeof(name));
++	IOLog("KEBAB SURF: %s %s %u\n", name, what, n);
++}
++
++bool
++IOSurfaceRootUserClient::initWithTask(task_t owningTask, void *securityID, UInt32 type)
++{
++	if (!IOUserClient::initWithTask(owningTask, securityID, type)) {
++		return false;
++	}
++	fTask = owningTask;
++	fLock = IOLockAlloc();
++	fRefs = OSArray::withCapacity(16);
++	return fLock != NULL && fRefs != NULL;
++}
++
++void
++IOSurfaceRootUserClient::free()
++{
++	OSSafeReleaseNULL(fRefs);
++	if (fLock != NULL) {
++		IOLockFree(fLock);
++		fLock = NULL;
++	}
++	IOUserClient::free();
++}
++
++IOReturn
++IOSurfaceRootUserClient::clientClose(void)
++{
++	IOLockLock(fLock);
++	fRefs->flushCollection();
++	IOLockUnlock(fLock);
++	terminate();
++	return kIOReturnSuccess;
++}
++
++/* Lock held. */
++KebabSurfaceRef *
++IOSurfaceRootUserClient::findRef(uint32_t id, unsigned int *index)
++{
++	for (unsigned int i = 0; i < fRefs->getCount(); i++) {
++		KebabSurfaceRef *ref = (KebabSurfaceRef *)fRefs->getObject(i);
++		if (ref->surface->id == id) {
++			if (index != NULL) {
++				*index = i;
++			}
++			return ref;
++		}
++	}
++	return NULL;
++}
++
++/*
++ * Count one more create/lookup of s by this client, mapping it into the
++ * task the first time. Takes over the caller's user count on s.
++ */
++IOReturn
++IOSurfaceRootUserClient::addRef(KebabSurface *s, KebabSurfaceRef **refOut, bool *existing)
++{
++	*existing = false;
++	IOLockLock(fLock);
++	KebabSurfaceRef *ref = findRef(s->id, NULL);
++	if (ref != NULL && ref->surface == s) {
++		IOLockUnlock(fLock);
++		kebab_surface_put(s);
++		*refOut = ref;
++		*existing = true;
++		return kIOReturnSuccess;
++	}
++	IOLockUnlock(fLock);
++
++	ref = OSTypeAlloc(KebabSurfaceRef);
++	if (ref == NULL || !ref->init()) {
++		OSSafeReleaseNULL(ref);
++		kebab_surface_put(s);
++		return kIOReturnNoMemory;
++	}
++	s->retain();
++	ref->surface = s;
++	ref->count = 1;
++	ref->data = s->memory->createMappingInTask(fTask, 0, kIOMapAnywhere | s->mapCache);
++	ref->state = s->state->createMappingInTask(fTask, 0, kIOMapAnywhere | kIOMapReadOnly);
++	if (ref->data == NULL || ref->state == NULL) {
++		ref->release();
++		return kIOReturnVMError;
++	}
++	IOLockLock(fLock);
++	KebabSurfaceRef *raced = findRef(s->id, NULL);
++	if (raced != NULL && raced->surface == s) {
++		/* Another thread mapped it meanwhile: count there, drop ours. */
++		raced->count++;
++		IOLockUnlock(fLock);
++		ref->release();
++		*refOut = raced;
++		return kIOReturnSuccess;
++	}
++	fRefs->setObject(ref);
++	IOLockUnlock(fLock);
++	ref->release();         /* fRefs holds it */
++	*refOut = ref;
++	return kIOReturnSuccess;
++}
++
++static void
++put32(uint8_t *p, uint32_t off, uint32_t v)
++{
++	memcpy(p + off, &v, 4);
++}
++
++static void
++put64(uint8_t *p, uint32_t off, uint64_t v)
++{
++	memcpy(p + off, &v, 8);
++}
++
++static uint64_t
++get64(const uint8_t *p, uint32_t off)
++{
++	uint64_t v;
++	memcpy(&v, p + off, 8);
++	return v;
++}
++
++static uint32_t
++get32(const uint8_t *p, uint32_t off)
++{
++	uint32_t v;
++	memcpy(&v, p + off, 4);
++	return v;
++}
++
++static KebabSurface *kebab_surface_held(IOLock *lock, OSArray *refs, uint32_t id);
++
++/*
++ * Copy the caller's structure input into kernel memory. Both the inband
++ * pointer and the out-of-line descriptor form are accepted.
++ */
++static IOReturn
++kebab_structure_in(IOExternalMethodArguments *args, uint8_t **buffer, uint32_t *size, uint32_t max)
++{
++	uint32_t len;
++	uint8_t *copy;
++
++	if (args->structureInputDescriptor != NULL) {
++		len = (uint32_t)args->structureInputDescriptor->getLength();
++		if (len == 0 || len > max) {
++			return kIOReturnBadArgument;
++		}
++		copy = (uint8_t *)IOMallocData(len);
++		if (copy == NULL) {
++			return kIOReturnNoMemory;
++		}
++		if (args->structureInputDescriptor->readBytes(0, copy, len) != len) {
++			IOFreeData(copy, len);
++			return kIOReturnBadArgument;
++		}
++	} else {
++		len = args->structureInputSize;
++		if (len == 0 || len > max || args->structureInput == NULL) {
++			return kIOReturnBadArgument;
++		}
++		copy = (uint8_t *)IOMallocData(len);
++		if (copy == NULL) {
++			return kIOReturnNoMemory;
++		}
++		memcpy(copy, args->structureInput, len);
++	}
++	*buffer = copy;
++	*size = len;
++	return kIOReturnSuccess;
++}
++
++/*
++ * Publish a new values generation in the shared state page: odd, never
++ * zero, and two ahead of the previous one, which is what the client checks.
++ * Called with kebab_surface_lock held.
++ */
++static void
++kebab_surface_values_changed(KebabSurface *s, uint32_t serializedSize)
++{
++	uint8_t *state = (uint8_t *)s->state->getBytesNoCopy();
++
++	s->generation = (s->generation + 2) | 1;
++	s->valueSize = serializedSize;
++	put32(state, KEBAB_SURFACE_STATE_GENERATION, s->generation);
++	put32(state, KEBAB_SURFACE_STATE_VALUE_SIZE, s->valueSize);
++}
++
++/* Serialize the values dictionary as the binary property list the client
++ * expects. Called with kebab_surface_lock held; the caller frees the copy. */
++static IOReturn
++kebab_surface_values_serialize(KebabSurface *s, uint8_t **buffer, uint32_t *size)
++{
++	OSSerialize *serialize;
++	uint8_t *copy;
++	uint32_t len;
++
++	if (s->values == NULL) {
++		s->values = OSDictionary::withCapacity(8);
++		if (s->values == NULL) {
++			return kIOReturnNoMemory;
++		}
++	}
++	serialize = OSSerialize::binaryWithCapacity(256);
++	if (serialize == NULL) {
++		return kIOReturnNoMemory;
++	}
++	if (!s->values->serialize(serialize)) {
++		serialize->release();
++		return kIOReturnNoMemory;
++	}
++	len = serialize->getLength();
++	if (len == 0 || len > KEBAB_SURFACE_VALUES_MAX) {
++		serialize->release();
++		return kIOReturnNoMemory;
++	}
++	copy = (uint8_t *)IOMallocData(len);
++	if (copy == NULL) {
++		serialize->release();
++		return kIOReturnNoMemory;
++	}
++	memcpy(copy, serialize->text(), len);
++	serialize->release();
++	*buffer = copy;
++	*size = len;
++	return kIOReturnSuccess;
++}
++
++/*
++ * Apply one selector-9 payload: an OS-serialized [value, key] pair sets one
++ * key, a serialized dictionary merges. Returns the new generation.
++ */
++static IOReturn
++kebab_surface_values_apply(KebabSurface *s, const uint8_t *payload, uint32_t len,
++    uint32_t *generationOut)
++{
++	OSObject *object = OSUnserializeXML((const char *)payload, len);
++	OSArray *array;
++	OSDictionary *dict;
++	OSSerialize *serialize;
++	bool ok = false;
++	uint32_t serialized = 0;
++
++	if (object == NULL) {
++		return kIOReturnBadArgument;
++	}
++	IOLockLock(kebab_surface_lock);
++	if (s->values == NULL) {
++		s->values = OSDictionary::withCapacity(8);
++	}
++	dict = OSDynamicCast(OSDictionary, object);
++	array = OSDynamicCast(OSArray, object);
++	if (s->values == NULL) {
++		/* no memory */
++	} else if (dict != NULL) {
++		ok = s->values->merge(dict);
++	} else if (array != NULL && array->getCount() == 2) {
++		OSString *key = OSDynamicCast(OSString, array->getObject(1));
++		OSObject *value = array->getObject(0);
++		if (key != NULL && value != NULL) {
++			ok = s->values->setObject(key, value);
++		}
++	} else if (array != NULL && array->getCount() == 1) {
++		OSDictionary *merge = OSDynamicCast(OSDictionary, array->getObject(0));
++		if (merge != NULL) {
++			ok = s->values->merge(merge);
++		}
++	}
++	if (ok) {
++		serialize = OSSerialize::binaryWithCapacity(256);
++		if (serialize != NULL) {
++			if (s->values->serialize(serialize)) {
++				serialized = serialize->getLength();
++			}
++			serialize->release();
++		}
++		kebab_surface_values_changed(s, serialized);
++		*generationOut = s->generation;
++	}
++	IOLockUnlock(kebab_surface_lock);
++	object->release();
++	return ok ? kIOReturnSuccess : kIOReturnBadArgument;
++}
++
++/* Remove one key, or everything when the key is empty. */
++static IOReturn
++kebab_surface_values_remove(KebabSurface *s, const char *key, uint32_t *generationOut)
++{
++	OSSerialize *serialize;
++	uint32_t serialized = 0;
++
++	IOLockLock(kebab_surface_lock);
++	if (s->values == NULL) {
++		s->values = OSDictionary::withCapacity(8);
++	}
++	if (s->values == NULL) {
++		IOLockUnlock(kebab_surface_lock);
++		return kIOReturnNoMemory;
++	}
++	if (key != NULL && key[0] != '\0') {
++		s->values->removeObject(key);
++	} else {
++		s->values->flushCollection();
++	}
++	serialize = OSSerialize::binaryWithCapacity(256);
++	if (serialize != NULL) {
++		if (s->values->serialize(serialize)) {
++			serialized = serialize->getLength();
++		}
++		serialize->release();
++	}
++	kebab_surface_values_changed(s, serialized);
++	*generationOut = s->generation;
++	IOLockUnlock(kebab_surface_lock);
++	return kIOReturnSuccess;
++}
++
++/* The selector-0x1b attachment fields and where they live in the state page. */
++struct kebab_bulk_field {
++	uint64_t mask;
++	uint32_t source;
++	uint32_t destination;
++	uint32_t length;
++};
++
++static const struct kebab_bulk_field kebab_bulk_fields[] = {
++	{ 1ULL << 0,  0x00, KEBAB_SURFACE_STATE_BULK + 0x00, 32 },
++	{ 1ULL << 1,  0x20, KEBAB_SURFACE_STATE_BULK + 0x20, 16 },
++	{ 1ULL << 2,  0x30, KEBAB_SURFACE_STATE_BULK + 0x30, 8 },
++	{ 1ULL << 3,  0x38, KEBAB_SURFACE_STATE_BULK + 0x38, 1 },
++	{ 1ULL << 4,  0x39, KEBAB_SURFACE_STATE_BULK + 0x39, 1 },
++	{ 1ULL << 5,  0x3a, KEBAB_SURFACE_STATE_BULK + 0x3a, 1 },
++	{ 1ULL << 6,  0x3b, KEBAB_SURFACE_STATE_BULK + 0x3b, 1 },
++	{ 1ULL << 7,  0x3c, KEBAB_SURFACE_STATE_BULK + 0x3c, 1 },
++	{ 1ULL << 8,  0x3d, KEBAB_SURFACE_STATE_BULK + 0x3d, 1 },
++	{ 1ULL << 9,  0x3e, KEBAB_SURFACE_STATE_BULK + 0x3e, 1 },
++	{ 1ULL << 10, 0x3f, KEBAB_SURFACE_STATE_BULK + 0x3f, 1 },
++	{ 1ULL << 11, 0x40, KEBAB_SURFACE_STATE_BULK + 0x40, 24 },
++	{ 1ULL << 12, 0x58, KEBAB_SURFACE_STATE_BULK + 0x58, 4 },
++	{ 1ULL << 13, 0x5c, KEBAB_SURFACE_STATE_BULK + 0x5c, 8 },
++	{ 1ULL << 14, 0x64, KEBAB_SURFACE_STATE_BULK + 0x64, 1 },
++};
++
++/*
++ * Copy the fields the caller marked changed into the shared state page. The
++ * client and the kernel both read the attachments from there, so this is the
++ * real implementation and not a placeholder. "Valid size" bounds which of
++ * the 0x70 struct bytes may be read.
++ */
++static IOReturn
++kebab_surface_bulk(KebabSurface *s, const uint8_t *in, uint32_t len)
++{
++	uint8_t *state;
++	uint64_t valid;
++	uint64_t changed;
++
++	if (len < 0x88) {
++		return kIOReturnBadArgument;
++	}
++	valid = get64(in, 0x70);
++	changed = get64(in, 0x78);
++	if (valid > 0x70) {
++		valid = 0x70;
++	}
++	state = (uint8_t *)s->state->getBytesNoCopy();
++	IOLockLock(kebab_surface_lock);
++	for (unsigned int i = 0; i < sizeof(kebab_bulk_fields) / sizeof(kebab_bulk_fields[0]); i++) {
++		const struct kebab_bulk_field *field = &kebab_bulk_fields[i];
++		if (!(changed & field->mask)) {
++			continue;
++		}
++		if ((uint64_t)field->source + field->length > valid) {
++			continue;       /* the caller did not mark these bytes valid */
++		}
++		memcpy(state + field->destination, in + field->source, field->length);
++	}
++	IOLockUnlock(kebab_surface_lock);
++	return kIOReturnSuccess;
++}
++
++/* Selectors 9 and 11 answer with the new generation, as a scalar or as a
++ * four-byte structure output depending on how the client called. */
++static void
++kebab_generation_out(IOExternalMethodArguments *args, uint32_t generation)
++{
++	if (args->scalarOutputCount >= 1) {
++		args->scalarOutput[0] = generation;
++	}
++	if (args->structureOutput != NULL && args->structureOutputSize >= 4) {
++		memcpy(args->structureOutput, &generation, 4);
++	}
++}
++
++/* IOSurface.framework's lock result (copied to IOSurfaceClient + 0x68). */
++static void
++kebab_surface_fill_result(KebabSurface *s, KebabSurfaceRef *ref, uint8_t *out)
++{
++	bzero(out, KEBAB_SURFACE_RESULT_SIZE);
++	put64(out, 0x00, ref->data->getAddress());
++	put64(out, 0x08, ref->state->getAddress());
++	put64(out, 0x10, ref->state->getAddress() + KEBAB_SURFACE_TIMESTAMPS);
++	put32(out, 0x18, s->id);
++	put32(out, 0x1c, s->allocSize);
++	put32(out, 0x20, s->width);
++	put32(out, 0x24, s->height);
++	put32(out, 0x28, s->bytesPerRow);
++	put32(out, 0x2c, s->offset);
++	put32(out, 0x30, s->pixelFormat);
++	put32(out, 0x34, s->allocSize);
++	put32(out, 0x38, s->planeCount);
++	memcpy(out + 0x40, &s->bytesPerElement, 2);
++	out[0x42] = s->elementWidth;
++	out[0x43] = s->elementHeight;
++	put32(out, 0x44, s->cacheMode);
++	put32(out, 0x50, s->parentID);
++	put32(out, 0x54, 1);
++	for (uint32_t i = 0; i < s->planeCount; i++) {
++		uint8_t *p = out + 0x68 + i * 0x80;
++		const struct kebab_surface_plane *pl = &s->planes[i];
++		put32(p, 0x00, pl->width);
++		put32(p, 0x04, pl->height);
++		put32(p, 0x08, pl->bytesPerRow);
++		put32(p, 0x0c, pl->offset);
++		put32(p, 0x14, pl->size);
++		memcpy(p + 0x18, &pl->bytesPerElement, 2);
++		p[0x1a] = pl->elementWidth;
++		p[0x1b] = pl->elementHeight;
++	}
++}
++
++static IOReturn
++kebab_struct_out(IOExternalMethodArguments *args, const void *buf, uint32_t len)
++{
++	if (args->structureOutputDescriptor != NULL) {
++		if (len > args->structureOutputDescriptor->getLength()) {
++			return kIOReturnNoSpace;
++		}
++		args->structureOutputDescriptor->writeBytes(0, buf, len);
++		args->structureOutputDescriptorSize = len;
++		return kIOReturnSuccess;
++	}
++	if (args->structureOutput == NULL || len > args->structureOutputSize) {
++		return kIOReturnNoSpace;
++	}
++	memcpy(args->structureOutput, buf, len);
++	args->structureOutputSize = len;
++	return kIOReturnSuccess;
++}
++
++/* Map s for this client and answer with its lock result. Takes s's user count. */
++IOReturn
++IOSurfaceRootUserClient::returnSurface(KebabSurface *s, IOExternalMethodArguments *args)
++{
++	KebabSurfaceRef *ref = NULL;
++	bool existing = false;
++	IOReturn ret = addRef(s, &ref, &existing);
++	if (ret != kIOReturnSuccess) {
++		return ret;
++	}
++	uint8_t *out = (uint8_t *)IOMallocZeroData(KEBAB_SURFACE_RESULT_SIZE);
++	if (out == NULL) {
++		ret = kIOReturnNoMemory;
++	} else {
++		kebab_surface_fill_result(s, ref, out);
++		if (existing) {
++			put64(out, 0x00, ~0ULL);        /* already yours: reuse the cached client */
++		}
++		ret = kebab_struct_out(args, out, KEBAB_SURFACE_RESULT_SIZE);
++		IOFreeData(out, KEBAB_SURFACE_RESULT_SIZE);
++	}
++	if (ret != kIOReturnSuccess && !existing) {
++		/* The caller never learns the id: undo this create/lookup. */
++		trapRelease((void *)(uintptr_t)s->id, NULL, NULL, NULL, NULL, NULL);
++	}
++	return ret;
++}
++
++IOReturn
++IOSurfaceRootUserClient::create(IOExternalMethodArguments *args)
++{
++	const char *buf = (const char *)args->structureInput;
++	uint32_t len = args->structureInputSize;
++	char *copy = NULL;
++	IOReturn ret;
++
++	if (args->structureInputDescriptor != NULL) {
++		len = (uint32_t)args->structureInputDescriptor->getLength();
++		if (len == 0 || len > KEBAB_SURFACE_MAX_PROPS) {
++			return kIOReturnBadArgument;
++		}
++		copy = (char *)IOMallocData(len);
++		if (copy == NULL) {
++			return kIOReturnNoMemory;
++		}
++		args->structureInputDescriptor->readBytes(0, copy, len);
++		buf = copy;
++	}
++	OSObject *obj = (buf != NULL && len > 0) ? OSUnserializeXML(buf, len) : NULL;
++	if (copy != NULL) {
++		IOFreeData(copy, len);
++	}
++	OSDictionary *props = OSDynamicCast(OSDictionary, obj);
++	if (props == NULL) {
++		OSSafeReleaseNULL(obj);
++		IOLog("KEBAB SURF: create: bad property dictionary (%u bytes)\n", len);
++		return kIOReturnBadArgument;
++	}
++
++	KebabSurface *s = kebab_surface_alloc();
++	if (s == NULL) {
++		props->release();
++		return kIOReturnNoMemory;
++	}
++	s->parentID = args->scalarInputCount > 0 ? (uint32_t)args->scalarInput[0] : 0;
++	ret = kebab_surface_layout(s, props);
++	if (ret == kIOReturnSuccess) {
++		IOBufferMemoryDescriptor *mem = NULL;
++		if ((uint64_t)OSAddAtomic64(s->allocSize, (volatile SInt64 *)&kebab_surface_wired) +
++		    s->allocSize <= KEBAB_SURFACE_WIRED_MAX) {
++			mem = IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
++			    kIODirectionInOut | kIOMemoryKernelUserShared, s->allocSize, page_size);
++		}
++		if (mem == NULL) {
++			OSAddAtomic64(-(SInt64)s->allocSize, (volatile SInt64 *)&kebab_surface_wired);
++			ret = kIOReturnNoMemory;
++		} else {
++			bzero(mem->getBytesNoCopy(), s->allocSize);
++			s->memory = mem;
++			s->mapCache = kIOMapDefaultCache;
++			if (!kebab_surface_publish(s)) {
++				ret = kIOReturnNoResources;
++			}
++		}
++	}
++	if (ret != kIOReturnSuccess || kebab_surface_creates_logged < 64) {
++		char name[32];
++		proc_selfname(name, sizeof(name));
++		kebab_surface_creates_logged++;
++		IOLog("KEBAB SURF: %s create id %u %ux%u fmt 0x%x bpe %u bpr %u planes %u size %u keys %u -> 0x%x\n",
++		    name, s->id, s->width, s->height, s->pixelFormat, s->bytesPerElement,
++		    s->bytesPerRow, s->planeCount, s->allocSize, props->getCount(), ret);
++	}
++	props->release();
++	if (ret != kIOReturnSuccess) {
++		s->release();
++		return ret;
++	}
++	ret = returnSurface(s, args);   /* takes the creator's user count */
++	s->release();
++	return ret;
++}
++
++IOReturn
++IOSurfaceRootUserClient::externalMethod(uint32_t selector, IOExternalMethodArguments *args,
++    __unused IOExternalMethodDispatch *dispatch, __unused OSObject *target,
++    __unused void *reference)
++{
++	uint64_t arg0 = args->scalarInputCount > 0 ? args->scalarInput[0] : 0;
++
++	switch (selector) {
++	case kKebabSurfaceLimits: {
++		uint8_t limits[0x18] = { 0 };
++		put32(limits, 0x0, KEBAB_SURFACE_ROW_ALIGN - 1);
++		put32(limits, 0x4, KEBAB_SURFACE_ROW_ALIGN - 1);
++		limits[0x16] = 1;
++		kebab_surf_log_once("sel", selector);
++		return kebab_struct_out(args, limits, sizeof(limits));
++	}
++	case kKebabSurfaceCreate:
++		return create(args);
++	case kKebabSurfaceLookup: {
++		KebabSurface *s = kebab_surface_copy((uint32_t)arg0);
++		IOReturn ret = kIOReturnNotFound;
++		if (s != NULL) {
++			ret = kebab_surface_get(s) ? returnSurface(s, args) : kIOReturnNotFound;
++			s->release();
++		}
++		kebab_surf_log_once("sel", selector);
++		return ret;
++	}
++	case kKebabSurfaceLookupFromPort: {
++		OSObject *obj = NULL;
++		IOReturn ret = IOUserClient::copyObjectForPortNameInTask(fTask, (mach_port_name_t)arg0, &obj);
++		KebabSurface *s = OSDynamicCast(KebabSurface, obj);
++		if (ret == kIOReturnSuccess) {
++			ret = (s != NULL && kebab_surface_get(s)) ? returnSurface(s, args) : kIOReturnBadArgument;
++		}
++		OSSafeReleaseNULL(obj);
++		kebab_surf_log_once("sel", selector);
++		return ret;
++	}
++	case kKebabSurfaceCreatePort: {
++		KebabSurface *s = kebab_surface_copy((uint32_t)arg0);
++		if (s == NULL || args->scalarOutputCount < 1) {
++			OSSafeReleaseNULL(s);
++			return kIOReturnNotFound;
++		}
++		args->scalarOutput[0] = kebab_surface_port_in_task(s, fTask);
++		args->scalarOutputCount = 1;
++		s->release();
++		kebab_surf_log_once("sel", selector);
++		return kIOReturnSuccess;
++	}
++	case kKebabSurfaceSetValue: {
++		uint8_t *buffer = NULL;
++		uint8_t *payload;
++		uint32_t len = 0;
++		uint32_t id = (uint32_t)arg0;
++		uint32_t generation = 0;
++		KebabSurface *s;
++		IOReturn ret;
++
++		ret = kebab_structure_in(args, &buffer, &len, KEBAB_SURFACE_VALUES_MAX);
++		if (ret != kIOReturnSuccess) {
++			kebab_surf_log_once("sel", selector);
++			return ret;
++		}
++		payload = buffer;
++		if (args->scalarInputCount == 0 && len >= 8) {
++			id = get32(payload, 0);
++			payload += 8;
++			len -= 8;
++		}
++		s = kebab_surface_held(fLock, fRefs, id);
++		if (s == NULL) {
++			ret = kIOReturnNotFound;
++		} else {
++			ret = kebab_surface_values_apply(s, payload, len, &generation);
++			if (ret == kIOReturnBadArgument && len > 8) {
++				/* Some builds keep the {id, pad} header in the struct
++				 * even when the id is also a scalar; try past it. */
++				ret = kebab_surface_values_apply(s, payload + 8, len - 8, &generation);
++			}
++			if (ret == kIOReturnSuccess) {
++				kebab_generation_out(args, generation);
++			}
++			s->release();
++		}
++		uint32_t total = len + (uint32_t)(payload - buffer);
++		IOFreeData(buffer, total);
++		kebab_surf_log_once("sel", selector);
++		return ret;
++	}
++	case kKebabSurfaceUpdateValueCache: {
++		uint8_t *blob = NULL;
++		uint8_t *out;
++		uint32_t blobLen = 0;
++		uint32_t generation = 0;
++		uint32_t needed;
++		uint32_t id = (uint32_t)arg0;
++		KebabSurface *s;
++		IOReturn ret;
++
++		if (args->scalarInputCount == 0 && args->structureInput != NULL &&
++		    args->structureInputSize >= 4) {
++			id = get32((const uint8_t *)args->structureInput, 0);
++		}
++		s = kebab_surface_held(fLock, fRefs, id);
++		if (s == NULL) {
++			kebab_surf_log_once("sel", selector);
++			return kIOReturnNotFound;
++		}
++		IOLockLock(kebab_surface_lock);
++		ret = kebab_surface_values_serialize(s, &blob, &blobLen);
++		generation = s->generation;
++		IOLockUnlock(kebab_surface_lock);
++		s->release();
++		if (ret != kIOReturnSuccess) {
++			kebab_surf_log_once("sel", selector);
++			return ret;
++		}
++		needed = 8 + blobLen;
++		out = (uint8_t *)IOMallocData(needed);
++		if (out == NULL) {
++			IOFreeData(blob, blobLen);
++			kebab_surf_log_once("sel", selector);
++			return kIOReturnNoMemory;
++		}
++		put32(out, 0x0, 0);
++		put32(out, 0x4, generation);
++		memcpy(out + 8, blob, blobLen);
++		IOFreeData(blob, blobLen);
++
++		if (args->structureOutputDescriptor != NULL) {
++			IOByteCount size = args->structureOutputDescriptor->getLength();
++			if (size < needed) {
++				args->structureOutputDescriptorSize = needed;
++				ret = kIOReturnNoSpace;
++			} else if (args->structureOutputDescriptor->writeBytes(0, out, needed) != needed) {
++				ret = kIOReturnVMError;
++			} else {
++				args->structureOutputDescriptorSize = needed;
++				ret = kIOReturnSuccess;
++			}
++		} else if (args->structureOutput == NULL || args->structureOutputSize < needed) {
++			/* Tell the client how much it needs; it retries. The inband
++			 * reply buffer is 4 KiB, so only advertise a size that fits. */
++			if (needed <= 4096) {
++				args->structureOutputSize = needed;
++			}
++			if (args->scalarOutputCount >= 1) {
++				args->scalarOutput[0] = needed;
++			}
++			ret = kIOReturnNoSpace;
++		} else {
++			memcpy(args->structureOutput, out, needed);
++			if (args->structureOutputSize > needed) {
++				bzero((uint8_t *)args->structureOutput + needed,
++				    args->structureOutputSize - needed);
++			}
++			ret = kIOReturnSuccess;
++		}
++		IOFreeData(out, needed);
++		kebab_surf_log_once("sel", selector);
++		return ret;
++	}
++	case kKebabSurfaceRemoveValue: {
++		uint8_t *buffer = NULL;
++		uint8_t *payload;
++		uint32_t len = 0;
++		uint32_t id = (uint32_t)arg0;
++		uint32_t generation = 0;
++		char key[256];
++		KebabSurface *s;
++		IOReturn ret;
++
++		if (args->structureInputDescriptor != NULL ||
++		    (args->structureInput != NULL && args->structureInputSize > 0)) {
++			ret = kebab_structure_in(args, &buffer, &len, sizeof(key));
++			if (ret != kIOReturnSuccess) {
++				kebab_surf_log_once("sel", selector);
++				return ret;
++			}
++		}
++		payload = buffer;
++		if (buffer != NULL && args->scalarInputCount == 0 && len >= 8) {
++			id = get32(payload, 0);
++			payload += 8;
++			len -= 8;
++		}
++		uint32_t i = 0;
++		while (buffer != NULL && i < len && i < sizeof(key) - 1 && payload[i] != '\0') {
++			key[i] = payload[i];
++			i++;
++		}
++		key[i] = '\0';
++		s = kebab_surface_held(fLock, fRefs, id);
++		if (s == NULL) {
++			ret = kIOReturnNotFound;
++		} else {
++			ret = kebab_surface_values_remove(s, key, &generation);
++			if (ret == kIOReturnSuccess) {
++				kebab_generation_out(args, generation);
++			}
++			s->release();
++		}
++		if (buffer != NULL) {
++			uint32_t total = len + (uint32_t)(payload - buffer);
++			IOFreeData(buffer, total);
++		}
++		kebab_surf_log_once("sel", selector);
++		return ret;
++	}
++	case kKebabSurfaceSetBulkAttachments: {
++		uint8_t *buffer = NULL;
++		uint32_t len = 0;
++		KebabSurface *s;
++		IOReturn ret;
++
++		ret = kebab_structure_in(args, &buffer, &len, 0x100);
++		if (ret != kIOReturnSuccess) {
++			kebab_surf_log_once("sel", selector);
++			return ret;
++		}
++		if (len < 0x88) {
++			ret = kIOReturnBadArgument;
++		} else {
++			s = kebab_surface_held(fLock, fRefs, get32(buffer, 0x80));
++			if (s == NULL) {
++				ret = kIOReturnNotFound;
++			} else {
++				ret = kebab_surface_bulk(s, buffer, len);
++				s->release();
++			}
++		}
++		IOFreeData(buffer, len);
++		kebab_surf_log_once("sel", selector);
++		return ret;
++	}
++	default:
++		/* Unimplemented: a zeroed success makes the client believe it got an
++		 * answer it never got. */
++		for (uint32_t i = 0; i < args->scalarOutputCount; i++) {
++			args->scalarOutput[i] = 0;
++		}
++		if (args->structureOutput != NULL) {
++			bzero(args->structureOutput, args->structureOutputSize);
++		}
++		kebab_surf_log_once("sel", selector);
++		return kIOReturnUnsupported;
++	}
++}
++
++IOReturn
++IOSurfaceRootUserClient::trapUseCount(__unused void *id, __unused void *category,
++    void *, void *, void *, void *)
++{
++	return kIOReturnSuccess;
++}
++
++static IOReturn
++kebab_surface_seed_out(KebabSurface *s, void *seedOut, bool bump)
++{
++	uint32_t seed = bump ? OSIncrementAtomic((volatile SInt32 *)kebab_surface_seed(s)) + 1 :
++	    *kebab_surface_seed(s);
++	if (seedOut != NULL && copyout(&seed, (user_addr_t)seedOut, sizeof(seed)) != 0) {
++		return kIOReturnBadArgument;
++	}
++	return kIOReturnSuccess;
++}
++
++/* Retained surface this client created or looked up, or NULL. */
++static KebabSurface *
++kebab_surface_held(IOLock *lock, OSArray *refs, uint32_t id)
++{
++	KebabSurface *s = NULL;
++	IOLockLock(lock);
++	for (unsigned int i = 0; i < refs->getCount(); i++) {
++		KebabSurfaceRef *ref = (KebabSurfaceRef *)refs->getObject(i);
++		if (ref->surface->id == id) {
++			s = ref->surface;
++			s->retain();
++			break;
++		}
++	}
++	IOLockUnlock(lock);
++	return s;
++}
++
++IOReturn
++IOSurfaceRootUserClient::trapLock(void *id, __unused void *options, void *seedOut,
++    void *, void *, void *)
++{
++	KebabSurface *s = kebab_surface_held(fLock, fRefs, (uint32_t)(uintptr_t)id);
++	if (s == NULL) {
++		return kIOReturnNotFound;
++	}
++	IOReturn ret = kebab_surface_seed_out(s, seedOut, false);
++	s->release();
++	return ret;
++}
++
++IOReturn
++IOSurfaceRootUserClient::trapUnlock(void *id, void *options, void *seedOut,
++    void *, void *, void *)
++{
++	KebabSurface *s = kebab_surface_held(fLock, fRefs, (uint32_t)(uintptr_t)id);
++	if (s == NULL) {
++		return kIOReturnNotFound;
++	}
++	IOReturn ret = kebab_surface_seed_out(s, seedOut,
++	    !((uintptr_t)options & kIOSurfaceLockReadOnly));
++	s->release();
++	return ret;
++}
++
++IOReturn
++IOSurfaceRootUserClient::trapRelease(void *id, void *, void *, void *, void *, void *)
++{
++	unsigned int index;
++	IOLockLock(fLock);
++	KebabSurfaceRef *ref = findRef((uint32_t)(uintptr_t)id, &index);
++	if (ref != NULL && --ref->count == 0) {
++		fRefs->removeObject(index);     /* unmaps and drops the user count */
++	}
++	IOLockUnlock(fLock);
++	return ref != NULL ? kIOReturnSuccess : kIOReturnNotFound;
++}
++
++static IOExternalTrap kebab_surface_traps[] = {
++	[kKebabSurfaceTrapIncrementUse]  = { NULL, (IOTrap) & IOSurfaceRootUserClient::trapUseCount },
++	[kKebabSurfaceTrapDecrementUse]  = { NULL, (IOTrap) & IOSurfaceRootUserClient::trapUseCount },
++	[kKebabSurfaceTrapLock]          = { NULL, (IOTrap) & IOSurfaceRootUserClient::trapLock },
++	[kKebabSurfaceTrapUnlock]        = { NULL, (IOTrap) & IOSurfaceRootUserClient::trapUnlock },
++	[kKebabSurfaceTrapRelease]       = { NULL, (IOTrap) & IOSurfaceRootUserClient::trapRelease },
++	[kKebabSurfaceTrapReleaseFailed] = { NULL, (IOTrap) & IOSurfaceRootUserClient::trapRelease },
++};
++
++IOExternalTrap *
++IOSurfaceRootUserClient::getTargetAndTrapForIndex(IOService **targetP, UInt32 index)
++{
++	if (index >= sizeof(kebab_surface_traps) / sizeof(kebab_surface_traps[0])) {
++		kebab_surf_log_once("trap", index);
++		return NULL;
++	}
++	kebab_surf_log_once("trap", index);
++	*targetP = this;
++	return &kebab_surface_traps[index];
++}
++#endif /* KEBAB */
+diff --git a/iokit/Kernel/arm/KebabFramebuffer.cpp b/iokit/Kernel/arm/KebabFramebuffer.cpp
+new file mode 100644
+--- /dev/null
++++ b/iokit/Kernel/arm/KebabFramebuffer.cpp
+@@ -0,0 +1,941 @@
++/*
++ * Built-in IOMobileFramebuffer for KEBAB: the ABL's continuous-splash
++ * framebuffer (1080x2400 a8r8g8b8 in RAM, the panel scans it out by
++ * itself) as the main display, driven by CoreAnimation's CPU renderer.
++ *
++ * IOMobileFramebuffer.framework (iOS 16.7) counts /arm-io children with
++ * device_type "display-subsystem", waits for that many services matching
++ * IOServiceMatching("IOMobileFramebuffer"), opens each with type 0 and
++ * reads canvas-width/canvas-height from the service's provider. The class
++ * here (AppleCLCD, an IOMobileFramebuffer) is started directly by the
++ * platform expert, which is also the provider it attaches to.
++ *
++ * Physical panel versus logical display
++ * -------------------------------------
++ * The panel is 1080x2400 and the bootloader's framebuffer is exactly that;
++ * neither is changed here. The iPhone X userland identity this port carries
++ * (D22AP, /product artwork-scale-factor 3) describes a 1125x2436 display at
++ * 3x, i.e. 375x812 points. Userland asks the display for that logical size
++ * and lays every frame out in logical pixels, so the driver presents a
++ * 1125x2436 frame on a 1080x2400 panel: the logical origin (22, 18) maps to
++ * panel (0, 0) and the 1080x2400 centre is copied, with the extra logical
++ * margin clipped. That is a deliberate physical/logical split, not a bug;
++ * "fixing" GetDisplaySize back to 1080x2400 breaks FBSDisplayMode and the
++ * UIKit layout for this identity. A real DPU backend would scale or centre
++ * the frame itself; the CPU copy backend clips it the same way.
++ *
++ * User client selectors (all numbers are decimal, as in the framework):
++ *   3  GetLayerDefaultSurface [layer, ?] -> [IOSurface port name]
++ *   4  SwapBegin -> [swap id]
++ *   5  SwapEnd, struct 0x46c: +0x50 swap id, +0x54 IOSurface id per layer
++ *      (4 layers), +0x64 rect a / +0xc4 rect b per layer (int x,y,w,h),
++ *      +0x104 enabled layer mask. Queues the frame; never blocks.
++ *   6  SwapWait [swap id, timeout ms, 0] -> success / timeout / not found
++ *   7  GetID -> [0], 8 GetDisplaySize -> [1125, 2436] (logical)
++ *   12 RequestPowerChange [0 = off, else on] -> blank/repaint
++ *   15 SetDebugFlags [flags] -> [flags] (bit 0 verboses presents)
++ *   17 SetGammaTable, 27 GetGammaTable: unsupported (no DPU)
++ *   18 IsMainDisplay -> [1]
++ *   22 SetDisplayDevice [index] -> only 0 (the built-in panel)
++ *   28 GetDotPitch -> [458] (iPhone X ppi, not the 395 ppi panel)
++ *   29 GetDisplayArea -> struct {x, y, w, h} = 0, 0, 1125, 2436
++ *   33 EnableDisableVideoPowerSavings [on] -> [on] (no savings to toggle)
++ *   50 SetBrightnessCorrection, 55 SetMatrix, 68 SetParameter,
++ *   79 GetBlock, 84 SetContrast: unsupported (would have to fake a result)
++ *   57 GetColorRemapMode -> [0] (no remap)
++ *   72 Enable/DisableNotifications [func, refcon, type, 0]
++ *   74 SupportedFrameInfo -> mode struct {version, size, 1125, 2436, 3,
++ *      60, sRGB, SDR, rotation 0, BGRA, ...}; layout is ours (see below)
++ *   83 CopyLayerDisplayedSurface [layer] -> [port name of the displayed
++ *      surface, or not found]
++ *
++ * Swap lifecycle: SwapEnd copies the 0x46c record into a one-deep queue and
++ * returns. The 60 Hz vsync timer presents the latest queued frame with the
++ * CPU copy (the current backend), records its id as completed and wakes
++ * SwapWait waiters. A later DPU backend replaces AppleCLCD::present() and
++ * the completion point; the user client ABI does not change.
++ *
++ * Vsync (notification type 5) sends (timestamp, timestamp, 0) as 32-bit
++ * halves to clients that enabled it. The panel memory itself is published
++ * as an IOSurface and returned as the default framebuffer surface. The
++ * kernel text console keeps drawing over the GUI by default: pausing it
++ * (boot-arg kebabfb_noconsole=1, on the first present) mutes the console,
++ * which also hides panics.
++ */
++#include "KebabSurface.h"
++
++static void kebab_publish_canvas(IOService *provider, uint32_t width, uint32_t height);
++extern "C" int kebab_display_start(IOService *provider);
++
++extern "C" int kebab_console_muted;
++int kebab_console_muted;      /* read by the console path */
++
++#if defined(KEBAB)
++#include <IOKit/IOService.h>
++#include <IOKit/IOUserClient.h>
++#include <IOKit/IOKitKeys.h>
++#include <IOKit/IOLib.h>
++#include <IOKit/IOLocks.h>
++#include <IOKit/IOWorkLoop.h>
++#include <IOKit/IOTimerEventSource.h>
++#include <IOKit/system.h>
++#include <pexpert/pexpert.h>
++#include <kern/clock.h>
++#include <kern/kern_types.h>
++#include <sys/proc.h>
++
++enum {
++	kKebabFBGetLayerDefaultSurface  = 3,
++	kKebabFBSwapBegin               = 4,
++	kKebabFBSwapEnd                 = 5,
++	kKebabFBSwapWait                = 6,
++	kKebabFBGetID                   = 7,
++	kKebabFBGetDisplaySize          = 8,
++	kKebabFBRequestPowerChange      = 12,
++	kKebabFBSetDebugFlags           = 15,
++	kKebabFBSetGammaTable           = 17,
++	kKebabFBIsMainDisplay           = 18,
++	kKebabFBSetDisplayDevice        = 22,
++	kKebabFBGetGammaTable           = 27,
++	kKebabFBGetDotPitch             = 28,
++	kKebabFBGetDisplayArea          = 29,
++	kKebabFBVideoPowerSavings       = 33,
++	kKebabFBSetBrightnessCorrection = 50,
++	kKebabFBSetMatrix               = 55,
++	kKebabFBGetColorRemapMode       = 57,
++	kKebabFBSetParameter            = 68,
++	kKebabFBNotifications           = 72,
++	kKebabFBSupportedFrameInfo      = 74,
++	kKebabFBGetBlock                = 79,
++	kKebabFBCopyDisplayedSurface    = 83,
++	kKebabFBSetContrast             = 84,
++};
++
++#define KEBAB_FB_SWAP_REC_SIZE          0x46c
++#define KEBAB_FB_LAYERS                 4
++#define KEBAB_FB_NOTIFY_TYPES           8
++#define KEBAB_FB_NOTIFY_VSYNC           5
++#define KEBAB_FB_VSYNC_US               16667
++/*
++ * The logical display is the iPhone X the userland identity describes;
++ * the panel and canvas stay at the bootloader's 1080x2400. See the top of
++ * the file before changing these.
++ */
++#define KEBAB_FB_LOGICAL_W              1125
++#define KEBAB_FB_LOGICAL_H              2436
++#define KEBAB_FB_DOT_PITCH              458     /* ppi, iPhone X logical panel */
++#define KEBAB_FB_FORMAT_BGRA            0x42475241
++#define KEBAB_FB_GAMUT_SRGB             1
++#define KEBAB_FB_SWAP_WAIT_MAX_MS       1000    /* bounds a kernel wait */
++
++/*
++ * Selector 74's shape. IOMobileFramebuffer.framework calls it
++ * "SupportedFrameInfo"; the exact wire layout has not been recovered, so
++ * this is our definition: the fields are the mode facts userland needs
++ * (logical size, scale, refresh, gamut). The requested output size is
++ * logged once, so a real backboardd session can correct the layout without
++ * another guess. Values are always the iPhone X identity, never the panel.
++ */
++struct kebab_frame_info {
++	uint32_t version;               /* 0x00: 1 */
++	uint32_t size;                  /* 0x04: sizeof(struct) */
++	uint32_t width;                 /* 0x08: 1125 logical pixels */
++	uint32_t height;                /* 0x0c: 2436 */
++	uint32_t scale;                 /* 0x10: 3 (1x = 1) */
++	uint32_t refresh;               /* 0x14: 60 Hz */
++	uint32_t gamut;                 /* 0x18: 1 = sRGB */
++	uint32_t hdr;                   /* 0x1c: 0 = SDR */
++	uint32_t rotation;              /* 0x20: 0 = portrait */
++	uint32_t pixelFormat;           /* 0x24: 'BGRA' */
++	uint32_t reserved[2];           /* 0x28 */
++};
++
++class IOMobileFramebuffer : public IOService {
++	OSDeclareDefaultStructors(IOMobileFramebuffer);
++};
++
++OSDefineMetaClassAndStructors(IOMobileFramebuffer, IOService);
++
++class IOMobileFramebufferUserClient;
++
++class AppleCLCD : public IOMobileFramebuffer {
++	OSDeclareDefaultStructors(AppleCLCD);
++
++	IOWorkLoop         *fWorkLoop;
++	IOTimerEventSource *fVsync;
++	uint64_t            fVsyncCount;
++
++	static void vsyncFired(OSObject *owner, IOTimerEventSource *sender);
++
++public:
++	uint64_t      fPhys;
++	uint32_t      fWidth, fHeight, fRowBytes;   /* physical panel */
++	uint32_t      fLogicalW, fLogicalH;         /* presented display */
++	int32_t       fOffX, fOffY;                 /* logical origin of panel */
++	uintptr_t     fPixels;          /* kernel mapping of the panel memory */
++	IOMemoryMap  *fMap;
++	KebabSurface *fSurface;         /* the panel memory as an IOSurface */
++	IOLock       *fLock;            /* swaps, clients, configuration */
++	OSArray      *fClients;
++	uint32_t      fSwapID;          /* last id handed out by SwapBegin */
++	uint32_t      fQueuedID;        /* last id queued by SwapEnd */
++	uint32_t      fCompletedID;     /* last id whose pixels are on panel */
++	uint64_t      fCompletedTime;
++	uint8_t       fPending[KEBAB_FB_SWAP_REC_SIZE]; /* latest queued swap */
++	bool          fPendingValid;
++	bool          fHaveFrame;       /* a swap was queued at least once */
++	uint32_t      fPendingID;
++	bool          fConsolePaused;
++	bool          fPowerOff;
++	bool          fBlanked;
++	uint32_t      fDebugFlags;
++	uint32_t      fDisplayDevice;
++	uint32_t      fColorRemapMode;
++	uint32_t      fPowerSavings;
++	uint32_t      fLayerSurface[KEBAB_FB_LAYERS]; /* displayed per layer */
++
++	bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
++	void addClient(IOMobileFramebufferUserClient *client);
++	void removeClient(IOMobileFramebufferUserClient *client);
++	void swap(const uint8_t *rec);
++	void present(const uint8_t *rec, uint32_t swapID);
++	void blank();
++};
++
++OSDefineMetaClassAndStructors(AppleCLCD, IOMobileFramebuffer);
++
++class IOMobileFramebufferUserClient : public IOUserClient {
++	OSDeclareDefaultStructors(IOMobileFramebufferUserClient);
++
++public:
++	AppleCLCD          *fFB;
++	task_t              fTask;
++	mach_port_t         fPort;
++	io_user_reference_t fFunc[KEBAB_FB_NOTIFY_TYPES];
++	io_user_reference_t fRefcon[KEBAB_FB_NOTIFY_TYPES];
++
++	bool initWithTask(task_t owningTask, void *securityID, UInt32 type) APPLE_KEXT_OVERRIDE;
++	bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
++	IOReturn clientClose(void) APPLE_KEXT_OVERRIDE;
++	IOReturn registerNotificationPort(mach_port_t port, UInt32 type,
++	    io_user_reference_t refCon) APPLE_KEXT_OVERRIDE;
++	IOReturn externalMethod(uint32_t selector, IOExternalMethodArguments *args,
++	    IOExternalMethodDispatch *dispatch, OSObject *target,
++	    void *reference) APPLE_KEXT_OVERRIDE;
++	void notify(uint32_t type, const uint64_t *values, uint32_t count);
++};
++
++OSDefineMetaClassAndStructors(IOMobileFramebufferUserClient, IOUserClient);
++
++bool
++AppleCLCD::start(IOService *provider)
++{
++	PE_Video video;
++	int native = 0;
++
++	if (!IOService::start(provider)) {
++		return false;
++	}
++	fVsyncCount = 0;
++	fSwapID = 0;
++	fQueuedID = 0;
++	fCompletedID = 0;
++	fCompletedTime = 0;
++	fPendingValid = false;
++	fHaveFrame = false;
++	fPendingID = 0;
++	fConsolePaused = false;
++	fPowerOff = false;
++	fBlanked = false;
++	fDebugFlags = 0;
++	fDisplayDevice = 0;
++	fColorRemapMode = 0;
++	fPowerSavings = 0;
++	for (uint32_t i = 0; i < KEBAB_FB_LAYERS; i++) {
++		fLayerSurface[i] = 0;
++	}
++	PE_current_console(&video);
++	fPhys = video.v_baseAddr;
++	fWidth = (uint32_t)video.v_width;
++	fHeight = (uint32_t)video.v_height;
++	fRowBytes = (uint32_t)video.v_rowBytes;
++	if (fPhys == 0 || fWidth == 0 || fHeight == 0 || fRowBytes < fWidth * 4) {
++		IOLog("KEBAB FB: no boot framebuffer\n");
++		return false;
++	}
++	/*
++	 * Present the iPhone X display the identity describes, not the panel:
++	 * see the top of the file. kebabfb_native=1 is the escape hatch that
++	 * presents the raw panel size instead, for bring-up on a userland that
++	 * has no iPhone X layout.
++	 */
++	fLogicalW = fWidth;
++	fLogicalH = fHeight;
++	PE_parse_boot_argn("kebabfb_native", &native, sizeof(native));
++	if (native == 0 && fWidth <= KEBAB_FB_LOGICAL_W && fHeight <= KEBAB_FB_LOGICAL_H) {
++		fLogicalW = KEBAB_FB_LOGICAL_W;
++		fLogicalH = KEBAB_FB_LOGICAL_H;
++	}
++	fOffX = (int32_t)(fLogicalW - fWidth) / 2;
++	fOffY = (int32_t)(fLogicalH - fHeight) / 2;
++	fLock = IOLockAlloc();
++	fClients = OSArray::withCapacity(4);
++	fSurface = kebab_surface_create_physical(fPhys, fWidth, fHeight, fRowBytes, KEBAB_FB_FORMAT_BGRA);
++	fPixels = fSurface != NULL ? fSurface->kernelAddress() : 0;
++	fWorkLoop = IOWorkLoop::workLoop();
++	if (fLock == NULL || fClients == NULL || fPixels == 0 || fWorkLoop == NULL) {
++		IOLog("KEBAB FB: setup failed\n");
++		OSSafeReleaseNULL(fSurface);    /* stays published: also held by the table */
++		OSSafeReleaseNULL(fWorkLoop);
++		return false;
++	}
++	fVsync = IOTimerEventSource::timerEventSource(this, &AppleCLCD::vsyncFired);
++	if (fVsync == NULL || fWorkLoop->addEventSource(fVsync) != kIOReturnSuccess) {
++		IOLog("KEBAB FB: no vsync timer\n");
++		return false;
++	}
++	fVsync->setTimeoutUS(KEBAB_FB_VSYNC_US);
++
++	setProperty(kIOUserClientClassKey, "IOMobileFramebufferUserClient");
++	setProperty("external", false);
++	setProperty("DisplayPipePlaneBaseAlignment", 64ULL, 32);
++	registerService();
++	IOLog("KEBAB FB: AppleCLCD %ux%u stride %u at 0x%llx, default surface %u, "
++	    "presented as %ux%u (panel origin %d,%d)\n",
++	    fWidth, fHeight, fRowBytes, fPhys, fSurface->id, fLogicalW, fLogicalH, fOffX, fOffY);
++	return true;
++}
++
++void
++AppleCLCD::vsyncFired(OSObject *owner, IOTimerEventSource *sender)
++{
++	AppleCLCD *fb = (AppleCLCD *)owner;
++	uint64_t now = mach_absolute_time();
++	uint64_t values[6] = {
++		(uint32_t)now, (uint32_t)(now >> 32),
++		(uint32_t)now, (uint32_t)(now >> 32),
++		0, 0,
++	};
++	uint8_t rec[KEBAB_FB_SWAP_REC_SIZE];
++	bool present = false;
++	uint32_t id = 0;
++
++	fb->fVsyncCount++;
++	IOLockLock(fb->fLock);
++	for (unsigned int i = 0; i < fb->fClients->getCount(); i++) {
++		IOMobileFramebufferUserClient *client =
++		    (IOMobileFramebufferUserClient *)fb->fClients->getObject(i);
++		client->notify(KEBAB_FB_NOTIFY_VSYNC, values, 6);
++	}
++	if (!fb->fPowerOff && fb->fPendingValid) {
++		memcpy(rec, fb->fPending, sizeof(rec));
++		id = fb->fPendingID;
++		fb->fPendingValid = false;
++		present = true;
++	}
++	IOLockUnlock(fb->fLock);
++
++	if (fb->fPowerOff) {
++		/* The panel is self-scan and has no backlight control: "off" is a
++		 * black buffer, done once instead of copying frames nobody sees. */
++		if (!fb->fBlanked) {
++			fb->blank();
++			fb->fBlanked = true;
++		}
++	} else if (present) {
++		fb->present(rec, id);
++		IOLockLock(fb->fLock);
++		if (id > fb->fCompletedID) {
++			fb->fCompletedID = id;
++		}
++		fb->fCompletedTime = now;
++		IOLockWakeup(fb->fLock, &fb->fCompletedID, false);
++		IOLockUnlock(fb->fLock);
++	}
++	sender->setTimeoutUS(KEBAB_FB_VSYNC_US);
++}
++
++void
++AppleCLCD::addClient(IOMobileFramebufferUserClient *client)
++{
++	IOLockLock(fLock);
++	fClients->setObject(client);
++	IOLockUnlock(fLock);
++}
++
++void
++AppleCLCD::removeClient(IOMobileFramebufferUserClient *client)
++{
++	IOLockLock(fLock);
++	unsigned int i = fClients->getNextIndexOfObject(client, 0);
++	if (i != (unsigned int)-1) {
++		fClients->removeObject(i);
++	}
++	IOLockUnlock(fLock);
++}
++
++void
++AppleCLCD::blank()
++{
++	memset((void *)fPixels, 0, (size_t)fRowBytes * fHeight);
++}
++
++static uint32_t
++get32(const uint8_t *p, uint32_t off)
++{
++	uint32_t v;
++	memcpy(&v, p + off, 4);
++	return v;
++}
++
++static uint32_t kebab_fb_swaps_logged;
++
++/*
++ * Queue the frame. The copy itself happens on the vsync timer (present), so
++ * SwapEnd's cost is one 0x46c memcpy no matter what the backend is; a DPU
++ * flip backend will make present() a register write and this ABI stays.
++ */
++void
++AppleCLCD::swap(const uint8_t *rec)
++{
++	uint32_t id = get32(rec, 0x50);
++
++	IOLockLock(fLock);
++	if (id == 0) {
++		id = fSwapID;
++	}
++	memcpy(fPending, rec, KEBAB_FB_SWAP_REC_SIZE);
++	fPendingID = id;
++	fPendingValid = true;
++	fHaveFrame = true;
++	fQueuedID = id;
++	IOLockUnlock(fLock);
++}
++
++/* Copy each enabled layer's surface into the panel memory (CPU backend). */
++void
++AppleCLCD::present(const uint8_t *rec, uint32_t swapID)
++{
++	uint32_t mask = get32(rec, 0x104);
++	uint32_t displayed[KEBAB_FB_LAYERS] = { 0, 0, 0, 0 };
++
++	if (!fConsolePaused) {
++		int quiet = 0;
++		fConsolePaused = true;
++		if (PE_parse_boot_argn("kebabfb_noconsole", &quiet, sizeof(quiet)) && quiet != 0) {
++			/* Not PE_initialize_console(kPEDisableScreen): its console switch
++			 * writes the read-only-late cons_ops_index and panics on arm64. */
++			kebab_console_muted = 1;
++		}
++	}
++
++	for (uint32_t layer = 0; layer < KEBAB_FB_LAYERS; layer++) {
++		uint32_t id = get32(rec, 0x54 + 4 * layer);
++		const uint8_t *a = rec + 0x64 + 16 * layer;
++		const uint8_t *b = rec + 0xc4 + 16 * layer;
++		int32_t sx = (int32_t)get32(a, 0), sy = (int32_t)get32(a, 4);
++		int32_t dx = (int32_t)get32(b, 0), dy = (int32_t)get32(b, 4);
++		int32_t w = (int32_t)get32(b, 8), h = (int32_t)get32(b, 12);
++
++		if (!(mask & (1u << layer)) || id == 0) {
++			continue;
++		}
++		KebabSurface *s = kebab_surface_copy(id);
++		if (s != NULL) {
++			displayed[layer] = id;
++		}
++		if ((fDebugFlags & 1) || kebab_fb_swaps_logged < 16) {
++			kebab_fb_swaps_logged++;
++			IOLog("KEBAB FB: swap %u layer %u surface %u %ux%u fmt 0x%x bpr %u a %d,%d %ux%u b %d,%d %dx%d\n",
++			    swapID, layer, id, s ? s->width : 0, s ? s->height : 0,
++			    s ? s->pixelFormat : 0, s ? s->bytesPerRow : 0, sx, sy, get32(a, 8),
++			    get32(a, 12), dx, dy, w, h);
++		}
++		if (s == NULL || s == fSurface) {
++			OSSafeReleaseNULL(s);
++			continue;
++		}
++		/* Logical (presented) display coordinates -> panel coordinates. */
++		dx -= fOffX;
++		dy -= fOffY;
++		if (dx < 0) {
++			sx -= dx;
++			w += dx;
++			dx = 0;
++		}
++		if (dy < 0) {
++			sy -= dy;
++			h += dy;
++			dy = 0;
++		}
++		uintptr_t src = s->kernelAddress();
++		uint32_t bpe = s->bytesPerElement ? s->bytesPerElement : 4;
++		if (w <= 0 || h <= 0) {
++			w = (int32_t)s->width;
++			h = (int32_t)s->height;
++		}
++		if (sx < 0 || sy < 0) {
++			sx = sy = 0;
++		}
++		if (w > (int32_t)s->width - sx) {
++			w = (int32_t)s->width - sx;
++		}
++		if (h > (int32_t)s->height - sy) {
++			h = (int32_t)s->height - sy;
++		}
++		if (w > (int32_t)fWidth - dx) {
++			w = (int32_t)fWidth - dx;
++		}
++		if (h > (int32_t)fHeight - dy) {
++			h = (int32_t)fHeight - dy;
++		}
++		uint64_t last = (uint64_t)s->offset + (uint64_t)(sy + h - 1) * s->bytesPerRow +
++		    (uint64_t)(sx + w) * 4;
++		if (w <= 0 || h <= 0 || s->elementWidth != 1 || s->elementHeight != 1 ||
++		    s->memory == NULL || last > s->memory->getLength()) {
++			src = 0;
++		}
++		if (src != 0 && bpe == 4) {
++			for (int32_t y = 0; y < h; y++) {
++				memcpy((void *)(fPixels + (uint64_t)(dy + y) * fRowBytes + (uint64_t)dx * 4),
++				    (const void *)(src + s->offset + (uint64_t)(sy + y) * s->bytesPerRow + (uint64_t)sx * 4),
++				    (size_t)w * 4);
++			}
++		}
++		s->release();
++	}
++
++	IOLockLock(fLock);
++	for (uint32_t layer = 0; layer < KEBAB_FB_LAYERS; layer++) {
++		fLayerSurface[layer] = displayed[layer];
++	}
++	IOLockUnlock(fLock);
++}
++
++bool
++IOMobileFramebufferUserClient::initWithTask(task_t owningTask, void *securityID, UInt32 type)
++{
++	if (!IOUserClient::initWithTask(owningTask, securityID, type)) {
++		return false;
++	}
++	fTask = owningTask;
++	return true;
++}
++
++bool
++IOMobileFramebufferUserClient::start(IOService *provider)
++{
++	fFB = OSDynamicCast(AppleCLCD, provider);
++	if (fFB == NULL || !IOUserClient::start(provider)) {
++		return false;
++	}
++	fFB->addClient(this);
++	return true;
++}
++
++IOReturn
++IOMobileFramebufferUserClient::clientClose(void)
++{
++	if (fFB != NULL) {
++		fFB->removeClient(this);
++		IOLockLock(fFB->fLock);
++		mach_port_t old = fPort;
++		fPort = MACH_PORT_NULL;
++		IOLockUnlock(fFB->fLock);
++		if (old != MACH_PORT_NULL) {
++			releaseNotificationPort(old);
++		}
++	}
++	terminate();
++	return kIOReturnSuccess;
++}
++
++IOReturn
++IOMobileFramebufferUserClient::registerNotificationPort(mach_port_t port, __unused UInt32 type,
++    __unused io_user_reference_t refCon)
++{
++	mach_port_t old;
++	IOLockLock(fFB->fLock);
++	old = fPort;
++	fPort = port;
++	IOLockUnlock(fFB->fLock);
++	if (old != MACH_PORT_NULL) {
++		releaseNotificationPort(old);
++	}
++	return kIOReturnSuccess;
++}
++
++/* Called with the framebuffer lock held. */
++void
++IOMobileFramebufferUserClient::notify(uint32_t type, const uint64_t *values, uint32_t count)
++{
++	OSAsyncReference64 ref;
++
++	if (type >= KEBAB_FB_NOTIFY_TYPES || fFunc[type] == 0 || fPort == MACH_PORT_NULL) {
++		return;
++	}
++	bzero(ref, sizeof(ref));
++	setAsyncReference64(ref, fPort, (mach_vm_address_t)fFunc[type], fRefcon[type], fTask);
++	sendAsyncResult64WithOptions(ref, kIOReturnSuccess, (io_user_reference_t *)values, count,
++	    kIOUserNotifyOptionCanDrop);
++}
++
++/* Fill a structure output buffer from buf, zeroing any tail the client owns. */
++static IOReturn
++kebab_fb_struct_out(IOExternalMethodArguments *args, const void *buf, uint32_t len)
++{
++	if (args->structureOutputDescriptor != NULL) {
++		IOByteCount size = args->structureOutputDescriptor->getLength();
++		if (size < len) {
++			return kIOReturnNoSpace;
++		}
++		if (args->structureOutputDescriptor->writeBytes(0, buf, len) != len) {
++			return kIOReturnVMError;
++		}
++		args->structureOutputDescriptorSize = len;
++		return kIOReturnSuccess;
++	}
++	if (args->structureOutput == NULL || args->structureOutputSize < len) {
++		return kIOReturnNoSpace;
++	}
++	bzero(args->structureOutput, args->structureOutputSize);
++	memcpy(args->structureOutput, buf, len);
++	return kIOReturnSuccess;
++}
++
++/* Like kebab_fb_struct_out, but a client buffer smaller than the definition
++ * still gets the prefix it asked for instead of a hard failure. */
++static IOReturn
++kebab_fb_struct_out_partial(IOExternalMethodArguments *args, const void *buf, uint32_t len)
++{
++	uint8_t *dst;
++	uint32_t avail;
++
++	if (args->structureOutputDescriptor != NULL) {
++		avail = (uint32_t)args->structureOutputDescriptor->getLength();
++		if (avail < 1) {
++			return kIOReturnNoSpace;
++		}
++		dst = (uint8_t *)IOMallocData(avail);
++		if (dst == NULL) {
++			return kIOReturnNoMemory;
++		}
++		bzero(dst, avail);
++		memcpy(dst, buf, avail < len ? avail : len);
++		IOReturn ret = args->structureOutputDescriptor->writeBytes(0, dst, avail) == avail ?
++		    kIOReturnSuccess : kIOReturnVMError;
++		IOFreeData(dst, avail);
++		if (ret == kIOReturnSuccess) {
++			args->structureOutputDescriptorSize = avail;
++		}
++		return ret;
++	}
++	if (args->structureOutput == NULL) {
++		return kIOReturnBadArgument;
++	}
++	avail = args->structureOutputSize;
++	if (avail == 0) {
++		return kIOReturnNoSpace;
++	}
++	bzero(args->structureOutput, avail);
++	memcpy(args->structureOutput, buf, avail < len ? avail : len);
++	return kIOReturnSuccess;
++}
++
++static uint64_t kebab_fb_logged;        /* selectors 0..63 already logged */
++static uint64_t kebab_fb_logged_hi;     /* selectors 64..127 already logged */
++
++IOReturn
++IOMobileFramebufferUserClient::externalMethod(uint32_t selector, IOExternalMethodArguments *args,
++    __unused IOExternalMethodDispatch *dispatch, __unused OSObject *target,
++    __unused void *reference)
++{
++	IOReturn ret = kIOReturnSuccess;
++	uint64_t out[2] = { 0, 0 };
++	uint32_t outCount = 0;
++
++	switch (selector) {
++	case kKebabFBGetLayerDefaultSurface:
++		out[0] = kebab_surface_port_in_task(fFB->fSurface, fTask);
++		outCount = 1;
++		break;
++	case kKebabFBSwapBegin:
++		IOLockLock(fFB->fLock);
++		out[0] = ++fFB->fSwapID;
++		IOLockUnlock(fFB->fLock);
++		outCount = 1;
++		break;
++	case kKebabFBSwapEnd: {
++		uint8_t rec[KEBAB_FB_SWAP_REC_SIZE];
++		if (args->structureInputDescriptor != NULL) {
++			if (args->structureInputDescriptor->getLength() < sizeof(rec) ||
++			    args->structureInputDescriptor->readBytes(0, rec, sizeof(rec)) != sizeof(rec)) {
++				ret = kIOReturnBadArgument;
++				break;
++			}
++		} else if (args->structureInput != NULL && args->structureInputSize >= sizeof(rec)) {
++			memcpy(rec, args->structureInput, sizeof(rec));
++		} else {
++			ret = kIOReturnBadArgument;
++			break;
++		}
++		fFB->swap(rec);
++		break;
++	}
++	case kKebabFBSwapWait: {
++		uint32_t swapID = args->scalarInputCount > 0 ? (uint32_t)args->scalarInput[0] : 0;
++		uint32_t timeout = args->scalarInputCount > 1 ? (uint32_t)args->scalarInput[1] : 0;
++		if (args->scalarInputCount > 1 && (int32_t)args->scalarInput[1] < 0) {
++			timeout = 0;
++		}
++		if (timeout > KEBAB_FB_SWAP_WAIT_MAX_MS) {
++			timeout = KEBAB_FB_SWAP_WAIT_MAX_MS;
++		}
++		IOLockLock(fFB->fLock);
++		if (swapID == 0 || swapID > fFB->fQueuedID) {
++			/* SwapBegin without SwapEnd, or a bogus id: nothing will ever
++			 * complete it. A defined error, not a zeroed success. */
++			IOLockUnlock(fFB->fLock);
++			ret = kIOReturnNotFound;
++			break;
++		}
++		if (swapID <= fFB->fCompletedID) {
++			IOLockUnlock(fFB->fLock);
++			break;
++		}
++		if (timeout > 0) {
++			uint64_t deadline = 0;
++			clock_interval_to_deadline(timeout, kMillisecondScale, &deadline);
++			while (swapID > fFB->fCompletedID) {
++				int result = IOLockSleepDeadline(fFB->fLock, &fFB->fCompletedID,
++				    deadline, THREAD_ABORTSAFE);
++				if (result == THREAD_TIMED_OUT || result == THREAD_INTERRUPTED) {
++					break;
++				}
++			}
++		}
++		/* Three outcomes: completed (success), timed out, or the swap was
++		 * never queued (not found, above). */
++		ret = swapID <= fFB->fCompletedID ? kIOReturnSuccess : kIOReturnTimeout;
++		IOLockUnlock(fFB->fLock);
++		break;
++	}
++	case kKebabFBGetID:
++		out[0] = 0;
++		outCount = 1;
++		break;
++	case kKebabFBGetDisplaySize:
++		out[0] = fFB->fLogicalW;
++		out[1] = fFB->fLogicalH;
++		outCount = 2;
++		break;
++	case kKebabFBRequestPowerChange:
++		if (args->scalarInputCount < 1) {
++			ret = kIOReturnBadArgument;
++			break;
++		}
++		{
++			bool off = args->scalarInput[0] == 0;
++			IOLockLock(fFB->fLock);
++			if (off != fFB->fPowerOff) {
++				fFB->fPowerOff = off;
++				fFB->fPendingValid = !off && fFB->fHaveFrame;
++				fFB->fBlanked = false;
++			}
++			IOLockUnlock(fFB->fLock);
++			IOLog("KEBAB FB: display %s\n", off ? "off" : "on");
++		}
++		break;
++	case kKebabFBSetDebugFlags:
++		if (args->scalarInputCount < 1) {
++			ret = kIOReturnBadArgument;
++			break;
++		}
++		fFB->fDebugFlags = (uint32_t)args->scalarInput[0];
++		out[0] = fFB->fDebugFlags;
++		outCount = 1;
++		break;
++	case kKebabFBSetGammaTable:
++	case kKebabFBGetGammaTable:
++	case kKebabFBSetBrightnessCorrection:
++	case kKebabFBSetMatrix:
++	case kKebabFBSetParameter:
++	case kKebabFBGetBlock:
++	case kKebabFBSetContrast:
++		/* There is no DPU, backlight, gamma pipeline or parameter block in
++		 * this port. Accepting these would tell userland the panel had been
++		 * configured when the pixels are a straight CPU copy. */
++		ret = kIOReturnUnsupported;
++		break;
++	case kKebabFBIsMainDisplay:
++		out[0] = 1;
++		outCount = 1;
++		break;
++	case kKebabFBSetDisplayDevice:
++		if (args->scalarInputCount < 1 || args->scalarInput[0] != 0) {
++			/* Only the built-in panel exists. */
++			ret = kIOReturnBadArgument;
++			break;
++		}
++		fFB->fDisplayDevice = 0;
++		break;
++	case kKebabFBGetDotPitch:
++		out[0] = KEBAB_FB_DOT_PITCH;
++		outCount = 1;
++		break;
++	case kKebabFBGetDisplayArea: {
++		int32_t area[4] = { 0, 0, (int32_t)fFB->fLogicalW, (int32_t)fFB->fLogicalH };
++		ret = kebab_fb_struct_out(args, area, (uint32_t)sizeof(area));
++		break;
++	}
++	case kKebabFBVideoPowerSavings:
++		if (args->scalarInputCount < 1) {
++			ret = kIOReturnBadArgument;
++			break;
++		}
++		/* Recorded only: the CPU copy path has no power-saving mode. */
++		fFB->fPowerSavings = (uint32_t)args->scalarInput[0];
++		break;
++	case kKebabFBGetColorRemapMode:
++		out[0] = fFB->fColorRemapMode;
++		outCount = 1;
++		break;
++	case kKebabFBSupportedFrameInfo: {
++		struct kebab_frame_info info;
++		bzero(&info, sizeof(info));
++		info.version = 1;
++		info.size = (uint32_t)sizeof(info);
++		info.width = fFB->fLogicalW;
++		info.height = fFB->fLogicalH;
++		info.scale = fFB->fLogicalW == KEBAB_FB_LOGICAL_W ? 3 : 1;
++		info.refresh = 60;
++		info.gamut = KEBAB_FB_GAMUT_SRGB;
++		info.hdr = 0;
++		info.rotation = 0;
++		info.pixelFormat = KEBAB_FB_FORMAT_BGRA;
++		ret = kebab_fb_struct_out_partial(args, &info, (uint32_t)sizeof(info));
++		break;
++	}
++	case kKebabFBCopyDisplayedSurface: {
++		uint32_t layer = args->scalarInputCount > 0 ? (uint32_t)args->scalarInput[0] : 0;
++		uint32_t id;
++		KebabSurface *s;
++		if (layer >= KEBAB_FB_LAYERS) {
++			ret = kIOReturnBadArgument;
++			break;
++		}
++		IOLockLock(fFB->fLock);
++		id = fFB->fLayerSurface[layer];
++		IOLockUnlock(fFB->fLock);
++		if (id == 0) {
++			ret = kIOReturnNoDevice;        /* nothing presented on it yet */
++			break;
++		}
++		s = kebab_surface_copy(id);
++		if (s == NULL) {
++			ret = kIOReturnNotFound;
++			break;
++		}
++		out[0] = kebab_surface_port_in_task(s, fTask);
++		outCount = 1;
++		s->release();
++		break;
++	}
++	case kKebabFBNotifications:
++		if (args->scalarInputCount >= 3 && args->scalarInput[2] < KEBAB_FB_NOTIFY_TYPES) {
++			uint32_t type = (uint32_t)args->scalarInput[2];
++			IOLockLock(fFB->fLock);
++			fFunc[type] = args->scalarInput[0];
++			fRefcon[type] = args->scalarInput[1];
++			IOLockUnlock(fFB->fLock);
++			char name[32];
++			proc_selfname(name, sizeof(name));
++			IOLog("KEBAB FB: %s notifications type %u %s\n", name, type,
++			    args->scalarInput[0] ? "on" : "off");
++		} else {
++			ret = kIOReturnBadArgument;
++		}
++		break;
++	default:
++		/* Nothing is known about this selector. Success with zeroed outputs
++		 * is worse than an error: userland would believe it got an answer. */
++		ret = kIOReturnUnsupported;
++		break;
++	}
++
++	for (uint32_t i = 0; i < args->scalarOutputCount; i++) {
++		args->scalarOutput[i] = i < outCount ? out[i] : 0;
++	}
++	if (args->structureOutputDescriptor == NULL && args->structureOutput != NULL &&
++	    selector != kKebabFBGetDisplayArea && selector != kKebabFBSupportedFrameInfo) {
++		bzero(args->structureOutput, args->structureOutputSize);
++	}
++	uint64_t *logged = selector < 64 ? &kebab_fb_logged : &kebab_fb_logged_hi;
++	uint64_t bit = 1ULL << (selector & 63);
++	if (!(*logged & bit)) {
++		*logged |= bit;
++		char name[32];
++		proc_selfname(name, sizeof(name));
++		IOLog("KEBAB FB: %s sel %u in %u/%u out %u/%u -> 0x%x\n", name, selector,
++		    args->scalarInputCount, args->structureInputSize,
++		    args->scalarOutputCount, args->structureOutputSize, ret);
++	}
++	return ret;
++}
++#endif /* KEBAB */
++
++/*
++ * Called by the platform expert once the device tree has been published: create
++ * the framebuffer, attach it to the expert and start it, which is everything the
++ * nub would otherwise have done.
++ */
++extern "C" int
++kebab_display_start(IOService *provider)
++{
++	AppleCLCD *fb = new AppleCLCD;
++
++	if (fb == NULL) {
++		return -1;
++	}
++	if (!fb->init()) {
++		fb->release();
++		return -1;
++	}
++	if (!fb->attach(provider)) {
++		fb->release();
++		return -1;
++	}
++	if (!fb->start(provider)) {
++		fb->detach(provider);
++		fb->release();
++		return -1;
++	}
++	/* canvas is the physical panel; GetDisplaySize is the logical display. */
++	kebab_publish_canvas(provider, (uint32_t)fb->fWidth, (uint32_t)fb->fHeight);
++	IOLog("KEBAB FB: started %ux%u, presenting %ux%u\n",
++	    (uint32_t)fb->fWidth, (uint32_t)fb->fHeight, fb->fLogicalW, fb->fLogicalH);
++	return 0;
++}
++
++/*
++ * The framework reads canvas-width/canvas-height from the service's parent in the
++ * IOService plane as four-byte data, so put them on the platform expert. These
++ * are the physical panel's size; the logical display size comes from selector 8.
++ */
++static void
++kebab_publish_canvas(IOService *provider, uint32_t width, uint32_t height)
++{
++	if (provider == NULL) {
++		return;
++	}
++	OSData *w = OSData::withBytes(&width, sizeof(width));
++	OSData *h = OSData::withBytes(&height, sizeof(height));
++	if (w != NULL) {
++		provider->setProperty("canvas-width", w);
++		w->release();
++	}
++	if (h != NULL) {
++		provider->setProperty("canvas-height", h);
++		h->release();
++	}
++}

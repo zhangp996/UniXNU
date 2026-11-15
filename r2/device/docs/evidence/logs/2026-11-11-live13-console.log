@@ -1,0 +1,45 @@
+capture: opening COM14 at 2026-11-11T21:45:18.6057809+08:00
+XNU-EXIT: DumpPanic pid=48 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: bluetoothd pid=129 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=117 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1c39e24f8 lr=0x1c39e24cc esr=0xf2000001 tid=800
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1c39e24f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1c39c5000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1c39e24f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=132 code=5 ns=2 sub=0x5 cs=0x22012301
+XNU-EXIT: fairplayd.A2 pid=130 code=0 ns=0 sub=0x0 cs=0x22002301
+tccd[39] triggered unnest of range 0x1e8400000->0x1e8600000 of DYLD shared region in VM map 0x2059aa04987743d3. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+tccd[39] triggered unnest of range 0x1e8600000->0x1ed800000 of DYLD shared region in VM map 0x2059aa04987743d3. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+tx_flush:1338: disk5 xid 28 tx stats: # 20 owait 0 0us finish 20 bar2 20 f 2 enter 278 fq 5 13 143us close 0us prep 943us flush 1097us
+Couldn't build index for com.apple.coresymbolicationd: Not eligible for acceleration
+XNU-EXIT: bluetoothd pid=139 code=0 ns=0 sub=0x0 cs=0x22002301
+locationd[62] triggered unnest of range 0x1e8400000->0x1e8600000 of DYLD shared region in VM map 0x2059aa0498772df3. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+locationd[62] triggered unnest of range 0x1e8600000->0x1ed800000 of DYLD shared region in VM map 0x2059aa0498772df3. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+XNU-EXIT: fairplayd.A2 pid=140 code=0 ns=0 sub=0x0 cs=0x22002301
+request_power_change second_external 0 powerstate1 fdisplaytype 0
+XNU-TRAP: pc=0x1c39e24f8 lr=0x1c39e24cc esr=0xf2000001 tid=982
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1c39e24f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1c39c5000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1c39e24f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=147 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[147] crashed: liveactivitiesd. Too many corpses being created.
+ifnet_attach: Waiting for all kernel threads created for interface utun0 to get scheduled at least once.
+ifnet_attach: All kernel threads created for interface utun0 have been scheduled at least once. Proceeding.
+_dlil_attach_flowswitch_nexus: not attaching flowswitch to utun0
+XNU-TRAP: pc=0x100b8ab0c lr=0x100b8ab0c esr=0xf2000001 tid=874
+XNU-DYLD-IMAGE: watchdogd pc=0x100b8ab0c /usr/libexec/watchdogd+0xab0c load=0x100b80000 images=159
+XNU-TRAP-IMAGE: watchdogd pc=0x100b8ab0c file=/usr/libexec/watchdogd off=0xab0c map=0x100b80000+0x10000
+Kernel data abort. at pc 0xfffffff00be80944, lr 0xfffffff00bfe4684 (saved state: 0xfffffffaa37a3130)
+	  x0:  0x0000000000000000 x1:  0x0000000000000000  x2:  0x00000000000b998d  x3:  0xfffffff00ba131cb
+	  x4:  0xfffffffaa37a1d28 x5:  0x0000000100000000  x6:  0xfffffff7a1134ad0  x7:  0x0000000000000000
+	  x8:  0xfffffff0071c1f18 x9:  0x665651852a420023  x10: 0x0000000000000000  x11: 0x000000000000023e
+	  x12: 0x0000000000001000 x13: 0xfffffff00c128000  x14: 0x0000000000000010  x15: 0x0000000000000000
+	  x16: 0x0000000000000132 x17: 0xfffffff00700725c  x18: 0x0000000000000000  x19: 0x0000000000000000
+	  x20: 0xfffffff8875004c0 x21: 0xfffffff00578b960  x22: 0x00000000e00002eb  x23: 0x0000000000000000
+	  x24: 0x0000000000000001 x25: 0x0000000000000001  x26: 0xfffffff5d4782800  x27: 0x00000000ffffff01
+	  x28: 0x0000000000000000 fp:  0xfffffffaa37a34a0  lr:  0xfffffff00bfe4684  sp:  0xfffffffaa37a3480
+	  pc:  0xfffffff00be80944 cpsr: 0x60400204         esr: 0x96000045          far: 0x0000000000000000
+
+QCOM USB PANIC pending_at_start=7 dropped_at_start=0 buffer_capacity=4194304
+
+QCOM USB DRAIN pending=0 overflow=0 contention=0 transport=0
+
+QCOM PANIC END

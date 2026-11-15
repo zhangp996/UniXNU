@@ -1,0 +1,44 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -7902,6 +7902,40 @@ native_gpu_addon_prepare(proc_t p, user_addr_t scratch)
+ 	    "7570.iPadOS_17_Flat_Background-1024w-1366h@2x~ipad.ca/assets/J120.HEIC",
+ 	    "/Library/Wallpaper/Collections/iPadOS_17~ipad.wallpaperCollection/Wallpapers/7570.iPadOS_17_Flat-1024w-1366h@2x~ipad.wallpaper/"
+ 	    "7570.iPadOS_17_Flat_Background-1024w-1366h@2x~ipad.ca/J120.png", &native_gpu_addon3_stage, &native_gpu_addon3_status);
++	/* launchd reads its jobs from the precompiled cache /System/Library/xpc/launchd.plist, not from the
++	 * LaunchDaemons directory; in this build both PreBoard jobs are on-demand there, so nothing starts the
++	 * Setup Assistant and SpringBoard never reaches the Hello screen.  A read-only union of the owner
++	 * directory over the sealed one replaces the cache before launchd starts.  launchd-cache=2 mounts the
++	 * unchanged cache from xpc-raw instead: its detached signature still matches, which tells an overlay
++	 * launchd refuses from an edited cache it refuses; 0 skips the mount. */
++	{
++		uint32_t cache_mode = 1;
++		PE_parse_boot_argn("launchd-cache", &cache_mode, sizeof(cache_mode));
++		if (cache_mode) {
++			static const char cache_source[] = "/private/var/ngpu/xpc",
++			    raw_source[] = "/private/var/ngpu/xpc-raw",
++			    cache_point[] = "/System/Library/xpc";
++			static volatile int cache_stage = 0, cache_status = -1;
++			native_gpu_addon_mount(p, scratch, 0xa00, cache_mode == 2 ? raw_source : cache_source,
++			    sizeof(cache_source), cache_point, sizeof(cache_point),
++			    "/System/Library/xpc/foreground_user_endpoints.plist",
++			    "/System/Library/xpc/launchd.plist", &cache_stage, &cache_status);
++			/* Which copy launchd will read: 887340 bytes is the rewritten cache, 1640626 the original. */
++			vnode_t cache_vp = NULLVP;
++			struct vnode_attr cache_va;
++			VATTR_INIT(&cache_va);
++			VATTR_WANTED(&cache_va, va_data_size);
++			int cache_error = vnode_lookup("/System/Library/xpc/launchd.plist", 0, &cache_vp,
++			    vfs_context_current());
++			if (!cache_error) {
++				cache_error = vnode_getattr(cache_vp, &cache_va, vfs_context_current());
++				vnode_put(cache_vp);
++			}
++			long long cache_bytes = cache_error ? -1LL : (long long)cache_va.va_data_size;
++			printf("launchd cache: mode=%u mount stage=%d status=%d visible=%lld error=%d\n",
++			    cache_mode, cache_stage, cache_status, cache_bytes, cache_error);
++		}
++	}
+ 	native_cryptex_os_view(p, scratch);
+ 	native_gestalt_cache_drop(p, scratch);
+ 	native_ls_store_drop(p, scratch);

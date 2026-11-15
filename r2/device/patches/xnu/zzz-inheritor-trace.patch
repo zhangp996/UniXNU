@@ -1,0 +1,24 @@
+diff --git a/osfmk/ipc/ipc_port.c b/osfmk/ipc/ipc_port.c
+index 301e8c4..9e15f45 100644
+--- a/osfmk/ipc/ipc_port.c
++++ b/osfmk/ipc/ipc_port.c
+@@ -1715,6 +1715,19 @@ ipc_port_send_update_inheritor(
+ 
+ 	turnstile_update_inheritor(send_turnstile, inheritor,
+ 	    flags | inheritor_flags);
++
++	/* Board diagnostic: this is the only place a queued message can redirect a workloop's
++	 * turnstile, and therefore the only place the kqueue side of a mach-port wake is prepared.
++	 * Print the port, its link state and whether an inheritor was found, capped for readability. */
++	{
++		static unsigned inherit_trace;
++		if (__atomic_load_n(&inherit_trace, __ATOMIC_RELAXED) < 200) {
++			__atomic_add_fetch(&inherit_trace, 1, __ATOMIC_RELAXED);
++			kprintf("INHERIT port=%p state=%d inheritor=%p flags=%u\n",
++			    (void *)port, port->ip_sync_link_state,
++			    (void *)inheritor, (unsigned)flags);
++		}
++	}
+ }
+ 
+ /*

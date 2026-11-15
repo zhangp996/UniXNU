@@ -1,0 +1,33 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+index 3e7bde9..f0ff33d 100644
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -8100,9 +8100,28 @@ native_staged_apps_prepare(proc_t p, user_addr_t scratch, mount_t data_mount)
+ 	vnode_put(vp);
+ }
+ 
++/* The deletable built-in system apps (Weather, Notes, Calendar, Files, Reminders, Maps, ...) live in the OS
++ * volume's /private/var/staged_system_apps.  Union that directory over /Applications before the Data volume
++ * covers /private/var, so LaunchServices and SpringBoard see every built-in app and its home-screen widget
++ * immediately instead of the placeholders alone (the reference board's approach). */
++static void
++native_staged_apps_union(proc_t p, user_addr_t scratch)
++{
++	uint32_t overlays = 1; PE_parse_boot_argn("unixnu-overlays", &overlays, sizeof(overlays));
++	if (!overlays) { printf("staged-apps union: disabled by unixnu-overlays=0\n"); return; }
++	static const char source[] = "/private/var/staged_system_apps", point[] = "/Applications";
++	static volatile int stage, status;
++	native_gpu_addon_mount(p, scratch, 0x800, source, sizeof(source), point, sizeof(point),
++	    "/Applications/Preferences.app/Info.plist",
++	    "/Applications/Weather.app/Info.plist",
++	    &stage, &status);
++	printf("staged-apps union: stage=%d status=%d\n", stage, status);
++}
++
+ static int
+ native_owner_data_prepare(proc_t p, user_addr_t scratch)
+ {
++	native_staged_apps_union(p, scratch);
+ 	uint64_t base = 0, size = 0;
+ 	dev_t device = NODEV;
+ 	int error = EINVAL;

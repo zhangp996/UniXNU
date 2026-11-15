@@ -1,0 +1,18 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -8196,6 +8196,14 @@
+ 	int data_error = native_owner_data_prepare(p, (user_addr_t)scratch_addr);
+ 	boot_progress_stage("Data mount returned");
+ 	if (data_error) panic("offline scratch Data mount failed: %d", data_error);
++	{
++		/* The launchd disabled database and its migration marker, written by the kernel as root
++		 * right after the volatile Data mount; see package/VerifiedBlockBridge.cpp. */
++		extern int native_owner_watchdog_override(void);
++		int watchdog_error = native_owner_watchdog_override();
++		if (watchdog_error) panic("owner watchdog override failed: %d", watchdog_error);
++		printf("owner watchdog override ready\n");
++	}
+ #if defined(XNU_BOOT_PROGRESS) && XNU_BOOT_PROGRESS
+ 	extern int sheng_boot_watchdog_policy(void *, uint64_t);
+ 	boot_progress_stage("temporary watchdog launch policy enter");

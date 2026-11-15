@@ -1,0 +1,29 @@
+diff --git a/osfmk/arm/io_map.c b/osfmk/arm/io_map.c
+index 18ef2f0..e4d5a68 100644
+--- a/osfmk/arm/io_map.c
++++ b/osfmk/arm/io_map.c
+@@ -62,7 +62,7 @@
+ 
+ extern vm_offset_t virtual_space_start;     /* Next available kernel VA */
+ 
+-#define IO_MAP_SIZE            (8ul << 20)
++#define IO_MAP_SIZE            (32ul << 20)
+ 
+ __startup_data static struct mach_vm_range io_range;
+ static SECURITY_READ_ONLY_LATE(vm_map_t) io_submap;
+diff --git a/osfmk/corpses/task_corpse.h b/osfmk/corpses/task_corpse.h
+index 1d89c8c..413dbd9 100644
+--- a/osfmk/corpses/task_corpse.h
++++ b/osfmk/corpses/task_corpse.h
+@@ -62,9 +62,9 @@ typedef struct kcdata_item      *task_crashinfo_item_t;
+ #define BTINFO_ALLOCATION_SIZE (1024 * 20)
+ 
+ #if XNU_TARGET_OS_WATCH
+-#define TOTAL_CORPSES_ALLOWED 4
++#define TOTAL_CORPSES_ALLOWED 64
+ #else /* XNU_TARGET_OS_WATCH */
+-#define TOTAL_CORPSES_ALLOWED 5
++#define TOTAL_CORPSES_ALLOWED 64
+ #endif /* XNU_TARGET_OS_WATCH */
+ 
+ #define TOTAL_USER_FAULTS_ALLOWED 1

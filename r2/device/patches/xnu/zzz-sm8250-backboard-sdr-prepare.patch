@@ -1,0 +1,32 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -7899,12 +7899,29 @@
+ 	}
+ }
+ 
++/* Write the original CoreAnimation SDR preference before launchd starts: false keeps the 8-bit
++ * BGRA framebuffer instead of a deep/10-bit one. Runs with the GPU addon, before any client. */
++static void
++native_board_sdr_preference(void)
++{
++	static const char bbd[] =
++	    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
++	    "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
++	    "<plist version=\"1.0\"><dict><key>CAEnableDeepFramebuffer</key><false/></dict></plist>\n";
++	native_pref_write("com.apple.backboardd", bbd, sizeof(bbd) - 1);
++}
++
+ static void
+ native_gpu_addon_prepare(proc_t p, user_addr_t scratch)
+ {
+ 	uint32_t enabled = 0;
+ 	if (!PE_parse_boot_argn("sheng-gpu-addon", &enabled, sizeof(enabled)) || enabled != 1) {
+ 		return;
++	}
++	{
++		unsigned sdr = 0;
++		if (PE_parse_boot_argn("smgop", &sdr, sizeof(sdr)) && sdr == 1)
++			native_board_sdr_preference();
+ 	}
+ 	native_gpu_addon_install(p, scratch);
+ 	static const char extensions_source[] = "/private/var/ngpu/addons", extensions_point[] = "/System/Library/Extensions";

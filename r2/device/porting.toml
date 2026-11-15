@@ -1,0 +1,204 @@
+schema_version = 1
+
+[device]
+name = "instantnoodlep"
+soc = "SM8250"
+os_profile = "ipados-17.7.11-21H461"
+summary = "OnePlus 8 Pro (IN2020) bring-up: arm64 iPadOS 17 profile, configuration resolves; firmware platform, UFS, display and touch drivers are pending."
+
+[[area]]
+id = "configuration"
+status = "host-verified"
+components = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "XnuPrelink", "DarwinBoot"]
+paths = ["board.toml", "feeds.toml", "unixnu.lock", "configs/**", "dts/**", ".github/**", ".gitignore"]
+inputs = ["Layered profiles: profiles/arch/arm64, UniXNU-sm8250-common/soc.toml (commit 3481a8bfd60fb9f8cefe5cfdf402b64c8b303b1e), profiles/os/ipados-17.7.11-21H461, then this board.toml.", "SoC facts from the board's own stock boot_a and dtbo_a images."]
+configuration = ["board.soc = \"SM8250\"", "board.soc_source = \"sm8250\"", "board.os_profile = \"ipados-17.7.11-21H461\"", "kernel.defconfig = \"instantnoodlep_defconfig\"", "device_tree.source = \"device:dts/instantnoodlep.dts\""]
+procedure = ["python3 ./unixnu defconfig instantnoodlep_defconfig -D ../UniXNU-instantnoodlep", "python3 ./unixnu status -D ../UniXNU-instantnoodlep"]
+findings = ["The arm64 profile is correct for this board: SM8250 is Armv8.2-A and exposes no FEAT_PAuth, so arm64e does not apply.", "The SoC feed is the kona repository whose soc.toml records IN2020 stock boot_a and dtbo_a as its hardware source.", "The OS profile applies patches/xnu/zzz-boot-progress.patch, whose bsd_init.c hunk needs the XNU_SHENG_PMGR block inserted by patches/xnu/sheng-platform-power.patch; no series applied that patch, so the device applies a copy (00-pmgr-run-hook.patch) before the OS series. CONFIG_XNU_SHENG_PMGR is unset, so the block compiles out.", "kernel.archives is a replacing array: it repeats the complete profiles/arch/arm64 order (corecrypto twice, ArmDTPlatform, ArmCpu, SoftwareAES, the AES original bindings, the mockfs fixture, libpthread) and appends component:ShengUfs with VirtioMmioBlock and VerifiedRoot. Naming only the storage components drops the rest and the link fails on IOAESAccelerator. The resolved SoC repository is linked into the assembled tree as soc/ so a component that declares soc_headers can include its headers.", "unixnu.lock now records a pinned revision for ShengUfs; feeds.toml names it, and the local working trees for it and sm8250 are pinned in the Git-ignored local.toml."]
+completion = ["Every source pin resolves and status lists the intended profile, components and patch order."]
+limits = ["No UEFI firmware repository (uefi-instantnoodlep) exists yet, so the firmware, payload and boot-image inputs cannot be filled."]
+next_action = ["Create or locate the Mu-Silicium platform for kona/instantnoodlep, then fill [firmware] and [bootimg]."]
+evidence = [{ kind = "host", reference = "docs/evidence/2026-11-09-unixnu-status.log", command = "python3 ./unixnu defconfig instantnoodlep_defconfig -D ../UniXNU-instantnoodlep && python3 ./unixnu status -D ../UniXNU-instantnoodlep", result = "Resolved arch arm64, soc sm8250 at 3481a8bfd60f, os ipados-17.7.11-21H461 and 59 XNU patches; output out/instantnoodlep/ipados-17.7.11-21H461/instantnoodlep.", revision = "8ec13bb1077502e53e8ba3b82c56842589b5c837" }]
+
+[[area]]
+id = "firmware"
+status = "device-verified"
+components = ["DarwinBoot"]
+paths = ["board.toml", "docs/evidence/2026-11-09-device-menu.md", "docs/evidence/2026-11-09-kernel-handoff-probes.md", "docs/evidence/2026-11-09-xbl-dxe.md"]
+inputs = ["Mu-Silicium platform package Platforms/OnePlus/instantnoodlepPkg (FD 0x9E400000, 4 MiB, SimpleFbDxe + KonaKeysDxe + PanicLogDxe).", "xbl_a DXE modules are not selected: the platform is source-built, per the working package."]
+configuration = ["[firmware] config = instantnoodlep, dsc = Platforms/OnePlus/instantnoodlepPkg/instantnoodlep.dsc, fd = Build/instantnoodlepPkg/{target}_CLANGPDB/FV/SILICIUM_UEFI.fd.", "FD_BASE 0x9E400000, FD_SIZE 0x400000; frame buffer 1080x2376 (the panel timing ABL scans out).", "boot image hand-packed: header v2, shim image_size 0x400000, stock boot_a dtb, cmdline console=ttyMSM0,115200n8 androidboot.hardware=qcom."]
+procedure = ["Build the platform package with the board overlay and the Silicium/edk2 alignment patches.", "clang -DFD_BASE=0x9E400000 -DFD_SIZE=0x400000 -DREQUIRES_KERNEL_HEADER=1 BootShim.S; cat shim.bin SILICIUM_UEFI.fd > kernel.bin; mkbootimg --header_version 2 --dtb stock.dtb.", "fastboot boot bootD.img"]
+findings = ["The firmware reaches the UniXNU menu, counts down 60 seconds and accepts volume/power keys through KonaKeysDxe.", "The FD must sit at 0x9E400000: 0x9FC00000 overlaps kboot_uboot_logmem and never starts; image_size in the ARM64 header must stay FD_SIZE, not shim+FD.", "Entry-probe bars (blue = MMU-off kernel entry, magenta = before the MMU is enabled) appear on the panel, so the DarwinBoot hand-off and the early kernel entry run.", "Reset probes place the first kernel-side failure in PE_create_console: arm_vm_init and the KPRINTF startup entries return, console creation does not.", "Root cause: XNU's initialize_screen() maps the frame buffer only when bit 0 of the handed-off video base is set; DarwinBoot passed the raw GOP physical base 0x9C000000 (cont_splash_region), so XNU used it as a virtual address and faulted on the first console store.", "Setting Video[0] = FrameBufferBase | 1 in DarwinBootVideoFromGop() reaches the kernel and makes the panic screen draw: its first report was an alignment fault, because the entry probe painted its blue bar at 0x9C09C9F1 (video base + framebuffer/16 + 1) with the tag bit set while the MMU was off.", "scripts/patch-xnu-entry-probe.py now clears the low three bits of the video base before painting; with that fix the bars paint and the boot still stops about three seconds after them without console text.", "A reset probe on _initialize_screen inside _PE_initialize_console did not fire, but the reference port for this board warns that the probe's inline assembly is only valid before the pmap switch, so a silent probe after that point does not prove a fault there.", "The reference port (F:/UniXNU-instantnoodlep) records the same hand-off wall: PE_state.video.v_baseAddr is the physical base and faults at 0x9c00a8e0 when drawn through, ml_io_map of the panel panics in kmem_alloc with KERN_NO_SPACE for 10264576 bytes (round_page(1080x2376x4)), and its console draws through vinfo.v_baseaddr instead.", "board.toml carries the reference port's arguments for this board (-v serial=3 debug=0x14e -no_slto_panic amfi_get_out_of_my_way=1): its record says AMFI panics with No PMGR until a PMGR provider exists and the spinlock timeout panic has to be off before that work.", "The reference port also patches every kernel with scripts/patch-amfi-nopmgr.py; the call site matched this kernel (0x940069b8 -> 0x17ffffd2 at 0x198ad04) and scripts/patch-amfi-nopmgr.py is now part of this repository. bootP.img carries the patched kernel and still ends in 900E three bars later, so AMFI is not the stopping layer.", "The gap between the bars and 900E is the SoC watchdog after a parked panic, not progress: the fault is at or just after console creation, which is also why the panic screen stays blank (vinfo.v_baseaddr is what initialize_screen has not set yet).", "An A/B over six images (tagged/untagged video base x patched/unpatched AMFI) ends in the same three bars and 900E every time, so neither the tag nor AMFI moves the stopping point; what is left is the frame-buffer mapping that initialize_screen asks for.", "DarwinBoot now draws the hand-off facts straight into the frame buffer (kernel pa 0xC007C000, window 0x100000000, args 0xC4044000, video 0x9C000000, entry 0xC32144B8); the frame buffer is below the window, so neither the overlap hypothesis nor a short static window explains the wall.", "Root cause: io_map() takes its static branch while startup_phase < STARTUP_SUB_KMEM, but virtual_space_start is only assigned by pmap_startup() during the STARTUP_SUB_KMEM entries, which run after PE_create_console() in arm_init(). The mapping therefore returns 0, vinfo.v_baseaddr becomes 0 and the first console store faults at address 0.", "The same io_map call is what check_for_panic_log() makes for the pram region, so the DT panic region is not armed either: PanicLogDxe finds no header and the device still reaches the menu, which is what the second boot showed.", "Apple's iBoot hands over an already-mapped virtual frame buffer, so this ordering hole is invisible on Apple hardware; the tag bit on Args->Video[0] is what selects the early branch here.", "Fix implemented as patches/xnu/zzz-defer-framebuffer-mapping.patch: initialize_screen() remembers the physical base and returns through the no-video path before STARTUP_SUB_KMEM, leaves gc_acquired FALSE, and maps the frame buffer in the kPEAcquireScreen call from kernel_bootstrap_thread, then initialises the console normally.", "The kernel rebuilt with that patch is 51,027,968 bytes (sha256 54c3565b...) and bootT.img (sha256 1c06b782...) carries it with the AMFI patch, the panic screen and the pram region.", "Two further pe_init.c patches were needed: check_for_panic_log() must return while kernel_map is NULL (with the pram node present it mapped the region at virtual address 0 before pmap_startup), and PE_initialize_console() arms it again once kernel_map exists.", "With those three patches (kernel a8c5d42b...) the kernel boots all the way to bsd_init: the panic screen drew 'failed to mount root device @IOKitBSDInit.cpp:984' with frames fffffff00797c384 fffffff0076e489c fffffff0072c4864 fffffff0074164a4 and pages=0x20000000 000f814c free=0x00000000 0f6f51.", "The panic screen drawing proves the deferred frame-buffer mapping succeeded: it draws through vinfo.v_baseaddr, which only exists after that mapping. The 480-row hand-off gives it a 2 MiB mapping the kernel can afford.", "board.toml [kernel] archives changed for the storage route; every [firmware] input (platform package, FD base and size, boot image layout) is unchanged, and the kernel step still produces kernel.macho a8c5d42b046ea416eb998276e4d00ad0843f12899fb71ab574c9ad9644433ec3."]
+completion = ["Firmware enters UniXNU, publishes the framebuffer and preserves the memory reservations."]
+limits = ["The kernel console is visible, but the boot still stops in the kernel after console creation; storage, display and input drivers for XNU are not validated.", "ABL rejects a dtb without qcom,msm-id, so the stock boot_a dtb is still used.", "The payload seed is a placeholder chip id.", "The generated ADT exports only the GIC under arm-io, so serial_init() has no uart and the panel is the only console."]
+next_action = ["Move to storage: the handoff now reaches bsd_init and panics in vfs_mountroot because this board has no root device. Select or write the SM8250 UFS driver (storage area) and publish an IOMedia for the userdata volume."]
+evidence = [{ kind = "device", reference = "docs/evidence/2026-11-09-device-menu.md", command = "fastboot boot bootD.img", result = "The UniXNU menu appears with a 60 s countdown; volume up/down move the selection and the power key confirms; xnu hands off through the DarwinBoot bar and crashes into 900E.", revision = "8ec13bb1077502e53e8ba3b82c56842589b5c837" }, { kind = "device", reference = "docs/evidence/2026-11-09-kernel-handoff-probes.md", command = "fastboot boot bootE.img; fastboot boot bootF.img; fastboot boot bootG.img; fastboot boot bootH.img; fastboot boot bootJ.img", result = "bootE (panic screen) drew green/blue/magenta bars then 900E with no text; the reset probes show arm_vm_init and kernel_startup_initialize_upto returning and PE_create_console not returning; bootJ (FD with Video[0] |= 1, sha256 93dbf6b8..., boot image sha256 3906afb7...) shows the -v kernel console on the panel.", revision = "8ec13bb1077502e53e8ba3b82c56842589b5c837" }]
+
+[[area]]
+id = "cpu"
+status = "implemented"
+components = ["ArmCpu", "ArmDTPlatform"]
+paths = ["dts/**"]
+inputs = ["8 CPUs at MPIDR 0x000-0x700: four A55-class cores and four Cortex-A77 cores.", "GICv3 at 0x17a00000 (distributor) and 0x17a60000 (redistributors), PSCI over SMC."]
+configuration = ["CPUs are inherited from soc:dts/sm8250.dtsi; the board exports all eight.", "timebase-frequency = <19200000>."]
+procedure = ["dtc -I dts -O dtb -i <soc>/dts dts/instantnoodlep.dts"]
+findings = ["/proc/cpuinfo reports implementer 0x51 part 0x805 on cpu0-3 and 0x41 part 0xd0d on cpu4-7, matching the SoC DTSI topology.", "The SoC has no FEAT_PAuth: ID_AA64ISAR1 has no address or generic authentication, so arm64e cannot be used.", "dts/instantnoodlep.dts now enables the SoC description UFS nodes (&ufs, &ufsphy) for the storage route; no CPU, GIC or timer node changed."]
+completion = ["Every enabled CPU reaches its entry checkpoint and timer/IPI handling works on each core."]
+limits = ["Secondary-core bring-up is not verified; only the stock Android kernel has run on this board."]
+next_action = ["Build the kernel with the SoC defconfig and check the CPU topology probe on hardware."]
+evidence = [{ kind = "source", reference = "docs/evidence/2026-11-09-device-inventory.md", result = "CPU parts and MPIDR values read from /proc/cpuinfo." }]
+
+[[area]]
+id = "memory"
+status = "implemented"
+components = ["ArmDTPlatform"]
+paths = ["dts/**"]
+inputs = ["DRAM base 0x80000000, size 0x200000000 (8 GiB).", "/proc/iomem shows the carveouts the bootloader leaves inside that range."]
+configuration = ["memory@80000000 reg = <0x0 0x80000000 0x2 0x00000000>.", "dram_size = 0x200000000 in [payload]."]
+procedure = ["Read /proc/iomem and /proc/meminfo on the device; compare with the memory node."]
+findings = ["MemTotal is 7,708,100 kB on an 8 GiB board, consistent with the 0x80000000-0x27fffffff window.", "The largest System RAM range runs to 0x27fffffff.", "dts/instantnoodlep.dts now enables the SoC description UFS nodes (&ufs, &ufsphy) for the storage route; the memory node and reservations are unchanged."]
+completion = ["All handoff regions are accounted for and DMA accesses its allocated ranges."]
+limits = ["Reserved-memory and SMMU ownership are not described yet."]
+next_action = ["Add the display and firmware reserved regions once the firmware platform fixes their addresses."]
+evidence = [{ kind = "source", reference = "docs/evidence/2026-11-09-device-inventory.md", result = "DRAM banks and System RAM ranges." }]
+
+[[area]]
+id = "storage"
+status = "host-verified"
+components = ["ShengUfs", "VirtioMmioBlock", "VerifiedRoot"]
+paths = ["board.toml", "configs/instantnoodlep_defconfig", "dts/**", "docs/evidence/2026-11-10-storage-route.md", "docs/evidence/2026-11-10-storage-table-build.md", "docs/evidence/2026-11-10-storage-link.md"]
+inputs = ["UFS 3.0 host 1d84000, PHY 1d87000, ICE 1d90000.", "GPT userdata entry: first LBA 4133800, last LBA 30513146 (4 KiB LBA)."]
+configuration = ["[userdata] first_lba/last_lba/lba_bytes and two windows (OS, SystemOS).", "include/ufs-soc-table.h in UniXNU-sm8250-common carries the controller facts; board.toml [kernel] archives names the storage components after the complete arm64 list.", "configs/instantnoodlep_defconfig enables CONFIG_XNU_NATIVE_UFS; the owner-policy variant stays off (CONFIG_XNU_VERIFIED_ROOT_PROBE unset).", "[payload] kernel_args adds native-ufs-root=1. dts/instantnoodlep.dts keeps the SoC description UFS nodes disabled: enabling them hung the kernel before its console (A/B in docs/evidence/2026-11-10-storage-link.md), and the driver does not need them."]
+procedure = ["dd the GPT header with bs=4096 and parse the entry array at 0x2000.", "python3 ./unixnu tree|defconfig|build kernel -D ../UniXNU-instantnoodlep", "python3 scripts/patch-amfi-nopmgr.py kernel.macho; python3 ./unixnu build payload --kernel <patched> --unique-chip-id <seed> --trust-cache out/ipsw/21H461/trust.bundle; mkbootimg (kernel_small.bin + payload + stock dtb)."]
+findings = ["Route chosen: the upstream ShengUfs component (catalog id ShengUfs, runtime class NativeUfs, source NativeUfs.cpp) with a kona table, not a board-local fork; the component is fetched at 99d8bcd3 and builds to build/sheng-ufs/libShengUfs.a.", "The delta from ShengUfs (SM8550) to this board is small: GccUfs.h already carries the GCC base 0x100000 and the host window 0x1d84000+0x3000 that kona uses, and the driver adopts the firmware's controller state instead of programming clocks and PHY itself.", "What differs: the match string is qcom,sm8250-ufshc; the GCC branch offsets are 0x77010/0x77018/0x7701C/0x77020/0x7705C/0x77064/0x7709C/0x770B8/0x770CC; the PHY is 0x1d87000+0xe00; core_reset is GCC id 0x21 with BCR at 0x77000; and the kona ufshc node carries no iommus, so there is no SMMU takeover.", "One component now serves both SoCs: scripts/unixnu/tree.py links the resolved SoC feed into the assembled tree as soc/, scripts/build-arm-driver.py adds -I <tree>/soc/include for a component whose catalog entry sets soc_headers, UniXNU-sm8250-common/include/ufs-soc-table.h holds the kona entry, and NativeUfs.cpp adopts the entry that names the node compatible, keeping the SM8550 values as the fallback.", "[kernel] archives is a replacing array: naming only the three storage components dropped corecrypto, the AES original-bindings archive, the mockfs fixture and libpthread from the link, which then fails on IOAESAccelerator. The list repeats the complete profiles/arch/arm64 order and appends the storage components.", "ShengUfs builds with -Werror and passes the arm64-apple-ios17.0 object audit; libShengUfs.a is sha256 1b6bce6ec2b709cd2b71a09931026f9ef652194a90c8914f7683ce5e6e61d2b3 (486920 bytes) and the object carries both qcom,sm8250-ufshc and qcom,sm8250.", "The kernel links with the driver once the storage family comes from the pinned prelink: the base vtable and the seven base methods the subclass repeats are absolute symbols for 21H461, derived from the original vtable by scripts/derive-storage-bindings.py and archived next to the driver. kernel.macho is sha256 82e653afbc0de677d5d3aa78ed17bfb9d10610728382b80040470aaf0b34538b.", "The owner-policy chain is compiled out (CONFIG_XNU_VERIFIED_ROOT_PROBE is off): the driver publishes the windows as an IOMedia without authenticating each block. The policy symbols need the signed OS/SystemOS policies and the userdata image, which this board has not built.", "The payload accepts the AMFI-patched kernel instead of sheng-pmgr=2 (scripts/unixnu/payload.py reads the recorded patch instruction at the call site). The ADT root compatible lists J120AP oneplus,instantnoodlep qcom,sm8250, which is what resolves the kona table entry at run time; the ADT also carries a build id, so its sha256 differs per build.", "bootZ.img (B bootZ) is sha256 cea799d1a77c2534b7dcc2e7a2eacb7497e152b8a92c8534421d542847b701a5, 107,507,712 bytes: BootShim + FD kernel_small.bin, this payload, the stock boot_a dtb", "A/B on the device (2026-11-10): enabling the UFS nodes in the board dts hung the kernel after the entry-probe bars with kernel a8c5d42b (bootZ4), while the same kernel with the nodes disabled and native-ufs-root=1 booted to the known root-mount panic (bootZ5). The driver is not involved; the nodes stay out of the ADT until the platform expert path is understood.", "KernelConfigTables.cpo takes its personalities from target-specific CFLAGS_ADD and make does not invalidate it when only those change: the first build without XNU_NATIVE_UFS left an object without the NativeUfs personalities, so several images force-loaded the driver with nothing pointing at it. build-xnu-4k-baseline.sh now stamps PERSONALITY_CFLAGS and removes the object when the set changes.", "Device (bootZA, kernel 6bc86152, native-ufs-probe=10): the panel reported NATIVE_UFS root check, userdata first=3f13a8 last=1d197fa, block0 magic f79c330c 8476b30b ext4magic=8c24 ext4blocks=405 3431726, manifest status=1 windows=0. The controller hand-off, the command path, the GPT parse and a block read work on the phone; status=1 is no SHNGROOT manifest because no userdata image has been written yet, so there are no root windows to publish."]
+completion = ["The UFS host enumerates, the OS window mounts read-only and launchd starts; Data persists."]
+limits = ["The image has not run: no device was attached when it was built (2026-11-10 12:17), so nothing on this route is measured on hardware yet.", "Unverified reads: CONFIG_XNU_VERIFIED_ROOT_PROBE is off, and the signed policies plus the userdata image that the verified chain needs are still missing.", "The SM8250 SoC repository and ShengUfs are pinned as local working trees in the Git-ignored local.toml; feeds.toml still names the published revisions."]
+next_action = ["fastboot boot instantnoodlep-artifacts/bootZ.img (boot only, never flash), photograph the panel and record which milestone the driver reaches: controller map, DMA, first command, capacity/GPT, or media publication.", "Once the controller hand-off is measured, build the signed policies from the OS/SystemOS images and enable CONFIG_XNU_VERIFIED_ROOT_PROBE to publish the authenticated root."]
+evidence = [{ kind = "source", reference = "docs/evidence/2026-11-10-storage-route.md", result = "Board measurements and the SM8550 to kona delta for the controller, PHY, GCC branches, core_reset and the missing SMMU." },
+{ kind = "source", reference = "docs/evidence/2026-11-10-storage-table-build.md", result = "The four wiring changes, their repositories, the first build result and the link wall." },
+{ kind = "source", reference = "docs/evidence/2026-11-10-storage-link.md", result = "How the storage family ABI is bound for 21H461, the unverified compile variant, the artefacts and the pending device test." },
+{ kind = "host", reference = "docs/evidence/2026-11-10-storage-link.md", command = "python3 ./unixnu build kernel -D ../UniXNU-instantnoodlep && python3 ./unixnu build payload --kernel <AMFI-patched> && mkbootimg", revision = "40a58ae0d842d8e908e831c1ba0fb40334bd3c6b", result = "libShengUfs.a 1b6bce6e..., kernel.macho 82e653af... (driver linked), payload bbb7580b..., bootZ.img cea799d1... (107,507,712 bytes)." }, { kind = "device", reference = "docs/evidence/2026-11-10-storage-link.md", command = "fastboot boot instantnoodlep-artifacts/bootZA.img", result = "NATIVE_UFS root check: userdata first=3f13a8 last=1d197fa, block0 magic read back, manifest status=1 windows=0 (no userdata image written yet).", revision = "2b5054690df83770ee96ceec7c9ed90e91c3a003" }]
+
+[[area]]
+id = "display"
+status = "working"
+components = ["GopFramebuffer"]
+paths = ["kits/**", "package/LegacyDisplayProbe.cpp", "drivers/GopFramebuffer/**"]
+inputs = ["Panel qcom,mdss_dsi_oppo19811_samsung_1440_3168_dsc_cmd, 1440x3168 DSC command mode.", "MDSS 0xae00000, DSI0 0xae94000, Pixelworks Iris bridge.", "UEFI GOP framebuffer at 0x9c000001: 1080x2376, stride 4320, 32 bpp; the low bit of the video base is a flag and the scanout lives at the page base."]
+configuration = ["GopFramebuffer NativeLegacyDisplay adopts the original IOMobileFramebufferLegacy path; boot-args video=0x9c000001, offline-legacy-console=1, sheng-vsync=60.", "The binding framebuffer format is 8-bit BGRA (fmt=42475241): the backboardd preference CAEnableDeepFramebuffer=false is written before launchd (kernel patch zzz-sm8250-backboard-sdr-prepare.patch) and CA_DISABLE_FRAMEBUFFER_COMPRESSION=1 is injected into backboardd's exec environment (zzz-sm8250-backboard-linear-env.patch)."]
+procedure = ["Build the kernel, pack the payload, fastboot boot bootEU.img, capture COM14 and check the DISPLAY/swap/copy-timing lines."]
+findings = ["The 480 s diagnostics capture (2026-11-15 21:00) shows 402 frames submitted as fmt=42475241 (BGRA); no 30RGBLE_8A (0x62336138) surface appears after the SDR preference.", "swap accepted=6, rejected=0, verify_swap failed=0; copy timing ranges from 73,936 to 9,641,233 ticks for a full 10,264,320-byte frame, most frames 3.0-3.4M ticks.", "Touch (s6sy791 67 lines) and userland presentation stay healthy while the GPU clients run; no panic in the capture."]
+completion = ["A known frame appears with correct geometry and colors, then userland presentation works."]
+limits = ["The scanout copy is still CPU-side; full-frame copies cost 3-9.6M ticks and the GPU presenter/handoff path is not wired to the display yet.", "Biplanar/10-bit surfaces are accepted only for compatibility; the 8-bit BGRA path is the supported one."]
+next_action = ["Wire the GPU presenter (NativeGOPPresenter / handoff methods 0x7000+) so the frame copy leaves the CPU.", "Record a per-frame timing baseline for static and animated scenes after the presenter."]
+evidence = [{ kind = "source", reference = "docs/evidence/2026-11-15-gpu-metal-audit.md", result = "BGRA swap and copy-timing counts from the 480 s capture; kernel 84fe7219/f9dd5770." }]
+[[area]]
+id = "input"
+status = "planned"
+components = []
+paths = ["dts/**", "proprietary-files.txt"]
+inputs = ["S6SY791 touch controller at I2C 0x48 on the board's touch bus.", "Firmware /odm/firmware/tp/19811/FW_S6SY791_SAMSUNG.bin."]
+configuration = ["No touch node is exported yet."]
+procedure = ["Read the stock DTBO fragment@71 for the IRQ/reset GPIOs and the I2C bus."]
+findings = ["The controller reports 17 TX x 38 RX with panel coordinates 1439x3168, matching the panel resolution.", "The board uses Samsung S6SY791, not the FocalTech part used by the alioth reference.", "dts/instantnoodlep.dts now enables the SoC description UFS nodes (&ufs, &ufsphy) for the storage route; the touch and GPIO nodes are unchanged."]
+completion = ["Touches map to the display, contacts keep stable IDs and release events arrive."]
+limits = ["No S6SY791 driver exists in the catalog; QcomGeniSpi plus a new probe would be required."]
+next_action = ["Extract the I2C bus number and GPIOs from dtbo entry 2 and write the touch node."]
+evidence = [{ kind = "source", reference = "docs/evidence/2026-11-09-device-inventory.md", result = "Touch controller address, geometry and firmware hash." }]
+
+[[area]]
+id = "gpu"
+status = "in_progress"
+components = ["Adreno650"]
+paths = ["drivers/Adreno650/**", "package/Sm8250AliothCold.cpp", "package/Sm8250AliothMetal.cpp", "proprietary-files.txt"]
+inputs = ["Adreno 650, kgsl 0x3d00000, GMU 0x3d6a000, seven register windows.", "a650_gmu.bin, a650_sqe.fw and a650_zap.elf from the stock vendor partition; hashes are in proprietary-files.txt.", "GPU addon gpuaddon-r3.bin (NGPUADD2) built from core 2b545eae, metal 73d582fd, mesa 85fda3b3, translator 555b13d5, target arm64-apple-ios17.0, board_tu_default nocb; delivered to the payload with --gpu-addon and --owner-trust-cache."]
+configuration = ["Boot-args: gpu-metal=1 gpu-addon=1 sheng-gpu-addon=1 sheng-fb-gpu=1 sheng-vsync=60 smgop=1 sm8250-gpu-alioth=12.", "Kernel patches: zzz-sm8250-backboard-linear-env.patch (CA_DISABLE_FRAMEBUFFER_COMPRESSION) and zzz-sm8250-backboard-sdr-prepare.patch (CAEnableDeepFramebuffer=false written during the GPU addon prepare phase)."]
+procedure = ["Build the kernel; build the payload with the GPU addon and owner trust cache; fastboot boot; capture COM14; read GPU cold start, accelerator publish, GPUDIAG counters and surface formats."]
+findings = ["Cold start: GPU: bring-up mode 12; seven windows mapped; power gcc=1 cc=1 smmu=1; GMU clocks step=5 failed=0; A650 cold start mode 12; metal register rc=0.", "Metal clients connect and keep running: GPUDIAG tick=440 opens=8 closed=4 calls=8300 ext entries=8555 tunnel=8301 probes=264 last_sel=6 last_status=0; openers SpringBoard/Setup/mediaserverd/WidgetRenderer_D and readers CollectionsPoster/MobileGestaltHelper are the expected render-server and app clients.", "All displayed frames use the 8-bit BGRA path (fmt=42475241, 402 frames); no 10-bit 30RGBLE_8A submissions.", "The driver already exposes the 16-method NativeAdreno client ABI (Query, BoAlloc/Map/Free/Import, Submit, WaitFence, GetTimestamp/Status, SetMetadata/GetMetadata, CreateQueue/CloseQueue, BoCpuMap/Unmap, GetDeviceInfo) plus tunnel (magic NTNL), mailbox and GOP handoff channels."]
+completion = ["Metal device discovery, client connection, pipeline creation, render and present are recorded."]
+limits = ["No dedicated bounded submission self-test (allocate, map, submit, wait fence) is recorded yet; ring/CP init is only exercised by cold start.", "gpu-preempt=2 scheduling (ring0 for high/real-time, ring1 for normal) is not implemented; the driver runs one ring.", "The document-required [vm map]/[vm unmap]/[vm kinds]/[bo memory] count and timing rows are not implemented.", "The addon is a pinned prebuilt artifact: the documented build scripts (build-turnip-darwin.py, build-adreno-metal-plugin.py, make-gpu-addon.py) were not run for it and it carries no primelist or pipeline pack.", "The plugin's own result lines (starter/report/report2) stay empty in serial logs; the client-visible Metal stage result still needs the tunnel-method and report diagnostics."]
+next_action = ["Boot the tunnel-diagnostic kernel and read the plugin report lines plus the tunneled method numbers.", "Implement the bounded submission self-test and the vm/bo diagnostic rows, then record their results here.", "Implement or explicitly document the gpu-preempt=2 deviation, and build a document-conforming addon with the plugin and primelist on a Mac host with the 21H461 image."]
+evidence = [{ kind = "source", reference = "docs/evidence/2026-11-15-gpu-metal-audit.md", result = "GPUDIAG counters (opens=8, calls=8300, tunnel=8301) and cold-start lines; kernels f9dd5770/84fe7219." }]
+[[area]]
+id = "network"
+status = "planned"
+components = []
+paths = ["docs/evidence/2026-11-09-device-inventory.md"]
+inputs = ["QCA6390 Wi-Fi/Bluetooth combo (stock DTBO bt_qca6390 node)."]
+configuration = ["No Wi-Fi or Bluetooth node is exported; the stock DTBO bt_qca6390 node and the WLAN regulators are the inputs to add."]
+procedure = ["Read the stock DTBO for the WLAN/BT regulators and firmware paths."]
+findings = ["The board uses a QCA6390 combo; no network component is selected."]
+completion = ["The OS associates and passes packets."]
+limits = ["No Wi-Fi or Bluetooth driver is selected."]
+next_action = ["Inventory the WLAN firmware and PCIe/SNOC path."]
+evidence = []
+
+[[area]]
+id = "audio"
+status = "planned"
+components = []
+paths = ["docs/evidence/2026-11-09-device-inventory.md"]
+inputs = ["WCD9385 codec and ADSP firmware from the vendor partition."]
+configuration = ["No audio node is exported; the WCD9385 codec and ADSP services are identified but not described."]
+procedure = ["Follow the audio guide after the root volume mounts."]
+findings = ["Audio is out of scope until userland starts."]
+completion = ["Playback and capture work through the DSP."]
+limits = ["No audio component is selected."]
+next_action = ["Collect ADSP firmware hashes when the payload stage starts."]
+evidence = []
+
+[[area]]
+id = "power"
+status = "planned"
+components = []
+paths = ["docs/evidence/2026-11-09-device-inventory.md"]
+inputs = ["PM8150/PM8150B/PM8150L PMICs, PM8008, battery gauge."]
+configuration = ["No PMIC node is exported; the board currently inherits bootloader regulator state."]
+procedure = ["Read the PMIC nodes from the stock DT."]
+findings = ["No regulator or battery driver is selected; the board currently relies on bootloader state."]
+completion = ["Regulators and battery units are owned by the OS and suspend/resume is defined."]
+limits = ["No power component is selected."]
+next_action = ["Inventory the PMIC rails used by UFS, display and touch."]
+evidence = []
+
+[[area]]
+id = "packaging"
+status = "host-verified"
+components = ["XnuPrelink"]
+paths = ["scripts/package.sh", "board.toml", "docs/evidence/2026-11-09-unixnu-ipsw.log", "docs/evidence/2026-11-09-boot-image.log"]
+inputs = ["OS profile ipados-17.7.11-21H461: iPad7,1 / j120ap, chip 0x8011, board 0x0C.", "IPSW iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw (6.83 GB) and the merged 21H461 trust bundle."]
+configuration = ["[ipsw] product iPad7,1, build 21H461.", "[payload] volume OP8PRO, size 88 MiB, dram 0x200000000; [payload.adt] chip 0x164, eight MPIDR values, PSCI smc, packed Data."]
+procedure = ["./unixnu ipsw info; ./unixnu ipsw fetch; ./unixnu build payload; ./unixnu bootimg"]
+findings = ["The two 21H461 trust modules bundle to sha256 7416ca4f..., which is the profile's accepted hash.", "The boot partition is 96 MiB; payload 88 MiB + 0.94 MiB DTB + 3 MiB firmware fits at 94,339,072 bytes.", "The BootShim image_size field needs the local one-line fix described in the boot-image log.", "The kernel step now builds and links the complete archive set (corecrypto twice, ArmDTPlatform, ArmCpu, SoftwareAES with its original bindings, the mockfs fixture, libpthread, then component:ShengUfs with VirtioMmioBlock and VerifiedRoot) and still produces kernel.macho a8c5d42b046ea416eb998276e4d00ad0843f12899fb71ab574c9ad9644433ec3; the payload and boot-image inputs are unchanged."]
+completion = ["Payload and boot image pack and the device boots the firmware from fastboot."]
+limits = ["The platform seed is a placeholder; identity is not production.", "No hardware boot has been attempted."]
+next_action = ["Flash or fastboot-boot the image and capture the first UniXNU frame."]
+evidence = [{ kind = "host", reference = "docs/evidence/2026-11-09-unixnu-ipsw.log", command = "python3 ./unixnu ipsw info --ipsw <local IPSW> && python3 ./unixnu ipsw fetch --ipsw <local IPSW>", result = "Identified 17.7.11 (21H461) j120ap and extracted kernelcache.decompressed, DeviceTree.j120ap.im4p and both trust caches; the standalone ADT generator produced a 13852-byte kernel.macho.adt from the board DTS.", revision = "8ec13bb1077502e53e8ba3b82c56842589b5c837" }, { kind = "host", reference = "docs/evidence/2026-11-09-kernel-build.log", command = "python3 ./unixnu build kernel -D ../UniXNU-instantnoodlep", result = "Built kernel/kernel.macho (51027968 bytes, Mach-O arm64) with 60 patches and the XnuPrelink step; sha256 c639835d0a66e476d97f3989aff5baf2ad1671c91bebc2a7a7952911c9cd483b.", revision = "8ec13bb1077502e53e8ba3b82c56842589b5c837" }, { kind = "host", reference = "docs/evidence/2026-11-09-boot-image.log", command = "python3 ./unixnu build payload --unique-chip-id <placeholder> --trust-cache out/ipsw/21H461/trust.bundle && python3 ./unixnu bootimg --uefi ../uefi-instantnoodlep --dtb ../uefi-instantnoodlep/Resources/DTBs/instantnoodlep.dtb", result = "payload.img 92274688 bytes; boot.img 94347264 bytes, sha256 2d6158277e87ce1885de31870a3598135b60a419cb2b145318fb845bbcd5c8df, header v1, FD 188a52f6, DTB f7fa0c06. Placeholder chip id: packing proof only.", revision = "8ec13bb1077502e53e8ba3b82c56842589b5c837" }, { kind = "device", reference = "docs/evidence/2026-11-09-device-menu.md", command = "fastboot boot bootD.img", result = "The hand-packed boot image (107,507,712 bytes, header v2, stock dtb) reaches the UniXNU menu with the 60 s timeout and working keys.", revision = "8ec13bb1077502e53e8ba3b82c56842589b5c837" }, { kind = "device", reference = "docs/evidence/2026-11-09-kernel-handoff-probes.md", command = "fastboot boot bootJ.img", result = "Same layout with the rebuilt FD (Video[0] |= 1, sha256 93dbf6b8...) and the panic-screen payload; 107,507,712 bytes, sha256 3906afb7....", revision = "8ec13bb1077502e53e8ba3b82c56842589b5c837" }]
+
+[[area]]
+id = "diagnostics"
+status = "implemented"
+components = ["DarwinBoot"]
+paths = ["docs/evidence/2026-11-09-kernel-handoff-probes.md", "board.toml"]
+inputs = ["No serial console; the stock kernel uses ttyMSM0 at 0xa90000 and the UEFI menu framebuffer.", "UniXNU entry probe (scripts/patch-xnu-entry-probe.py): colour bars, positional reset and the panic screen."]
+configuration = ["[payload] panic_screen = true installs the panic screen; entry_probe_reset_delay with entry_probe_reset_after moves the reset probe to a named call.", "Kernel console is the panel: the frame buffer is handed to XNU as a physical address with bit 0 set."]
+procedure = ["python3 ./unixnu build payload -D ../UniXNU-instantnoodlep --unique-chip-id <seed> --trust-cache out/ipsw/21H461/trust.bundle", "Repack the boot image with the shim+FD kernel and the new payload; fastboot boot it and read the panel."]
+findings = ["Three colour bars (green hand-off, blue kernel entry, magenta pre-MMU) localise the kernel stage without any log transport.", "A reset probe converts one boot into one yes/no answer about a named call; arm_vm_init and kernel_startup_initialize_upto returned, PE_create_console did not.", "The panic screen cannot draw before PE_create_console because vinfo.v_baseaddr is still zero; after the frame-buffer fix the -v console is readable.", "boot-progress=1 is inert in this build: the tree has kern/boot_progress.h but no implementation, and XNU_BOOT_PROGRESS is undefined.", "The widened [kernel] archives list leaves the kernel image unchanged (kernel.macho sha256 a8c5d42b046ea416eb998276e4d00ad0843f12899fb71ab574c9ad9644433ec3, the image bootX.img carries), so the panic screen, the colour bars and the console path are the same as the last photographed boot."]
+completion = ["Firmware and kernel checkpoints are captured and linked from this record."]
+limits = ["No UART and no persistent log transport; everything observed is a photograph of the panel.", "The panic screen and the positional reset probe do not fit in the same kernel copy, so they are used in separate builds."]
+next_action = ["Photograph the panic text, then extend the reset ladder past PE_create_console."]
+evidence = [{ kind = "device", reference = "docs/evidence/2026-11-09-kernel-handoff-probes.md", command = "fastboot boot bootE.img / bootF.img / bootG.img / bootH.img / bootJ.img", result = "Colour bars, three positional resets and the first kernel console text on the panel.", revision = "8ec13bb1077502e53e8ba3b82c56842589b5c837" }]
+
+[[area]]
+id = "cellular"
+status = "not-applicable"
+components = []
+paths = ["docs/evidence/2026-11-09-device-inventory.md"]
+inputs = ["SDX55 modem with QMI/QRTR."]
+configuration = ["Cellular is not implemented in this profile; the modem remains owned by Android."]
+procedure = ["No operation: the modem is not driven by this port."]
+findings = ["UniXNU iPadOS profiles do not provide a cellular stack for this board."]
+completion = ["Not planned."]
+limits = ["Cellular is outside this port's scope; the modem stays owned by Android."]
+next_action = ["None."]
+evidence = []

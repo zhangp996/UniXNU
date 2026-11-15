@@ -1,0 +1,19 @@
+diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
+index 11de723..581d821 100644
+--- a/osfmk/arm64/start.s
++++ b/osfmk/arm64/start.s
+@@ -145,11 +145,9 @@ LEXT(reset_vector)
+ 	adrp	x19, EXT(ResetHandlerData)@page			// Get address of the reset handler data
+ 	add		x19, x19, EXT(ResetHandlerData)@pageoff
+ 	mrs		x15, MPIDR_EL1						// Load MPIDR to get CPU number
+-#if HAS_CLUSTER
+-	and		x0, x15, #0xFFFF					// CPU number in Affinity0, cluster ID in Affinity1
+-#else
+-	and		x0, x15, #0xFF						// CPU number is in MPIDR Affinity Level 0
+-#endif
++	/* SM8250's CPU_PHYS_ID carries Affinity1 as well: masking Affinity0 alone aliases
++	 * CPU1 to CPU0, so a secondary core matches the wrong reset-handler entry. */
++	and		x0, x15, #0xFFFF
+ 	ldr		x1, [x19, CPU_DATA_ENTRIES]			// Load start of data entries
+ 	add		x3, x1, MAX_CPUS * 16				// end addr of data entries = start + (16 * MAX_CPUS)
+ Lcheck_cpu_data_entry:

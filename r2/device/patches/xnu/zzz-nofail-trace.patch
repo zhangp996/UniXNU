@@ -1,0 +1,75 @@
+diff --git a/osfmk/ipc/ipc_mqueue.c b/osfmk/ipc/ipc_mqueue.c
+index ba4b60c..d0f72a0 100644
+--- a/osfmk/ipc/ipc_mqueue.c
++++ b/osfmk/ipc/ipc_mqueue.c
+@@ -696,6 +696,21 @@ ipc_mqueue_post(
+ 		/* waitq still locked, thread not runnable */
+ 
+ 		if (receiver == THREAD_NULL) {
++			/* Board diagnostic: a message arrives with no thread parked in msg_receive.  Record the
++			 * port, its receive-right owner, whether a knote can be posted on it and its sync-link
++			 * state - the three facts that decide which wake path the kernel has left. */
++			{
++				static unsigned nofail_trace;
++				if (__atomic_load_n(&nofail_trace, __ATOMIC_RELAXED) < 100) {
++					uintptr_t owner_task = 0;
++					__atomic_add_fetch(&nofail_trace, 1, __ATOMIC_RELAXED);
++					int owner = ipc_port_get_receiver_task_locked(port, &owner_task);
++					kprintf("NOFAIL port=%p owner=%d klist=%d state=%d q=%u\n",
++					    (void *)port, owner, ipc_port_has_klist(port) ? 1 : 0,
++					    (int)port->ip_sync_link_state,
++					    (unsigned)mqueue->imq_msgcount);
++				}
++			}
+ 			/*
+ 			 * no receivers; queue kmsg if space still reserved
+ 			 * Reservations are cancelled when the port goes inactive.
+@@ -723,9 +738,28 @@ ipc_mqueue_post(
+ 				 * queue was not empty and qos
+ 				 * didn't change, nothing to do.
+ 				 */
++			} else if (ipc_port_has_klist(port) &&
++			    !(ip_in_a_space(port) && ip_get_receiver(port) != IP_NULL &&
++			      is_active(ip_get_receiver(port)))) {
++				/* Board diagnostic: a knote is attached and the message is queued, but KNOTE()
++				 * below is skipped because one of its guards is false. */
++				static unsigned mpost_skipped;
++				if (__atomic_load_n(&mpost_skipped, __ATOMIC_RELAXED) < 200) {
++					boolean_t mpost_space = ip_in_a_space(port);
++					ipc_space_t mpost_recv = ip_get_receiver(port);
++					__atomic_add_fetch(&mpost_skipped, 1, __ATOMIC_RELAXED);
++					kprintf("MPOST skipped port=%p space=%d recv=%p active=%d\n",
++					    (void *)port, mpost_space, (void *)mpost_recv,
++					    (mpost_recv != IP_NULL && mpost_space) ? is_active(mpost_recv) : -1);
++				}
+ 			} else if (ip_in_a_space(port) &&
+ 			    is_active(ip_get_receiver(port)) &&
+ 			    ipc_port_has_klist(port)) {
++				static unsigned mpost_posted;
++				if (__atomic_load_n(&mpost_posted, __ATOMIC_RELAXED) < 200) {
++					__atomic_add_fetch(&mpost_posted, 1, __ATOMIC_RELAXED);
++					kprintf("MPOST posted port=%p\n", (void *)port);
++				}
+ 				/*
+ 				 * queue was empty or qos changed
+ 				 * we need to tell kqueue, unless
+@@ -733,6 +767,19 @@ ipc_mqueue_post(
+ 				 */
+ 				KNOTE(&port->ip_klist, 0);
+ 			}
++			/* Board diagnostic: the message is now queued with no thread in msg_receive.  Queue
++			 * head and reservation count are recorded together, so 'queued' and 'reserved' cannot
++			 * be confused the way the timer samples allowed. */
++			{
++				static unsigned nofail_out;
++				if (__atomic_load_n(&nofail_out, __ATOMIC_RELAXED) < 100) {
++					__atomic_add_fetch(&nofail_out, 1, __ATOMIC_RELAXED);
++					kprintf("NOFAIL out port=%p q=%u head=%p destroyed=%d\n",
++					    (void *)port, (unsigned)mqueue->imq_msgcount,
++					    (void *)ipc_kmsg_queue_first(&mqueue->imq_messages),
++					    destroy_msg ? 1 : 0);
++				}
++			}
+ 			break;
+ 		}
+ 

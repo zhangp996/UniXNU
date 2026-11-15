@@ -1,0 +1,26 @@
+diff -ru a/bsd/kern/kern_exit.c b/bsd/kern/kern_exit.c
+--- a/bsd/kern/kern_exit.c	2026-11-11 18:07:39.104942990 +0800
++++ b/bsd/kern/kern_exit.c	2026-11-11 18:07:39.114942990 +0800
+@@ -1417,7 +1417,21 @@
+ 		 * We use SIGABRT (rather than calling exit directly from here) so that
+ 		 * the debugger can catch abort_with_{reason,payload} calls.
+ 		 */
+-		psignal_try_thread_with_reason(p, current_thread(), SIGABRT, exit_reason);
++		/*
++		 * Bring-up: os_crash() calls into here and then the caller's own trap fires, so the
++		 * syscall returns with SIGABRT still blocked or already dropped.  Print the caller and
++		 * the thread's signal state around the delivery.
++		 */
++		{
++			struct uthread *ut = (struct uthread *)get_bsdthread_info(current_thread());
++			sigset_t mask_before = ut->uu_sigmask;
++
++			psignal_try_thread_with_reason(p, current_thread(), SIGABRT, exit_reason);
++			printf("XNU-OSCRASH: %s pid=%d ns=%u code=%llu mask=0x%x pend=0x%x\n",
++			    p->p_comm, proc_getpid(p), reason_namespace,
++			    (unsigned long long)reason_code, (unsigned)mask_before,
++			    (unsigned)ut->uu_siglist);
++		}
+ 	}
+ 
+ 	switch (kr) {

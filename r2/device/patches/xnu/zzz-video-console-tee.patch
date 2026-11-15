@@ -1,0 +1,20 @@
+diff --git a/osfmk/console/video_console.c b/osfmk/console/video_console.c
+index b9a01de..a87335f 100644
+--- a/osfmk/console/video_console.c
++++ b/osfmk/console/video_console.c
+@@ -1621,10 +1621,15 @@ vc_paint_char_32(unsigned int xx, unsigned int yy, unsigned char ch, int attrs,
+ 	}
+ }
+ 
++/* Bring-up: mirror what the video console draws into the USB console backlog; the late worker
++ * drains it to the host, so the panel log can be captured as text without a camera. */
++extern size_t qcom_usb_debug_enqueue(const void *bytes, size_t count);
+ static void
+ vc_paint_char(unsigned int xx, unsigned int yy, unsigned char ch, int attrs,
+     unsigned char ch_previous, int attrs_previous)
+ {
++	{ char c = (char)ch; qcom_usb_debug_enqueue(&c, 1); }
++
+ 	if (!vinfo.v_depth) {
+ 		return;
+ 	}

@@ -1,0 +1,46 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+index 0a5d449..dbb8522 100644
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -8140,6 +8140,25 @@ load_init_program_at_path(proc_t p, user_addr_t scratch_addr, const char* path,
+ 	return execve(p, &init_exec_args, retval);
+ }
+ 
++/* Board bring-up experiment: run one daemon as process 1 instead of launchd (boot argument
++ * init-override=N; N selects a path because a boot argument value cannot carry '/'). */
++static const char *
++native_init_override(void)
++{
++	static const char *const paths[] = {
++		NULL,
++		"/System/Library/PrivateFrameworks/ChronoCore.framework/Support/chronod",
++		"/usr/libexec/runningboardd",
++		"/sbin/launchd",
++	};
++	uint32_t index = 0;
++	if (!PE_parse_boot_argn("init-override", &index, sizeof(index)) ||
++	    index == 0 || index >= (sizeof(paths) / sizeof(paths[0]))) {
++		return NULL;
++	}
++	return paths[index];
++}
++
+ static const char * init_programs[] = {
+ #if DEBUG
+ 	"/usr/appleinternal/sbin/launchd.debug",
+@@ -8265,6 +8283,15 @@ load_init_program(proc_t p)
+ #endif
+ 
+ 	error = ENOENT;
++	if (native_init_override()) {
++		printf("load_init_program: override %s\n", native_init_override());
++		error = load_init_program_at_path(p, (user_addr_t)scratch_addr, native_init_override(), init_envp);
++		if (!error) {
++			return;
++		}
++		printf("load_init_program: override failed: errno %d\n", error);
++		error = ENOENT;
++	}
+ 	for (i = 0; i < sizeof(init_programs) / sizeof(init_programs[0]); i++) {
+ 		printf("load_init_program: attempting to load %s\n", init_programs[i]);
+ 		error = load_init_program_at_path(p, (user_addr_t)scratch_addr, init_programs[i], init_envp);

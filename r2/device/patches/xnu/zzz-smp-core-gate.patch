@@ -1,0 +1,49 @@
+diff --git a/iokit/Kernel/IOPlatformExpert.cpp b/iokit/Kernel/IOPlatformExpert.cpp
+index d0149a6..a5fdff6 100644
+--- a/iokit/Kernel/IOPlatformExpert.cpp
++++ b/iokit/Kernel/IOPlatformExpert.cpp
+@@ -1641,6 +1641,33 @@ IODTPlatformExpert::createNub( IORegistryEntry * from )
+ 	return nub;
+ }
+ 
++/* Board publication policy for secondary CPUs: a CPU nub is registered only when
++ * sheng-smp is set and sheng-smp-core names that logical CPU, so cores can be brought
++ * up one at a time (one, three, four, ... eight) instead of all at once.  Unselected
++ * nubs keep their device-tree node but are detached from the parent.
++ */
++static unsigned native_smp_eligible, native_smp_withheld;
++extern "C" __attribute__((noinline)) bool
++native_smufs_cpu_nub_selected(int logical)
++{
++	unsigned smp = 0, core = 0;
++	PE_parse_boot_argn("sheng-smp", &smp, sizeof(smp));
++	bool have_core = PE_parse_boot_argn("sheng-smp-core", &core, sizeof(core)) != 0;
++	int boot = ml_get_boot_cpu_number();
++	unsigned maxcore = 0;
++	bool have_max = PE_parse_boot_argn("sheng-smp-max", &maxcore, sizeof(maxcore)) != 0;
++	bool selected = logical >= 0 &&
++	    (logical == boot ||
++	     (smp != 0 && have_max && logical <= static_cast<int>(maxcore)) ||
++	     (smp != 0 && have_core && logical == static_cast<int>(core)));
++	if (selected) {
++		__atomic_add_fetch(&native_smp_eligible, 1U, __ATOMIC_RELAXED);
++	} else {
++		__atomic_add_fetch(&native_smp_withheld, 1U, __ATOMIC_RELAXED);
++	}
++	return selected;
++}
++
+ bool
+ IODTPlatformExpert::createNubs( IOService * parent, OSIterator * iter )
+ {
+@@ -1686,8 +1709,8 @@ IODTPlatformExpert::createNubs( IOService * parent, OSIterator * iter )
+ 			 * Note that this condition will not trigger for harvested cores because these do not show up
+ 			 * in the DT/IORegistry in the first place.
+ 			 */
+-			if (logical_cpu_id < 0) {
+-				nub->registerService();
++			if (!native_smufs_cpu_nub_selected(logical_cpu_id)) {
++				/* Keep the device-tree node; this CPU is not selected for bring-up. */
+ 				continue;
+ 			}
+ 

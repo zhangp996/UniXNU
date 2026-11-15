@@ -1,0 +1,53 @@
+capture: opening COM14 at 2026-11-11T20:00:46.6741261+08:00
+XNU-TRAP: pc=0x1d61924f8 lr=0x1d61924cc esr=0xf2000001 tid=734
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1d61924f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1d6175000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1d61924f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=126 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[126] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: IOMFB_FDR_Loader pid=85 code=256 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=115 code=0 ns=0 sub=0x0 cs=0x22002301
+Invalid denylist
+XNU-EXIT: bluetoothd pid=134 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-TRAP: pc=0x1d61924f8 lr=0x1d61924cc esr=0xf2000001 tid=883
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1d61924f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1d6175000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1d61924f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=137 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[137] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: fairplayd.A2 pid=132 code=0 ns=0 sub=0x0 cs=0x22002301
+tccd[39] triggered unnest of range 0x1fac00000->0x1fae00000 of DYLD shared region in VM map 0x9f2467b6c887e4a7. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+tccd[39] triggered unnest of range 0x1fae00000->0x200000000 of DYLD shared region in VM map 0x9f2467b6c887e4a7. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+locationd[62] triggered unnest of range 0x1fac00000->0x1fae00000 of DYLD shared region in VM map 0x9f2467b7aed23d27. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+locationd[62] triggered unnest of range 0x1fae00000->0x200000000 of DYLD shared region in VM map 0x9f2467b7aed23d27. While not abnormal for debuggers, this increases system memory footprint until the target exits.
+tx_flush:1338: disk5 xid 28 tx stats: # 20 owait 0 0us finish 20 bar2 20 f 2 enter 176 fq 6 16 165us close 0us prep 682us flush 900us
+XNU-EXIT: bluetoothd pid=147 code=0 ns=0 sub=0x0 cs=0x22002301
+request_power_change second_external 0 powerstate1 fdisplaytype 0
+IOMFB: default_fb_surface: No Default FB Surface found. Return error
+XNU-TRAP: pc=0x1d61924f8 lr=0x1d61924cc esr=0xf2000001 tid=1044
+XNU-DYLD-IMAGE: liveactivitiesd pc=0x1d61924f8 /System/Library/PrivateFrameworks/SessionSyncEngine.framework/SessionSyncEngine+0x1d4f8 load=0x1d6175000 images=413
+XNU-TRAP-IMAGE: liveactivitiesd pc=0x1d61924f8 not in a file-backed range
+XNU-EXIT: liveactivitiesd pid=149 code=5 ns=2 sub=0x5 cs=0x22012301
+Process[149] crashed: liveactivitiesd. Too many corpses being created.
+XNU-EXIT: mtmergeprops pid=79 code=0 ns=0 sub=0x0 cs=0x22002301
+XNU-EXIT: fairplayd.A2 pid=146 code=0 ns=0 sub=0x0 cs=0x22002301
+ifnet_attach: Waiting for all kernel threads created for interface utun0 to get scheduled at least once.
+ifnet_attach: All kernel threads created for interface utun0 have been scheduled at least once. Proceeding.
+_dlil_attach_flowswitch_nexus: not attaching flowswitch to utun0
+tx_flush:1338: disk5 xid 48 tx stats: # 40 owait 0 0us finish 40 bar2 40 f 2 enter 49 fq 8 13 159us close 0us prep 283us flush 551us
+IOMFB: swap_wait_gated:  CommandWake didn't happen even after 5 seconds.                       Seems system in bad state, cancelling swaps
+DISPLAY: unimplemented legacy slot 345 (object=0xfffffff66cb5a000 caller=0xfffffff00578c1cc), returning
+Kernel data abort. at pc 0xfffffff00be80944, lr 0xfffffff00bfe4684 (saved state: 0xfffffff89970f130)
+	  x0:  0x0000000000000000 x1:  0x0000000000000000  x2:  0x00000000000bdda9  x3:  0x000000000000018c
+	  x4:  0x00000000eb1aa449 x5:  0x000000000000eba5  x6:  0x0000000000000000  x7:  0x0000000000000000
+	  x8:  0xfffffff0071c1f18 x9:  0x55643aa24b7b00e9  x10: 0x00000000000bdda9  x11: 0x0000000000000000
+	  x12: 0x0000000001000000 x13: 0xfffffff00c129610  x14: 0x0040000064640a11  x15: 0x0040000064640a11
+	  x16: 0x0000000000000000 x17: 0x0000000000000000  x18: 0x0000000000000000  x19: 0x0000000000000000
+	  x20: 0xfffffff4a025ba60 x21: 0xfffffff00578b960  x22: 0x00000000e00002eb  x23: 0x0000000000000000
+	  x24: 0x0000000000000001 x25: 0x0000000000000001  x26: 0xfffffff752f39b80  x27: 0x00000000ffffff01
+	  x28: 0x0000000000000000 fp:  0xfffffff89970f4a0  lr:  0xfffffff00bfe4684  sp:  0xfffffff89970f480
+	  pc:  0xfffffff00be80944 cpsr: 0x60400204         esr: 0x96000045          far: 0x0000000000000000
+
+QCOM USB PANIC pending_at_start=7 dropped_at_start=0 buffer_capacity=4194304
+
+QCOM USB DRAIN pending=0 overflow=0 contention=0 transport=0
+
+QCOM PANIC END

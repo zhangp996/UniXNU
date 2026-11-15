@@ -1,0 +1,92 @@
+--- a/NativeGOPPresenter.cpp
++++ b/NativeGOPPresenter.cpp
+@@ -37,7 +37,7 @@
+     // GPU hand-off (sheng-fb-gpu=1): one offered frame at a time, from the display driver to the privileged client.
+     bool gpuMode=false,gpuClient=false;
+     struct {bool offered,delivered;uint64_t sequence;void *display;IOMemoryDescriptor *memory;IOMemoryMap *map;
+-            uint64_t stride;uint32_t width,height;} swap={};
++            uint64_t stride;uint32_t width,height;uint64_t offeredAt,mappedAt;} swap={};
+     uint64_t swapSequence=0;
+     IOReturn waitSwap(task_t,uint64_t timeoutMs,NGPSwap *);
+     IOReturn completeSwap(uint64_t sequence,int status);
+@@ -46,6 +46,7 @@
+     void setMemorySource(IOService *source) {memorySource=source;}
+     static IOReturn handoffCall(uint32_t op,task_t task,const void *in,size_t inSize,void *out,size_t outSize);
+     static IOMemoryDescriptor *handoffMemory();
++    static void closeHandoff() {if(gHandoff)gHandoff->abandonSwap();}
+     bool offer(void *display,IOMemoryDescriptor *,uint64_t stride,uint32_t width,uint32_t height);
+ private:
+     IOReturn transfer(task_t,const NGPPresent &,NGPTransfer *);
+@@ -94,7 +95,7 @@
+     {unsigned v=0;PE_parse_boot_argn("sheng-fb-gpu",&v,sizeof v);gpuMode=(v==1);}
+     mode={NGP_VERSION,NGP_BGRX8888,video.v_width,video.v_height,video.v_rowBytes,mapping->getLength()};
+     native_gop_physical=mapping->getPhysicalAddress();native_gop_virtual=mapping->getVirtualAddress();
+-    online=true;native_gop_ready=1;if(gpuMode)gHandoff=this;registerService();return true;
++    online=true;native_gop_ready=1;if(gpuMode)gHandoff=this;else registerService();return true;
+ }
+ void NativeGOPPresenter::stop(IOService *provider) {
+     if(gHandoff==this)gHandoff=nullptr;
+@@ -134,7 +135,7 @@
+     bool accepted=online && gpuClient && !swap.offered;
+     if(accepted) {
+         memory->retain();
+-        swap={true,false,++swapSequence,display,memory,nullptr,stride,width,height};
++        swap={true,false,++swapSequence,display,memory,nullptr,stride,width,height,mach_absolute_time(),0};
+         native_gop_gpu_offers=native_gop_gpu_offers+1;
+         IOLockWakeup(gate,&swap,false);
+     }
+@@ -169,9 +170,13 @@
+     memory->release();
+     IOLockLock(gate);
+     if(!map || !map->getVirtualAddress() || !swap.offered || swap.sequence!=sequence) {
+-        IOLockUnlock(gate);OSSafeReleaseNULL(map);__atomic_fetch_add(&native_gop_gpu_failures,1,__ATOMIC_RELAXED);return kIOReturnNoMemory;
++        IOLockUnlock(gate);
++        OSSafeReleaseNULL(map);
++        completeSwap(sequence,kIOReturnNoMemory);
++        return kIOReturnNoMemory;
+     }
+     swap.map=map;
++    swap.mappedAt=mach_absolute_time();
+     out->sequence=sequence;out->address=map->getVirtualAddress();out->bytes=map->getLength();out->stride=stride;
+     out->width=width;out->height=height;out->format=NGP_BGRX8888;out->reserved=0;
+     IOLockUnlock(gate);return kIOReturnSuccess;
+@@ -181,10 +186,29 @@
+     if(!swap.offered || !swap.delivered || swap.sequence!=sequence) {IOLockUnlock(gate);return kIOReturnBadArgument;}
+     auto done=swap;swap={};
+     IOLockUnlock(gate);
++    const uint64_t received=mach_absolute_time();
++    uint64_t mapNs=0,clientNs=0;
++    if(done.mappedAt) {
++        absolutetime_to_nanoseconds(done.mappedAt-done.offeredAt,&mapNs);
++        absolutetime_to_nanoseconds(received-done.mappedAt,&clientNs);
++    }
+     OSSafeReleaseNULL(done.map);done.memory->release();
+     if(status)__atomic_fetch_add(&native_gop_gpu_failures,1,__ATOMIC_RELAXED);
+-    else native_gop_gpu_completions=native_gop_gpu_completions+1;
+-    native_legacy_gpu_complete(done.display,status);return kIOReturnSuccess;
++    else {
++        const auto count=__atomic_add_fetch(&native_gop_gpu_completions,1,__ATOMIC_RELAXED);
++        if(count<=8)printf("SMGOP75 gpu completed=%llu\n",count);
++    }
++    native_legacy_gpu_complete(done.display,status);
++    uint64_t retireNs=0;
++    absolutetime_to_nanoseconds(mach_absolute_time()-received,&retireNs);
++    static unsigned slowReports;
++    const bool slow=mapNs+clientNs+retireNs>=500000000ULL;
++    if(done.sequence<=8 || ((slow || status) &&
++        __atomic_fetch_add(&slowReports,1,__ATOMIC_RELAXED)<16)) {
++        printf("SMGOP77 seq=%llu mapped=%u map_us=%llu client_us=%llu retire_us=%llu status=%x\n",
++            done.sequence,done.mappedAt?1U:0U,mapNs/1000,clientNs/1000,retireNs/1000,(unsigned)status);
++    }
++    return kIOReturnSuccess;
+ }
+ // The client went away with a frame outstanding: the display driver is told it failed, so it can use its own path instead of waiting forever.
+ void NativeGOPPresenter::abandonSwap() {
+@@ -241,6 +265,7 @@
+     return NativeGOPPresenter::handoffCall(op,task,in,inSize,out,outSize);
+ }
+ extern "C" IOMemoryDescriptor *native_gop_handoff_memory(void) {return NativeGOPPresenter::handoffMemory();}
++extern "C" void native_gop_handoff_close(void) {NativeGOPPresenter::closeHandoff();}
+ IOReturn NativeGOPPresenter::newUserClient(task_t task,void *security,UInt32 type,OSDictionary *properties,IOUserClient **out) {
+     if(!out || type)return kIOReturnBadArgument;
+     *out=nullptr;NativeGOPClient *client=new NativeGOPClient;if(!client)return kIOReturnNoMemory;

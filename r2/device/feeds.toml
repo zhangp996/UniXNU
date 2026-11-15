@@ -1,0 +1,14 @@
+# Shared SM8250 (kona) support, derived from this board's IN2020 stock boot_a and dtbo_a.
+[[source]]
+name = "sm8250"
+kind = "soc"
+git = "https://github.com/zhangp996/UniXNU-sm8250-common"
+commit = "3481a8bfd60fb9f8cefe5cfdf402b64c8b303b1e"
+
+# The CDC-ACM debug console: kernel log over USB instead of the panel. Written for the SM8550
+# reference board; the module carries an SM8250 profile taken from this SoC's own device trees.
+[[source]]
+name = "QcomXnuUsbDebug"
+kind = "driver"
+git = "https://github.com/FFT-infra/QcomXnuUsbDebug"
+commit = "ab6e3635c4b915c248e04fc042ffaea28026b207"

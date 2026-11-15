@@ -1,0 +1,13 @@
+diff --git a/osfmk/kern/startup.c b/osfmk/kern/startup.c
+index 138b8de..0c70755 100644
+--- a/osfmk/kern/startup.c
++++ b/osfmk/kern/startup.c
+@@ -707,7 +707,7 @@ kernel_bootstrap_thread(void)
+ 	 * interrupts or preemption enabled may begin enforcement.
+ 	 */
+ 	kernel_startup_initialize_upto(STARTUP_SUB_EARLY_BOOT);
+-	kprintf("STARTUP-DIAG: early boot phase done\n");
++	panic("STARTUP-DIAG: early boot phase done");
+ 
+ #if SCHED_HYGIENE_DEBUG
+ 	// Reset interrupts masked timeout before we enable interrupts
