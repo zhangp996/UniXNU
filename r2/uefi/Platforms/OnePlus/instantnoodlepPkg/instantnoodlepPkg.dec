@@ -1,0 +1,8 @@
+[Defines]
+  DEC_SPECIFICATION = 0x00010005
+  PACKAGE_NAME      = instantnoodlepPkg
+  PACKAGE_GUID      = 7F3C2A11-4B58-4E27-9C61-2D8A5F0B3E94
+  PACKAGE_VERSION   = 0.1
+
+[Includes]
+  Include

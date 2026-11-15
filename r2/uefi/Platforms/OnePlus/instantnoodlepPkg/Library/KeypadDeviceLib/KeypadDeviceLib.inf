@@ -1,0 +1,21 @@
+[Defines]
+  INF_VERSION    = 0x00010019
+  BASE_NAME      = KeypadDeviceLib
+  FILE_GUID      = 7E5C1A04-3D2B-4F68-8C51-6B0E2F7A9D13
+  MODULE_TYPE    = BASE
+  VERSION_STRING = 0.1
+  LIBRARY_CLASS  = KeypadDeviceLib
+
+[Sources]
+  ../SpmiLib/SpmiLib.h
+  KeypadDeviceLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  instantnoodlepPkg/instantnoodlepPkg.dec
+  SiliciumPkg/SiliciumPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  SpmiLib
+  UefiBootServicesTableLib

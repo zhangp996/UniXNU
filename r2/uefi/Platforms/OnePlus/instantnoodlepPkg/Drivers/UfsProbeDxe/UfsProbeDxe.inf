@@ -1,0 +1,28 @@
+## @file
+#  Print the UFS host and PHY register state and stop.
+##
+[Defines]
+  INF_VERSION    = 0x00010019
+  BASE_NAME      = UfsProbeDxe
+  FILE_GUID      = 8B2D14C6-5A37-4E0B-A1C9-6D2F90E4B713
+  MODULE_TYPE    = DXE_DRIVER
+  VERSION_STRING = 0.1
+  ENTRY_POINT    = UfsProbeEntry
+
+[Sources]
+  UfsProbeDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  CacheMaintenanceLib
+  IoLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Depex]
+  gEfiGraphicsOutputProtocolGuid

@@ -1,0 +1,25 @@
+## @file
+#  Print the embedded panic log left by XNU and stop, so the text stays on the panel.
+##
+[Defines]
+  INF_VERSION    = 0x00010019
+  BASE_NAME      = PanicLogDxe
+  FILE_GUID      = 3F0C2A75-8E41-4C6B-9D2A-71B5C4E8F160
+  MODULE_TYPE    = DXE_DRIVER
+  VERSION_STRING = 0.1
+  ENTRY_POINT    = PanicLogEntry
+
+[Sources]
+  PanicLogDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Depex]
+  gEfiGraphicsOutputProtocolGuid

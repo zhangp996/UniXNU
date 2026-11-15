@@ -1,0 +1,24 @@
+[Defines]
+  INF_VERSION    = 0x00010019
+  BASE_NAME      = KeypadProbeDxe
+  FILE_GUID      = 3B7A2C55-1E64-4D0F-9A38-5C2D7E4F1B96
+  MODULE_TYPE    = DXE_DRIVER
+  VERSION_STRING = 0.1
+  ENTRY_POINT    = KeypadProbeEntry
+
+[Sources]
+  KeypadProbeDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  instantnoodlepPkg/instantnoodlepPkg.dec
+
+[LibraryClasses]
+  IoLib
+  SpmiLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Depex]
+  TRUE

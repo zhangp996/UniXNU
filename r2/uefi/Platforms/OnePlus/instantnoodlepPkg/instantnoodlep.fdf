@@ -1,0 +1,166 @@
+##
+# Flash device and firmware volumes for the OnePlus 8 Pro (instantnoodlep).
+#
+# SEC expects the compressed-volume layout every EDK II ARM platform uses: the FD maps
+# a compact volume that holds SEC and a FV_IMAGE section wrapping the driver volume.
+# A single uncompressed volume makes DecompressFirstFv return Not Found and SEC stops
+# before DXE starts.
+##
+[FD.SILICIUM_UEFI]
+BaseAddress   = $(FD_BASE)|gArmTokenSpaceGuid.PcdFdBaseAddress
+Size          = $(FD_SIZE)|gArmTokenSpaceGuid.PcdFdSize
+ErasePolarity = 1
+
+BlockSize     = 0x1000
+NumBlocks     = $(FD_BLOCKS)
+
+0x00000000|$(FD_SIZE)
+gArmTokenSpaceGuid.PcdFvBaseAddress|gArmTokenSpaceGuid.PcdFvSize
+FV = FVMAIN_COMPACT
+
+[FV.FvMain]
+FvNameGuid         = 6C1E2A44-9D3B-4E7C-8F5A-1B2C3D4E5F60
+BlockSize          = 0x1000
+NumBlocks          = 0
+
+FvAlignment        = 8
+ERASE_POLARITY     = 1
+MEMORY_MAPPED      = TRUE
+STICKY_WRITE       = TRUE
+LOCK_CAP           = TRUE
+LOCK_STATUS        = TRUE
+WRITE_DISABLED_CAP = TRUE
+WRITE_ENABLED_CAP  = TRUE
+WRITE_STATUS       = TRUE
+WRITE_LOCK_CAP     = TRUE
+WRITE_LOCK_STATUS  = TRUE
+READ_DISABLED_CAP  = TRUE
+READ_ENABLED_CAP   = TRUE
+READ_STATUS        = TRUE
+READ_LOCK_CAP      = TRUE
+READ_LOCK_STATUS   = TRUE
+
+  #
+  # APRIORI makes DxeCore dispatch these files before it evaluates any dependency
+  # expression. Without it the PCD driver never runs: the platform maps PcdLib to
+  # DxePcdLib, whose Depex asks for gEfiPcdProtocolAddr, so the PCD driver waits for
+  # the protocol it publishes and every other driver waits behind it.
+  #
+  APRIORI DXE {
+    INF MdeModulePkg/Core/Dxe/DxeMain.inf
+    INF MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
+    INF MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
+    INF MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
+    INF ArmPkg/Drivers/CpuDxe/CpuDxe.inf
+    INF ArmPkg/Drivers/ArmGicDxe/ArmGicDxe.inf
+    INF EmbeddedPkg/MetronomeDxe/MetronomeDxe.inf
+    INF ArmPkg/Drivers/TimerDxe/TimerDxe.inf
+    INF MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
+    INF MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
+    INF MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
+    INF MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf
+    INF EmbeddedPkg/EmbeddedMonotonicCounter/EmbeddedMonotonicCounter.inf
+    INF EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
+    INF MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
+    INF MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf
+    #
+    # BdsDxe is deliberately absent: it links UefiHiiServicesLib, whose constructor
+    # asserts when the HII protocols are missing, and HiiDatabaseDxe must dispatch
+    # first. BDS is scheduled by its own dependency expression.
+    #
+  }
+
+  INF UniXNUPkg/Application/UniXNU/UniXNU.inf
+  INF UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
+  INF UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
+  INF DarwinBootPkg/Driver/DarwinBoot.inf
+
+  INF MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
+  INF MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
+  INF FatPkg/EnhancedFatDxe/Fat.inf
+  INF MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
+
+  INF SiliciumPkg/Drivers/SimpleFbDxe/SimpleFbDxe.inf
+  # INF SiliciumPkg/Drivers/KeypadDeviceDxe/KeypadDeviceDxe.inf  (replaced by KonaKeysDxe)
+  # INF instantnoodlepPkg/Drivers/KeypadProbeDxe/KeypadProbeDxe.inf  (text is cleared by the menu)
+  # INF instantnoodlepPkg/Drivers/KeypadHudDxe/KeypadHudDxe.inf  (keys verified; disabled so the menu stays readable)
+  INF instantnoodlepPkg/Drivers/KonaKeysDxe/KonaKeysDxe.inf
+  # The driver above was in the DSC but not in this FDF until 2026-10-29: the DSC
+  # only lists components, the FV is built from this file, so the key driver had
+  # never been dispatched.
+  # INF instantnoodlepPkg/Binaries/SPMIDxe/SPMIDxe.inf  (also aborts alone)
+  # INF instantnoodlepPkg/Binaries/PmicDxe/PmicDxeLa.inf
+  # INF SiliciumPkg/Drivers/KeypadDxe/KeypadDxe.inf  (replaced by KonaKeysDxe)
+  # INF UniXNUPkg/Driver/AdvancedLogDxe/AdvancedLogDxe.inf  (changes the GOP mode; keep the menu layout)
+  # INF instantnoodlepPkg/Drivers/SpmiProbeDxe/SpmiProbeDxe.inf  (probe: it holds the panel)
+  # INF instantnoodlepPkg/Drivers/PanicLogDxe/PanicLogDxe.inf  (menu test: the driver halts)
+  # INF instantnoodlepPkg/Drivers/UfsProbeDxe/UfsProbeDxe.inf  (probe: it holds the panel)
+  #
+  # RamManagerDxe is left out: it links QcomPkg/Library/RamManagerLib, whose
+  # constructor requires the RAM Partition protocol that the vendor RamPartitionDxe
+  # publishes. This package selects no vendor driver, so the module would assert on
+  # its own constructor instead of running.
+  #
+  INF SiliciumPkg/Drivers/SmBiosTableDxe/SmBiosTableDxe.inf
+  INF MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+  INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+
+  INF EmbeddedPkg/SimpleTextInOutSerial/SimpleTextInOutSerial.inf
+  INF MdeModulePkg/Universal/PrintDxe/PrintDxe.inf
+  INF MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
+  INF MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf
+  INF MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe.inf
+  INF MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf
+  INF MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
+
+  INF ArmPkg/Drivers/ArmGicDxe/ArmGicDxe.inf
+  INF ArmPkg/Drivers/TimerDxe/TimerDxe.inf
+
+  INF MdeModulePkg/Core/Dxe/DxeMain.inf
+  INF MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
+  INF ArmPkg/Drivers/CpuDxe/CpuDxe.inf
+  INF MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
+  INF MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
+  INF MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
+  INF MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf
+  INF MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
+  INF MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
+  INF MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
+  INF EmbeddedPkg/EmbeddedMonotonicCounter/EmbeddedMonotonicCounter.inf
+  INF MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf
+  INF EmbeddedPkg/RealTimeClockRuntimeDxe/RealTimeClockRuntimeDxe.inf
+  INF EmbeddedPkg/MetronomeDxe/MetronomeDxe.inf
+  INF MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
+
+[FV.FVMAIN_COMPACT]
+FvNameGuid         = 2A9B1C7D-4E5F-4A6B-8C9D-0E1F2A3B4C5D
+FvAlignment        = 8
+ERASE_POLARITY     = 1
+MEMORY_MAPPED      = TRUE
+STICKY_WRITE       = TRUE
+LOCK_CAP           = TRUE
+LOCK_STATUS        = TRUE
+WRITE_DISABLED_CAP = TRUE
+WRITE_ENABLED_CAP  = TRUE
+WRITE_STATUS       = TRUE
+WRITE_LOCK_CAP     = TRUE
+WRITE_LOCK_STATUS  = TRUE
+READ_DISABLED_CAP  = TRUE
+READ_ENABLED_CAP   = TRUE
+READ_STATUS        = TRUE
+READ_LOCK_CAP      = TRUE
+READ_LOCK_STATUS   = TRUE
+
+  INF SiliciumPkg/Sec/Sec.inf
+
+  FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
+    SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {
+      SECTION FV_IMAGE = FvMain
+    }
+  }
+
+#
+# Packaging rules for every module type these volumes carry.
+#
+!include SiliciumPkg/Common.fdf.inc

@@ -1,0 +1,24 @@
+[Defines]
+  INF_VERSION    = 0x00010019
+  BASE_NAME      = SpmiProbeDxe
+  FILE_GUID      = 6F1B0C2A-9A55-4E4D-9A5E-2B7C5B2C7E31
+  MODULE_TYPE    = DXE_DRIVER
+  VERSION_STRING = 0.1
+  ENTRY_POINT    = SpmiProbeEntry
+
+[Sources]
+  SpmiProbeDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  UefiLib
+  IoLib
+
+[Depex]
+  TRUE

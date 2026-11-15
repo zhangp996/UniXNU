@@ -1,0 +1,26 @@
+[Defines]
+  INF_VERSION    = 0x00010019
+  BASE_NAME      = KeypadHudDxe
+  FILE_GUID      = 4A8D2E71-9B35-4C6F-8E12-7D3A5B1C9F28
+  MODULE_TYPE    = DXE_DRIVER
+  VERSION_STRING = 0.1
+  ENTRY_POINT    = KeypadHudEntry
+
+[Sources]
+  KeypadHudDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  instantnoodlepPkg/instantnoodlepPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  SpmiLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+
+[Protocols]
+  gEfiGraphicsOutputProtocolGuid   ## CONSUMES
+
+[Depex]
+  gEfiGraphicsOutputProtocolGuid

@@ -1,0 +1,26 @@
+[Defines]
+  INF_VERSION    = 0x00010019
+  BASE_NAME      = KeypadPixelDxe
+  FILE_GUID      = 5D2E8A13-7C41-4B96-8F2A-1E9B3D6C4A07
+  MODULE_TYPE    = DXE_DRIVER
+  VERSION_STRING = 0.1
+  ENTRY_POINT    = KeypadPixelEntry
+
+[Sources]
+  KeypadPixelDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  instantnoodlepPkg/instantnoodlepPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  SpmiLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+
+[Protocols]
+  gEfiGraphicsOutputProtocolGuid   ## CONSUMES
+
+[Depex]
+  gEfiGraphicsOutputProtocolGuid

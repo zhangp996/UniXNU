@@ -1,0 +1,30 @@
+[Defines]
+  INF_VERSION    = 0x00010019
+  BASE_NAME      = KonaKeysDxe
+  FILE_GUID      = 9C4F1B27-6A3D-4E58-9B71-2D8C5F0A3E64
+  MODULE_TYPE    = DXE_DRIVER
+  VERSION_STRING = 0.1
+  ENTRY_POINT    = KonaKeysEntry
+
+[Sources]
+  KonaKeysDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  instantnoodlepPkg/instantnoodlepPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  SpmiLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+
+[Protocols]
+  gEfiSimpleTextInProtocolGuid
+
+[Guids]
+  gEfiConsoleInDeviceGuid          ## PRODUCES
+
+[Depex]
+  TRUE

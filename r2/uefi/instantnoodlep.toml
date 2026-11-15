@@ -1,0 +1,32 @@
+# Boot image and firmware volume layout for the OnePlus 8 Pro (instantnoodlep).
+#
+# uefi_fd.base/size are measured from this board's live device tree: the free
+# window between dfps_data_region (ends 0x9E400000) and kboot_uboot_logmem
+# (starts 0x9FE00000) is 26 MiB, and the firmware volume takes the first 4 MiB.
+# BootShim compiles both values in, and unixnu bootimg checks the FD against them.
+
+[boot_shim]
+# Mu-Silicium compiles BootShim with FD_SIZE (the volume alone) in the ARM64 header,
+# while unixnu bootimg expects the header to describe shim plus volume. The two are
+# only equal when the shim is empty, so the header is left out; the bootloader
+# decompresses the gzip kernel and jumps to the shim entry, which is how the shim is
+# used on devices that do not validate the ARM64 header.
+requires_kernel_header = false
+
+[uefi_fd]
+base = 0x9E400000
+size = 0x00400000
+
+[boot_image_kernel]
+kernel_compression = "gzip"
+append_dtb         = true
+
+[boot_image]
+# unixnu appends the device tree to the gzip kernel and passes no --dtb to mkbootimg,
+# so header version 0 is the one it can write; a version 2 image would need a separate
+# dtb field. The offsets follow the documented layout.
+header_version  = 0
+base            = 0x00000000
+kernel_offset   = 0x00008000
+tags_offset     = 0x1e00000
+pagesize        = 4096

@@ -1,0 +1,18 @@
+[Defines]
+  INF_VERSION    = 0x00010019
+  BASE_NAME      = SpmiLib
+  FILE_GUID      = 2C4B7E31-5F0A-4B2E-9E77-8A1D3C6F0B52
+  MODULE_TYPE    = BASE
+  VERSION_STRING = 0.1
+  LIBRARY_CLASS  = SpmiLib
+
+[Sources]
+  SpmiLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  instantnoodlepPkg/instantnoodlepPkg.dec
+
+[LibraryClasses]
+  IoLib
+  UefiBootServicesTableLib
