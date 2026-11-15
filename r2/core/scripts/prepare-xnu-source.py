@@ -24,12 +24,31 @@ def fetch(url):
     # curl retries the proxy's connection limit where urllib gives up immediately
     import subprocess
     for attempt in range(6):
-        r = subprocess.run(["curl", "-sSL", "--max-time", "60", "--retry", "3", "--retry-delay", "2", url],
-                             capture_output=True)
+        command = ["curl", "-sSL", "--max-time", "60", "--retry", "3", "--retry-delay", "2"]
+        if TOKEN:
+            command += ["-H", "Authorization: Bearer " + TOKEN]
+        r = subprocess.run(command + [url], capture_output=True)
         if r.returncode == 0 and r.stdout:
             return r.stdout
         time.sleep(3 * (attempt + 1))
     raise OSError("curl failed for " + url)
+
+def entries_of(path, url):
+    """GitHub API file lists only; refetch a cache that holds an error object or a rate-limit message."""
+    def valid(data):
+        return isinstance(data, list) and all(isinstance(entry, dict) and 'name' in entry for entry in data)
+    try:
+        data = json.loads(path.read_text())
+    except Exception:
+        data = None
+    if not valid(data):
+        path.unlink(missing_ok=True)
+        path.write_bytes(fetch(url))
+        data = json.loads(path.read_text())
+    if not valid(data):
+        raise SystemExit('GitHub API did not return a file list for ' + url)
+    return data
+
 
 def restore(entry, destination=DESTINATION, tag=TAG):
     if entry['type'] != 'file' or not entry['name'].endswith('.h'):
@@ -60,12 +79,12 @@ if __name__ == '__main__':
     if not CACHE.exists():
         CACHE.parent.mkdir(parents=True, exist_ok=True)
         CACHE.write_bytes(fetch(URL))
-    entries = json.loads(CACHE.read_text())
+    entries = entries_of(CACHE, URL)
     crypto_cache = CACHE.with_name(f'xnu-driverkit-crypto-{TAG.removeprefix("xnu-")}.json')
     if not crypto_cache.exists():
         crypto_url = URL.replace('/DriverKit?', '/DriverKit/crypto?')
         crypto_cache.write_bytes(fetch(crypto_url))
-    for entry in json.loads(crypto_cache.read_text()):
+    for entry in entries_of(crypto_cache, crypto_url):
         entry['relative'] = 'crypto/' + entry['name']
         entries.append(entry)
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
@@ -80,7 +99,7 @@ if __name__ == '__main__':
         def restore_trust(entry):
             return restore(entry, trust_destination, trust_tag)
         restored.extend(entry for entry in executor.map(
-            restore_trust, json.loads(trust_cache.read_text())) if entry)
+            restore_trust, entries_of(trust_cache, url)) if entry)
     previous = Path('.cache/sources/xnu-restored-headers.json')
     existing = json.loads(previous.read_text()) if previous.exists() else []
     by_name = {entry['name']: entry for entry in existing + restored}
