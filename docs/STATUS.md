@@ -45,3 +45,14 @@ Updated after the first end-to-end build of the fresh official-core tree (2026-1
 - The A650 storage binding audit uses the 21H461 kernelcache as its reference kernel image because the prelinked kernel is produced after the archives; re-run the audit against the final kernel when the ordering is refined.
 - Owner-data/verified-root configuration stays off until the SM8250 storage component is fully wired.
 - The Metal addon must be built with the documented macOS scripts or supplied as a signed addon.
+
+## Hybrid success (2026-11-16)
+
+The official-core kernel still stops at the AMFI/early-boot path (device leaves fastboot, Qualcomm 900E diag port appears, no kernel console). The validated fallback was executed and works:
+
+- Rebuilt the R2 kernel tree with the newly adapted A650 component (SM8250_A650_REFERENCE -> our gpu-a650 Adreno650 + kits).
+- Applied the board AMFI binary patches (patch-amfi-nopmgr.py, patch-amfi-trustcache-gate.py).
+- Built the payload with the validated 52-arg set and spliced it into the known-good fastboot skeleton.
+- Result: full boot into SpringBoard with display surface adoption and A650 GPU clients (details and hashes in docs/evidence/2026-11-16-hybrid-boot.md).
+
+Open items: official-core kernel early boot path (900E), backlight/touch runtime checks in the hybrid image, and the A650 Metal plugin.
