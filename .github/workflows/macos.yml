@@ -221,7 +221,7 @@ jobs:
           export XNU_QCOM_USB_DEBUG=1
           export XNU_EXTRA_LD_ARCHIVES="-Wl,-force_load,$TREE/build/ram-watchdog/libRamWatchdog.a -Wl,-force_load,$TREE/build/adreno650/libAdreno650.a -Wl,-force_load,$TREE/build/io-storage-bindings/libIOStorageBindings.a -Wl,-force_load,$TREE/build/board-compat/libBoardCompat.a"
           # The RamWatchdog archive pins 21H461/kernelcache.decompressed; fetch it before the archives run.
-          ./unixnu ipsw KernelCache -D device > /dev/null
+          ./unixnu ipsw fetch KernelCache -D device > /dev/null
           ./unixnu build kernel -D device
 
       - name: Build userdata
@@ -321,7 +321,7 @@ jobs:
             echo "| payload | ${PAYLOAD:-skipped} |"
             echo
             echo "This workflow only checks that the build works. It publishes text logs (7 days) and no images."
-            xcodebuild -version | head -n 1
+            xcodebuild -version 2>/dev/null | head -n 1 || true
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove proprietary inputs
