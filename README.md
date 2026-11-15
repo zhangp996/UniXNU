@@ -41,3 +41,10 @@ The toolchain is the one installed by core/scripts/linux/setup-toolchain.py
 - Board-level code lives in device/package (owned by this project).
 - tools/build-a650.sh is the single kernel build entry. Local inputs live under
   /home/dev/unixnu/inputs (21H461 kernelcache) and offline-cache (llvm).
+
+## Artifacts and macOS-only files
+
+- artifacts/original/ carries the validated original bootEU.img (split into 48 MiB parts; run
+  tools/join-artifacts.sh and verify with SHA256SUMS).
+- Files that can only be produced on macOS (Metal addon/plugin, hdiutil-based seed growth) are
+  built by .github/workflows/macos-artifacts.yml and downloaded from the workflow artifacts.
