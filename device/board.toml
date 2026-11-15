@@ -1,0 +1,59 @@
+schema_version = 2
+
+[board]
+name = "instantnoodlep"
+soc = "SM8250"
+soc_source = "sm8250"
+os_profile = "ipados-17.7.11-21H461"
+description = "OnePlus 8 Pro IN2020: Qualcomm SM8250 (Snapdragon 865), Adreno 650, 8 GiB DRAM, 1080x2376 panel"
+kit = "instantnoodlep"
+
+[components]
+# Official components plus our own A650 GPU backend (Adreno650) and the GOP display backend.
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "XnuPrelink", "DarwinBoot", "RamBlock", "GopFramebuffer"]
+
+[kernel]
+defconfig = "instantnoodlep_defconfig"
+config_fragments = ["arch:configs/common.config", "soc:configs/sm8250.config", "os:configs/ipados.config"]
+patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "device:patches/xnu/prereq-series", "os:patches/xnu/series", "device:patches/xnu/series"]
+archives = [
+  "build-corecrypto-14.py",
+  "build-corecrypto-14.py --namespace",
+  "component:ArmDTPlatform",
+  "component:ArmCpu",
+  "component:SoftwareAES",
+  "build-software-aes-bindings.py",
+  "build-mockfs-fixture.py",
+  "build-libpthread-kernel.py",
+  "component:RamBlock",
+  "build-ram-block.py",
+  "component:GopFramebuffer",
+  "build-gop-legacy-display.py",
+  "component:Adreno650",
+  "build-sm8250-a650.py",
+]
+
+[kernel.prelink]
+kernelcache = "{tree}/.cache/firmware/kernelcache.macho/kernelcache.release.ipad7.decompressed"
+
+[device_tree]
+source = "device:dts/instantnoodlep.dts"
+include_dirs = ["soc:dts"]
+
+[payload]
+volume = "UNIXNU"
+size_mib = 192
+loader = "firmware"
+title = "UniXNU"
+kernel_args = ["-v", "serial=3", "debug=0x14e", "sheng-pmgr=2", "smgop=1", "sheng-vsync=60",
+               "offline-legacy-gop=1", "offline-legacy-register=1", "offline-legacy-phase=4",
+               "offline-legacy-pm=1", "offline-legacy-validate=1", "offline-legacy-transfer=1",
+               "offline-legacy-retire=1", "offline-legacy-cpu-present=1",
+               "sm8250-gpu-ro=1", "sm8250-gpu-alioth=12", "sheng-fb-gpu=1", "sheng-early-retire=1",
+               "gpu-addon=1", "sheng-gpu-addon=1"]
+
+[package]
+unixnu = "../upstream-core"
+
+[package.defconfig]
+"ipados-17.7.11-21H461" = "instantnoodlep_defconfig"
