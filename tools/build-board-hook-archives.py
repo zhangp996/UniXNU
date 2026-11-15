@@ -2,6 +2,7 @@
 """Build the two board hook archives the kernel link force-loads."""
 import argparse
 import platform
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -13,7 +14,11 @@ repo = Path(__file__).resolve().parents[1]
 
 
 def tool(name):
-    return ['xcrun', name] if platform.system() == 'Darwin' else [name]
+    if platform.system() == 'Darwin':
+        return ['xcrun', name]
+    if name == 'ar' and shutil.which('llvm-ar'):
+        return ['llvm-ar']
+    return [name]
 
 
 def compile_and_archive(source, outdir, archive):
