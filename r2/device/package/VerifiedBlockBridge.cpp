@@ -8,6 +8,7 @@
 // exports the authentication hook native_ufs_block_authenticates() but not the bridge itself.
 
 #include <IOKit/IOBSD.h>
+#include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
 #include <libkern/c++/OSDictionary.h>
 #include <libkern/c++/OSIterator.h>
