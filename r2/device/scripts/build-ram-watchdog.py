@@ -28,8 +28,18 @@ if kernelcache is None:
 
 out = ROOT / 'build/ram-watchdog'
 out.mkdir(parents=True, exist_ok=True)
+# A prelinked kernel of this tree is the reference. A fresh tree has none yet: the archives run
+# before the final link, so fall back to the prelink candidate the CI restores under
+# build/xnu-prelink (same original kernelcache plan, slide and module extents).
+reference = ROOT.parent / 'kernel/kernel.macho'
+if not reference.is_file() or not reference.with_suffix('.json').is_file():
+    candidates = sorted((ROOT / 'build/xnu-prelink').glob('native-owner-*-candidate.macho'))
+    reference = next((c for c in candidates if c.with_suffix('.json').is_file()), None)
+    if reference is None:
+        raise SystemExit('no prelinked kernel or prelink candidate to use as the reference')
+    print(f'reference: {reference}')
 command = [sys.executable, str(vendor / 'build-ram-watchdog.py'),
-           '--reference', str(ROOT.parent / 'kernel/kernel.macho'),
+           '--reference', str(reference),
            '--kernelcache', str(kernelcache), '--output', str(out)]
 import os
 os.environ['RAM_WATCHDOG_ROOT'] = str(ROOT)
