@@ -17,3 +17,17 @@ Payloads rebuilt with the current R2 wrappers reproduce storage EINVAL errors un
 panic, even with the original kernel; the only file differing from the validated payload was
 kernel.macho.adt. Next step: rebuild payloads with the original ADT (or fix the device tree) before
 switching back to the A650 work.
+
+## R2 baseline boot test (2026-11-16)
+
+Booted the committed original bootEU.img on the OnePlus 8 Pro and captured 480 s of COM14 logs
+(docs/evidence/2026-11-16-r2-baseline-boot.log, 761,343 bytes).
+
+What works: display adoption and 2376-row presents, backlight service, A650 GPU (GPU56 mode9),
+SpringBoard/backboardd/Setup running, AKS keyevents stage 3.
+
+What fails after roughly ten minutes under Setup/iCloud I/O load: disk3 (Cache) and disk5 (Root)
+return I/O timeout then EINVAL (error 22) on block reads, APFS reports them, Setup exits, and the
+kernel finally panics in pmap_assert_free with a leftover User CPU mapping (pmap.c:2907).
+This is pre-existing R2 storage-stack behaviour, not caused by the fresh rebuild: the same image
+and the rebuilt kernel both show it, and the earlier 480 s control stopped before the failure window.
