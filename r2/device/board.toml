@@ -91,7 +91,7 @@ kernel_args = ["serial=3", "debug=0x14e", "-no_slto_panic", "sheng-aks=1", "offl
              "boot-ui-trace=1",
              # gpu-metal=1 turns on the board GPU stage: LegacyDisplayProbe prints the addon/extension
              # and accelerator state at tick 24, and the A650 bring-up publishes the accelerator here later.
-             "gpu-metal=1", "smgop=1", "sm8250-gpu-alioth=12", "sheng-fb-gpu=1", "sheng-early-retire=1", "offline-legacy-console=1"]
+             "gpu-metal=1", "smgop=1", "sm8250-gpu-alioth=12", "sheng-fb-gpu=1", "sheng-early-retire=1"]
 
 [payload.adt]
 # Panic region: XNU's DT panic path (CONFIG_XNU_DT_PANIC_REGION) reads

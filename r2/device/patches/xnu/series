@@ -32,3 +32,4 @@ zzz-launchd-cache.patch
 zzz-sm8250-backboard-linear-env.patch
 zzz-sm8250-backboard-sdr-preference.patch
 zzz-sm8250-backboard-sdr-prepare.patch
+zzz-console-output-off.patch

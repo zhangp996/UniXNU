@@ -591,7 +591,35 @@ static struct {
 static struct {
 	bool down;
 	uint32_t x, y;
+	uint32_t last_seen;
 } contact[MAX_FINGERS];
+
+/* Every read of the event queue is one look. A finger the controller keeps reporting stays fresh;
+ * the controller reports continuously while a finger is down, so a finger that stops appearing has
+ * lifted. This releases it: the release events themselves are not in the queue this chip posts. */
+static uint32_t look_clock;
+
+static void
+ts_release_stale(void)
+{
+	static unsigned shown;
+
+	for (unsigned f = 0; f < MAX_FINGERS; f++) {
+		if (!contact[f].down) {
+			continue;
+		}
+		if (look_clock - contact[f].last_seen < 4) {
+			continue;
+		}
+		contact[f].down = false;
+		if (shown < 40) {
+			shown++;
+			printf("s6sy791: finger %u released after %u looks without a report\n", f,
+			    look_clock - contact[f].last_seen);
+		}
+		hakios_touch_post(HAKIOS_TOUCH_UP, f, contact[f].x, contact[f].y);
+	}
+}
 
 static uint8_t event_buffer[MAX_EVENTS * EVENT_SIZE];
 
@@ -642,6 +670,7 @@ ts_handle_events(const uint8_t *events, uint32_t count)
 		seen.touches++;
 		seen.last_x = x;
 		seen.last_y = y;
+		contact[finger].last_seen = look_clock;
 		sx = x >= max_x ? 65535 : x * 65535 / max_x;
 		sy = y >= max_y ? 65535 : y * 65535 / max_y;
 		if (flip & 1) {
@@ -681,6 +710,7 @@ ts_read_events(void)
 	uint32_t left;
 
 	seen.reads++;
+	look_clock++;
 	if (!ts_read(CMD_READ_ONE_EVENT, event_buffer, EVENT_SIZE)) {
 		if (seen.bad++ < 8) {
 			printf("s6sy791: the event could not be read\n");
@@ -688,6 +718,7 @@ ts_read_events(void)
 		return;
 	}
 	if (event_buffer[0] == 0) {
+		ts_release_stale();
 		return;                                 /* nothing has happened */
 	}
 	left = event_buffer[7] & 0x3f;
@@ -704,6 +735,7 @@ ts_read_events(void)
 	}
 	seen.reports++;
 	ts_handle_events(event_buffer, left + 1);
+	ts_release_stale();
 }
 
 /* Is the chip there, awake, and in its application (not its boot loader)? */

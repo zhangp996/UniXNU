@@ -1,0 +1,41 @@
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -593,6 +593,21 @@
+ 	/* setup console output */
+ 	PE_init_printf(FALSE);
+ 
++	/*
++	 * The panel is this board console: once the video console is registered the kernel log is
++	 * drawn over the UI. disableConsoleOutput is the early exit of console_write (the same flag
++	 * gc_pause/gc_enable use), so writing it leaves the console ops and the frame buffer alone.
++	 * The USB debug hook copies every byte before that check, so the serial log keeps its lines.
++	 * offline-legacy-console=1 restores the old screen output.
++	 */
++	{
++		unsigned keep_console = 0;
++		if (!PE_parse_boot_argn("offline-legacy-console", &keep_console, sizeof(keep_console)) ||
++		    keep_console == 0) {
++			disableConsoleOutput = 1;
++		}
++	}
++
+ #if __arm64__
+ #if DEBUG
+ 	dump_kva_space();
+--- a/osfmk/console/video_console.c
++++ b/osfmk/console/video_console.c
+@@ -453,7 +453,13 @@
+ 
+ 		gc_ops.enable(TRUE);
+ 		gc_enabled           = TRUE;
+-		disableConsoleOutput = FALSE;
++		{
++			unsigned keep_console = 0;
++			if (PE_parse_boot_argn("offline-legacy-console", &keep_console, sizeof(keep_console)) &&
++			    keep_console != 0) {
++				disableConsoleOutput = FALSE;   /* Allow printfs to happen */
++			}
++		}
+ 	}
+ }
+ 

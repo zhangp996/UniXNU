@@ -2,7 +2,7 @@ diff --git a/iokit/Kernel/IOPlatformExpert.cpp b/iokit/Kernel/IOPlatformExpert.c
 index d0149a6..a5fdff6 100644
 --- a/iokit/Kernel/IOPlatformExpert.cpp
 +++ b/iokit/Kernel/IOPlatformExpert.cpp
-@@ -1641,6 +1641,33 @@ IODTPlatformExpert::createNub( IORegistryEntry * from )
+@@ -1641,6 +1641,36 @@ IODTPlatformExpert::createNub( IORegistryEntry * from )
  	return nub;
  }
  
@@ -30,13 +30,16 @@ index d0149a6..a5fdff6 100644
 +	} else {
 +		__atomic_add_fetch(&native_smp_withheld, 1U, __ATOMIC_RELAXED);
 +	}
++	kprintf("SMPGATE logical=%d selected=%u eligible=%u withheld=%u\n", logical, selected ? 1U : 0U,
++	    __atomic_load_n(&native_smp_eligible, __ATOMIC_RELAXED),
++	    __atomic_load_n(&native_smp_withheld, __ATOMIC_RELAXED));
 +	return selected;
 +}
 +
  bool
  IODTPlatformExpert::createNubs( IOService * parent, OSIterator * iter )
  {
-@@ -1686,8 +1709,8 @@ IODTPlatformExpert::createNubs( IOService * parent, OSIterator * iter )
+@@ -1686,8 +1711,8 @@ IODTPlatformExpert::createNubs( IOService * parent, OSIterator * iter )
  			 * Note that this condition will not trigger for harvested cores because these do not show up
  			 * in the DT/IORegistry in the first place.
  			 */

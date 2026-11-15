@@ -1,0 +1,48 @@
+--- a/drivers/GopFramebuffer/NativeLegacyDisplay.cpp
++++ b/drivers/GopFramebuffer/NativeLegacyDisplay.cpp
+@@ -185,6 +185,7 @@
+     bool directOn=false,directBoot=true;
+     static constexpr uint32_t kVig[2]={0x4000,0x6000},kCtlFlush=0x15018,kBootIova=0xb8000000U,kBootStride=0x2fa0;
+     void startDirect() {
++        printf("DPUDBG start ufs_state=%08x\n",(unsigned)native_ufs_dpu_state);
+         unsigned mode=0;PE_parse_boot_argn("sheng-dpu-scanout",&mode,sizeof(mode));
+         if(mode<2 || !&native_ufs_dpu_map || !&native_ufs_dpu_state || !(native_ufs_dpu_state>>31) || !primary)return;
+         IODeviceMemory *memory=IODeviceMemory::withRange(0xae01000,0x8f000);
+@@ -196,10 +197,12 @@
+         if(!mdpMap || !directPages || !latchTimer || loop->addEventSource(latchTimer)!=kIOReturnSuccess) {
+             OSSafeReleaseNULL(mdpMap);OSSafeReleaseNULL(latchTimer);
+             if(directPages){IOFreeData(directPages,8192*sizeof(uint64_t));directPages=nullptr;}
++            printf("DPUDBG direct setup failed map=%p pages=%p timer=%p mode=%u\n",(void *)mdpMap,(void *)directPages,(void *)latchTimer,mode);
+             return;
+         }
+         mdp=reinterpret_cast<volatile uint32_t *>(mdpMap->getVirtualAddress());
+         directOn=true;
++        printf("DPUDBG direct enabled mdp=%p\n",(void *)mdp);
+     }
+     void flip(uint32_t iova,uint32_t stride) {
+         for(uint32_t vig:kVig){mdp[(vig+0x14)/4]=iova;mdp[(vig+0x24)/4]=stride&0xffff;}
+@@ -245,6 +248,7 @@
+         if((mdp[kCtlFlush/4]&0x3) && ns<50000000ull){latchTimer->setTimeoutUS(500);return;}
+         if(ns>=50000000ull)native_legacy_direct[3]=native_legacy_direct[3]+1;
+         const uint32_t us=uint32_t(ns/1000);
++        if(native_legacy_direct[3]<=20)printf("DPUDBG latch slot=%d us=%u flush=%x\n",shownSlot,us,mdp[kCtlFlush/4]);
+         if(us>native_legacy_direct[4])native_legacy_direct[4]=us;
+         native_legacy_direct[5]=native_legacy_direct[5]+us;
+         shownSlot=pendingSlot;pendingSlot=-1;
+@@ -479,6 +483,7 @@
+                 native_legacy_swap_stage(1);
+                 flip(directSlots[slot].iova,uint32_t(sourceStride));directBoot=false;
+                 native_legacy_direct[0]=native_legacy_direct[0]+1;
++                if(native_legacy_direct[0]<=20)printf("DPUDBG flip slot=%d iova=%x stride=%x\n",slot,directSlots[slot].iova,(unsigned)sourceStride);
+                 shadowValid=false;pendingSlot=slot;latchRequest=request;transferred=true;
+                 latchStart=mach_absolute_time();latchTimer->setTimeoutUS(500);
+                 return;
+@@ -584,7 +589,7 @@
+                  (uint32_t)bootVideo.v_width,(uint32_t)bootVideo.v_height,0xff000000U);
+              __asm__ volatile("dsb sy" ::: "memory");
+          }
+-if((consoleFrames%128)==0)IOLog("DISPLAY frames=%u\n",consoleFrames);
++         if((consoleFrames%128)==0)IOLog("DISPLAY frames=%u direct flip=%u map=%u fail=%u late=%u maxus=%u meanus=%u lost=%u fallback=%u boot=%u\n",consoleFrames,native_legacy_direct[0],native_legacy_direct[1],native_legacy_direct[2],native_legacy_direct[3],native_legacy_direct[4],native_legacy_direct[1]?native_legacy_direct[5]/native_legacy_direct[1]:0,native_legacy_direct[6],native_legacy_direct[7],native_legacy_direct[8]);
+         }
+         finishTransfer(request);
+     }
