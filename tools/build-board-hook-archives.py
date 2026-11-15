@@ -22,6 +22,9 @@ def tool(name):
 
 
 def compile_and_archive(source, outdir, archive):
+    if archive.is_file():
+        print(f'{archive} (prebuilt)')
+        return
     outdir.mkdir(parents=True, exist_ok=True)
     obj = outdir / (source.stem + '.o')
     subprocess.run(tool('clang') + ['-target', 'arm64-apple-ios17.0', '-c', str(source), '-o', str(obj)], check=True)

@@ -309,6 +309,14 @@ run(_s6_cmd,cwd=r['directory'])
 # IOHIDFamily candidate; its initializer section needs the same registration the other late
 # objects get.
 _hid = ROOT/'build'/'sheng-hid-input'/'NativeHidInput.o'
+if not _hid.is_file():
+    # The HID component is an archives-stage dependency: build it here when a fresh tree has no copy.
+    _kit = ROOT/'package' if (ROOT/'package'/'Sm8250TouchFrame.h').is_file() else ROOT/'kits/instantnoodlep'
+    _env = dict(os.environ)
+    _env.setdefault('SMUFS_BUILD_TREE', str(ROOT))
+    subprocess.check_output([str(x) for x in (sys.executable, ROOT/'scripts/build-sm8250-touch-hid.py', '--standalone', '--kit', _kit)], cwd=str(ROOT), timeout=600)
+    assert _hid.is_file(), 'the HID component did not produce build/sheng-hid-input/NativeHidInput.o'
+
 if _hid.exists():
     _hid_late = OUT/'NativeHidInput.late.o'
     _hid_late.write_bytes(_hid.read_bytes())

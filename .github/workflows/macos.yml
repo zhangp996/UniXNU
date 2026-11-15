@@ -213,6 +213,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: bash -euo pipefail -c "$PRE_BUILD"
 
+      - name: Restore the validated build products
+        run: bash tools/join-r2-build-products.sh "${{ steps.check.outputs.work }}/tree"
+
       - name: Prepare the board hook archives
         run: python3 tools/build-board-hook-archives.py "${{ steps.check.outputs.work }}/tree"
 
