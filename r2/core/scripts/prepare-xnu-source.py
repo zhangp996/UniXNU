@@ -81,8 +81,8 @@ if __name__ == '__main__':
         CACHE.write_bytes(fetch(URL))
     entries = entries_of(CACHE, URL)
     crypto_cache = CACHE.with_name(f'xnu-driverkit-crypto-{TAG.removeprefix("xnu-")}.json')
+    crypto_url = URL.replace('/DriverKit?', '/DriverKit/crypto?')
     if not crypto_cache.exists():
-        crypto_url = URL.replace('/DriverKit?', '/DriverKit/crypto?')
         crypto_cache.write_bytes(fetch(crypto_url))
     for entry in entries_of(crypto_cache, crypto_url):
         entry['relative'] = 'crypto/' + entry['name']
