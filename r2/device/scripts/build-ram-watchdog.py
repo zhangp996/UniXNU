@@ -38,7 +38,14 @@ subprocess.run(command, check=True, cwd=ROOT)
 
 archive = out / 'libRamWatchdog.a'
 archive.unlink(missing_ok=True)
-subprocess.run(['llvm-ar', 'rcs', str(archive), str(out / 'RamWatchdog.late.o'),
-                str(out / 'original-bindings.o')], check=True)
+import platform, shutil
+if platform.system() == 'Darwin':
+    ar = ['xcrun', 'ar']
+elif shutil.which('llvm-ar'):
+    ar = ['llvm-ar']
+else:
+    ar = ['ar']
+subprocess.run(ar + ['rcs', str(archive), str(out / 'RamWatchdog.late.o'),
+                     str(out / 'original-bindings.o')], check=True)
 print(archive)
 

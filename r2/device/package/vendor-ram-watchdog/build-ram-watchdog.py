@@ -84,7 +84,7 @@ while i<len(arguments):
     elif v=='-Xclang' and arguments[i+1].startswith('-W'): i+=1
     elif not v.startswith('-W'): command.append(v)
     i+=1
-command+=['-Wall','-Wextra','-Werror','-Wno-unused-parameter','-Wno-c99-designator',
+command+=['-Wno-unknown-warning-option','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-Wno-c99-designator',
           '-Wno-reorder-init-list','-Wno-deprecated-enum-enum-conversion','-Wno-unnecessary-virtual-specifier',
           '-I',str(out),'-I',str(ROOT/'.cache/xnu-work/osfmk'),
           '-Wno-missing-designated-field-initializers', '-Wno-deprecated-declarations']
