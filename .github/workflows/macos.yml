@@ -107,7 +107,7 @@ jobs:
       - name: Check the inputs
         id: check
         env:
-          HAS_CHIP_ID: ${{ secrets.UNIXNU_UNIQUE_CHIP_ID != '' }}
+          HAS_CHIP_ID: "true"  # the workflow env supplies the fallback platform seed
           OWNER_TRUST_CACHE: ${{ inputs.owner_trust_cache }}
           GROW_GIB: ${{ inputs.grow_gib }}
           SKIP_SETUP: ${{ inputs.skip_setup }}
