@@ -197,7 +197,7 @@ require(read(0xfffffff00578aa7c,24)==bytes.fromhex('080040f9084545f9030080d2e203
 require(read(0xfffffff005777e9c,16)==bytes.fromhex('080040f908e142f900013fd6c0000036'),
         'Original isMainDisplay dispatch uses only self and tests boolean bit zero')
 asm=OUT/'original-bindings.S';asm.write_text(''.join(f'.globl {name}\n.set {name}, {va:#x}\n' for name,va in sorted(bindings.items())))
-clang=os.environ.get('GOP_CLANG','/opt/unixnu-linux/llvm/bin/clang-24')
+clang=os.environ.get('GOP_CLANG') or ('/opt/unixnu-linux/llvm/bin/clang-24' if Path('/opt/unixnu-linux/llvm/bin/clang-24').exists() else 'clang')
 run([clang,'-target',TRIPLE,'-c',asm,'-o',OUT/'original-bindings.o'])
 late=OUT/'NativeLegacyDisplay.late.o'
 late.write_bytes(Path(obj).read_bytes()); run(['python3', str(ROOT/'scripts/globalize-static-init.py'), str(late), '__GLOBAL__sub_I_NativeLegacyDisplay.cpp'])
