@@ -1,11 +1,10 @@
 name: GPU addon (macOS)
 
-# Builds this board's own GPU userspace addon (Turnip with the Darwin KMD backend + the NativeAdrenoMetal plugin)
-# on the same macOS image the kernel job uses, and publishes build/gpuaddon.bin.
+# Builds this board's own GPU userspace addon (Turnip with the Darwin KMD backend, the NativeAdrenoMetal plugin and
+# its metal2vulkan bridge) on the same macOS image the kernel job uses, and publishes build/gpuaddon.bin.
 #
-# The Mesa source is fetched at the commit recorded in scripts/data/adreno-compiler-inputs.json and the recorded
-# patches are applied in the recorded order; mesa_patch_identity.validate_recorded_patches then verifies both the
-# source and the patches before anything is built.
+# Every external source is taken at the commit recorded in scripts/data/*inputs.json, and the recorded Mesa patches
+# are applied in the recorded order; mesa_patch_identity.validate_recorded_patches then verifies both before use.
 
 on:
   workflow_dispatch:
@@ -19,10 +18,6 @@ on:
         description: Xcode version of the macos-26 image
         required: true
         default: "26.6"
-      mesa_repository:
-        description: Mesa repository URL (empty uses the mirror recorded in the inputs file)
-        required: false
-        default: ""
 
 permissions:
   contents: read
@@ -56,22 +51,26 @@ jobs:
           python-version: "3.13"
 
       - name: Install host tools
-        run: brew install llvm lld glslang meson ninja
+        run: brew install llvm lld glslang shaderc meson ninja
+
+      - name: Install the pinned Rust toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o "$RUNNER_TEMP/rustup.sh"
+          sh "$RUNNER_TEMP/rustup.sh" -y --profile minimal --default-toolchain 1.98.0
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/cargo" --version
 
       - name: Fetch the pinned Mesa source and apply the recorded patches
-        env:
-          MESA_REPOSITORY: ${{ inputs.mesa_repository }}
         run: |
           python3 - <<'PY'
-          import json, os, pathlib, subprocess
+          import json, pathlib, subprocess
           pins = json.loads(pathlib.Path('scripts/data/adreno-compiler-inputs.json').read_text())
           mesa = pins['mesa']
-          url = os.environ.get('MESA_REPOSITORY') or mesa['mirror']
           work = pathlib.Path('.cache/mesa-work')
           work.parent.mkdir(parents=True, exist_ok=True)
           if not (work / '.git').is_dir():
               subprocess.run(['git', 'init', '-q', str(work)], check=True)
-              subprocess.run(['git', '-C', str(work), 'remote', 'add', 'origin', url], check=True)
+              subprocess.run(['git', '-C', str(work), 'remote', 'add', 'origin', mesa['mirror']], check=True)
           subprocess.run(['git', '-C', str(work), 'fetch', '--depth', '1', 'origin', mesa['commit']], check=True)
           subprocess.run(['git', '-C', str(work), 'checkout', '-q', '--detach', 'FETCH_HEAD'], check=True)
           head = subprocess.check_output(['git', '-C', str(work), 'rev-parse', 'HEAD'], text=True).strip()
@@ -85,7 +84,7 @@ jobs:
               # The recorded patches are hand-edited: some create a file from /dev/null without the
               # 'new file mode' / 'index' lines git apply needs, so fall back to patch(1) for those.
               git = subprocess.run(['git', '-C', str(work), 'apply', '--whitespace=nowarn', str(path)],
-                                 capture_output=True, text=True)
+                                   capture_output=True, text=True)
               if git.returncode != 0:
                   fix = subprocess.run(['patch', '-p1', '-N', '-f', '-s', '-d', str(work), '-i', str(path)],
                                        capture_output=True, text=True)
@@ -93,6 +92,23 @@ jobs:
                       raise SystemExit('patch failed: ' + patch + ': ' + (git.stderr or '') + (fix.stderr or ''))
               applied += 1
           print(str(applied) + ' recorded patches applied to ' + head)
+          PY
+
+      - name: Fetch the pinned metal2vulkan translator
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, subprocess
+          pin = json.loads(pathlib.Path('scripts/data/gpu-metal-vulkan-inputs.json').read_text())['translator']
+          work = pathlib.Path('.cache/gpu-reference/metal2vulkan')
+          work.parent.mkdir(parents=True, exist_ok=True)
+          if not (work / '.git').is_dir():
+              subprocess.run(['git', 'init', '-q', str(work)], check=True)
+          subprocess.run(['git', '-C', str(work), 'fetch', '--depth', '1', pin['repository'], pin['commit']], check=True)
+          subprocess.run(['git', '-C', str(work), 'checkout', '-q', '--detach', 'FETCH_HEAD'], check=True)
+          head = subprocess.check_output(['git', '-C', str(work), 'rev-parse', 'HEAD'], text=True).strip()
+          if head != pin['commit']:
+              raise SystemExit('fetched metal2vulkan is ' + head + ', expected ' + pin['commit'])
+          print('metal2vulkan at ' + head)
           PY
 
       - name: Build the pinned bison
@@ -128,20 +144,21 @@ jobs:
           print(subprocess.check_output([str(link), '--version'], text=True).splitlines()[0])
           PY
 
-      - name: Prepare the meson environment
+      - name: Prepare the compiler toolchain environment
         run: |
           python3 -m venv .cache/mesa-venv
           .cache/mesa-venv/bin/pip install --quiet --upgrade pip
-          .cache/mesa-venv/bin/pip install --quiet meson ninja packaging mako pyyaml
+          .cache/mesa-venv/bin/pip install --quiet -r scripts/requirements-adreno-compiler.txt
           .cache/mesa-venv/bin/meson --version
           mkdir -p .cache/mesa-tools/bin
           ln -sf "$(command -v glslangValidator)" .cache/mesa-tools/bin/glslangValidator
+          ln -sf "$(command -v glslc)" .cache/mesa-tools/bin/glslc
 
       - name: Build Turnip with the Darwin KMD backend
         run: python3 scripts/build-turnip-darwin.py --target "$TARGET"
 
       - name: Build the NativeAdrenoMetal plugin
-        run: python3 scripts/build-adreno-metal-plugin.py --target "$TARGET"
+        run: python3 scripts/build-adreno-metal-plugin.py --target "$TARGET" --no-replay
 
       - name: Pack the addon
         run: |
