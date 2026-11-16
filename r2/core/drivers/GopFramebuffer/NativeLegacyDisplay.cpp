@@ -48,6 +48,8 @@ extern "C" {volatile uint32_t native_legacy_surfaces[14];}
 extern "C" {volatile uint32_t native_legacy_direct[9];}
 extern "C" uint32_t native_ufs_dpu_map(unsigned slot,const uint64_t *pages,unsigned count) __attribute__((weak_import));
 extern "C" volatile uint32_t native_ufs_dpu_state __attribute__((weak_import));
+// The display bank probe the storage component left behind (native_ufs_dpu_smmu): its refusals are 0xdead0001..5.
+extern "C" volatile uint32_t native_ufs_dpu_smmu[24] __attribute__((weak_import));
 static void noteSurface(OSObject *surface,IOMemoryDescriptor *memory)
 {
     static OSObject *seen[4];
@@ -129,6 +131,18 @@ static inline bool native_legacy_copy_biplanar(volatile void *destination,uint64
     if(storedBytes)*storedBytes=changed;
     return true;
 }
+// PRESENTCHAIN: the swap lifecycle counted where it can stop -- validation, the kick, the deferred exit while the previous
+// frame is still on its way (transferred), the two offering paths, and the retirement. Each site prints its first twelve
+// events and then one total in 128, so a single boot shows which step stops without swamping the serial console.
+enum { kPresentValidate, kPresentAccept, kPresentReject, kPresentKick, kPresentDeferred, kPresentNoRequest,
+       kPresentDirect, kPresentGpu, kPresentCopy, kPresentRetireOk, kPresentRetireFail, kPresentSites };
+static volatile unsigned presentChain[kPresentSites];
+static void presentChainBump(unsigned site, const char *tag)
+{
+    const unsigned n = presentChain[site] + 1;
+    presentChain[site] = n;
+    if (n <= 12 || !(n & 127)) printf("PRESENT %s total=%u\n", tag, n);
+}
 class NativeLegacyDisplay : public IOMobileFramebufferLegacy {
     OSDeclareDefaultStructors(NativeLegacyDisplay)
     IOMemoryMap *bootMapping=nullptr;
@@ -183,10 +197,30 @@ class NativeLegacyDisplay : public IOMobileFramebufferLegacy {
     uint64_t latchStart=0,directClock=0;
     int shownSlot=-1,pendingSlot=-1;
     bool directOn=false,directBoot=true;
+    // What the firmware left in the two video pipes: the address and stride the panel actually scans now. Restoring
+    // these, rather than the kBootIova guess, keeps a fallback from pointing the pipe at memory this boot never wrote.
+    uint32_t bootVig[2]={},bootVigStride[2]={};
     static constexpr uint32_t kVig[2]={0x4000,0x6000},kCtlFlush=0x15018,kBootIova=0xb8000000U,kBootStride=0x2fa0;
+    // The porting guide's dpu=2 stage: read the firmware state, never write it. mode 1 stops after the report;
+    // mode 2 also builds the direct-scanout path, and only when the storage component left a usable bank.
     void startDirect() {
+        printf("DPUDBG start ufs_state=%08x\n",(unsigned)native_ufs_dpu_state);
         unsigned mode=0;PE_parse_boot_argn("sheng-dpu-scanout",&mode,sizeof(mode));
-        if(mode<2 || !&native_ufs_dpu_map || !&native_ufs_dpu_state || !(native_ufs_dpu_state>>31) || !primary)return;
+        // The storage component's bank probe, as it left it: [2] IDR0, [3] IDR1, [4] stream|bank (0xffffffff: no stream
+        // matched 0x1c00/0x1c02), [5] SMR, [6] S2CR, [7] the word at 0x1000+4*bank, [8] the word at 0x1800+4*bank,
+        // [9] the context bank SCTLR, [10]/[11] its TTBR0, [12] its TCR, [22] its FSR.
+        if(mode>=1 && primary) printf("DPUDBG bank idr0=%08x idr1=%08x found=%08x smr=%08x s2cr=%08x cbar=%08x cbar2=%08x sctlr=%08x ttbr0=%08x.%08x tcr=%08x fsr=%08x\n",
+            (unsigned)native_ufs_dpu_smmu[2],(unsigned)native_ufs_dpu_smmu[3],(unsigned)native_ufs_dpu_smmu[4],(unsigned)native_ufs_dpu_smmu[5],
+            (unsigned)native_ufs_dpu_smmu[6],(unsigned)native_ufs_dpu_smmu[7],(unsigned)native_ufs_dpu_smmu[8],(unsigned)native_ufs_dpu_smmu[9],
+            (unsigned)native_ufs_dpu_smmu[10],(unsigned)native_ufs_dpu_smmu[11],(unsigned)native_ufs_dpu_smmu[12],(unsigned)native_ufs_dpu_smmu[22]);
+        // Success is 0x80000000|bank with bank < 256; the refusals 0xdead0001..5 keep bit 31 set, so a bit-31 test
+        // alone started the direct path on a refused bank.
+        if(mode<2 || !&native_ufs_dpu_map || !&native_ufs_dpu_state || (native_ufs_dpu_state&0xffffff00U)!=0x80000000U || !primary) {
+            if(primary)printf("DPUDBG direct refused state=%08x mode=%u\n",(unsigned)native_ufs_dpu_state,mode);
+            return;
+        }
+        // Never reached on this board so far (the storage component refuses the display bank), and a mapping of
+        // 0xae01000 alone took the machine down once: the block access below stays behind the guard.
         IODeviceMemory *memory=IODeviceMemory::withRange(0xae01000,0x8f000);
         mdpMap=memory?memory->map(kIOMapAnywhere|kIOMapInhibitCache):nullptr;
         if(memory)memory->release();
@@ -196,10 +230,15 @@ class NativeLegacyDisplay : public IOMobileFramebufferLegacy {
         if(!mdpMap || !directPages || !latchTimer || loop->addEventSource(latchTimer)!=kIOReturnSuccess) {
             OSSafeReleaseNULL(mdpMap);OSSafeReleaseNULL(latchTimer);
             if(directPages){IOFreeData(directPages,8192*sizeof(uint64_t));directPages=nullptr;}
+            printf("DPUDBG direct setup failed map=%p pages=%p timer=%p mode=%u\n",(void *)mdpMap,(void *)directPages,(void *)latchTimer,mode);
             return;
         }
         mdp=reinterpret_cast<volatile uint32_t *>(mdpMap->getVirtualAddress());
         directOn=true;
+        bootVig[0]=mdp[(kVig[0]+0x14)/4];bootVigStride[0]=mdp[(kVig[0]+0x24)/4];
+        bootVig[1]=mdp[(kVig[1]+0x14)/4];bootVigStride[1]=mdp[(kVig[1]+0x24)/4];
+        printf("DPUDBG direct enabled mdp=%p boot vig0=%08x.%08x vig1=%08x.%08x ctl=%08x\n",(void *)mdp,
+            bootVig[0],bootVigStride[0],bootVig[1],bootVigStride[1],mdp[kCtlFlush/4]);
     }
     void flip(uint32_t iova,uint32_t stride) {
         for(uint32_t vig:kVig){mdp[(vig+0x14)/4]=iova;mdp[(vig+0x24)/4]=stride&0xffff;}
@@ -245,8 +284,15 @@ class NativeLegacyDisplay : public IOMobileFramebufferLegacy {
         if((mdp[kCtlFlush/4]&0x3) && ns<50000000ull){latchTimer->setTimeoutUS(500);return;}
         if(ns>=50000000ull)native_legacy_direct[3]=native_legacy_direct[3]+1;
         const uint32_t us=uint32_t(ns/1000);
+        if(native_legacy_direct[3]<=20)printf("DPUDBG latch slot=%d us=%u flush=%x\n",shownSlot,us,mdp[kCtlFlush/4]);
         if(us>native_legacy_direct[4])native_legacy_direct[4]=us;
         native_legacy_direct[5]=native_legacy_direct[5]+us;
+        // The porting guide asks for this line: flips, surfaces mapped, latch time, and the flip time waiting for the GPU
+        // (that last field stays 0 here: this driver does not wait on an Adreno fence, and measurement showed it never had to).
+        if(native_legacy_direct[0]<=12 || !(native_legacy_direct[0]&127))
+            printf("[direct scanout] flips=%u mapped=%u latch_us=%u max_us=%u mean_us=%u map_fail=%u lost=%u fallback=%u gpu_wait_us=0\n",
+                native_legacy_direct[0],native_legacy_direct[1],us,native_legacy_direct[4],
+                native_legacy_direct[1]?native_legacy_direct[5]/native_legacy_direct[1]:0,native_legacy_direct[2],native_legacy_direct[6],native_legacy_direct[7]);
         shownSlot=pendingSlot;pendingSlot=-1;
         const OriginalLegacySwapRequest *request=latchRequest;latchRequest=nullptr;
         finishTransfer(request,true);
@@ -254,7 +300,13 @@ class NativeLegacyDisplay : public IOMobileFramebufferLegacy {
     // Back to the boot loader's memory (the blank frame and the copy are drawn there).
     void directToBoot() {
         if(!directOn || directBoot)return;
-        flip(kBootIova,kBootStride);directBoot=true;shownSlot=-1;
+        if(bootVig[0] && bootVig[1]) {
+            for(unsigned k=0;k<2;++k){mdp[(kVig[k]+0x14)/4]=bootVig[k];mdp[(kVig[k]+0x24)/4]=bootVigStride[k];}
+            __asm__ volatile("dsb sy" ::: "memory");
+            mdp[kCtlFlush/4]=0x3;
+            __asm__ volatile("dsb sy" ::: "memory");
+        } else flip(kBootIova,kBootStride);
+        directBoot=true;shownSlot=-1;
         native_legacy_direct[8]=native_legacy_direct[8]+1;
     }
     bool vsyncWanted() const {
@@ -410,9 +462,13 @@ public:
     }
     void kickOnce() {
         unsigned enabled=0;PE_parse_boot_argn("offline-legacy-transfer",&enabled,sizeof(enabled));
-        if(enabled!=1 || transferred || !logicalPM || !bootMapping || !primary)return;
+        presentChainBump(kPresentKick,"kick");
+        if(enabled!=1 || transferred || !logicalPM || !bootMapping || !primary) {
+            if(transferred)presentChainBump(kPresentDeferred,"kick-deferred");
+            return;
+        }
         const OriginalLegacySwapRequest *request=pendingSwapRequest();
-        if(!request || !isValidated(request))return;
+        if(!request || !isValidated(request)) {presentChainBump(kPresentNoRequest,"kick-norequest");return;}
         // This bounded first-frame transfer preserves the original queue's
         // resource ownership. Separately gated retirement follows the copy;
         // neither path signals a hardware fence, announces a vblank or
@@ -476,9 +532,11 @@ public:
         if(directOn && !gpuBypass && !latchRequest) {
             const int slot=directSlot(surface,memory);
             if(slot>=0) {
+                presentChainBump(kPresentDirect,"dpu-flip");
                 native_legacy_swap_stage(1);
                 flip(directSlots[slot].iova,uint32_t(sourceStride));directBoot=false;
                 native_legacy_direct[0]=native_legacy_direct[0]+1;
+                if(native_legacy_direct[0]<=20)printf("DPUDBG flip slot=%d iova=%x stride=%x\n",slot,directSlots[slot].iova,(unsigned)sourceStride);
                 shadowValid=false;pendingSlot=slot;latchRequest=request;transferred=true;
                 latchStart=mach_absolute_time();latchTimer->setTimeoutUS(500);
                 return;
@@ -487,6 +545,7 @@ public:
         }
         directToBoot();
         if(!gpuBypass && native_legacy_gpu_offer(this,memory,sourceStride,width,height)) {
+            presentChainBump(kPresentGpu,"gpu-offer-taken");
             // The GPU writes the scanout memory behind the CPU's back: the differential copy's picture of it is stale from now on.
             native_legacy_swap_stage(1);
             shadowValid=false;gpuRequest=request;gpuLength=length;transferred=true;
@@ -568,6 +627,7 @@ public:
         __asm__ volatile("dsb sy" ::: "memory");
         {uint64_t copyEnd;__asm__ volatile("isb\n\tmrs %0, cntpct_el0":"=r"(copyEnd));native_legacy_copy_timing_observed(copyEnd-copyStart,stored);}
         OSSafeReleaseNULL(source);transferred=true;
+        presentChainBump(kPresentCopy,"copy-ok");
         native_legacy_transfer_observed(kIOReturnSuccess,request,length);
         // The compositor owns the screen now: send the kernel text console to the serial port so it stops
         // painting log lines over the frame (the present path keeps using the cached boot video).
@@ -584,7 +644,7 @@ public:
                  (uint32_t)bootVideo.v_width,(uint32_t)bootVideo.v_height,0xff000000U);
              __asm__ volatile("dsb sy" ::: "memory");
          }
-         if((consoleFrames%128)==0)IOLog("DISPLAY frames=%u\n",consoleFrames);
+         if((consoleFrames%128)==0)IOLog("DISPLAY frames=%u direct flip=%u map=%u fail=%u late=%u maxus=%u meanus=%u lost=%u fallback=%u boot=%u\n",consoleFrames,native_legacy_direct[0],native_legacy_direct[1],native_legacy_direct[2],native_legacy_direct[3],native_legacy_direct[4],native_legacy_direct[1]?native_legacy_direct[5]/native_legacy_direct[1]:0,native_legacy_direct[6],native_legacy_direct[7],native_legacy_direct[8]);
         }
         finishTransfer(request);
     }
@@ -613,11 +673,12 @@ public:
         unsigned retire=0,cpuPresent=0;
         PE_parse_boot_argn("offline-legacy-retire",&retire,sizeof(retire));
         PE_parse_boot_argn("offline-legacy-cpu-present",&cpuPresent,sizeof(cpuPresent));
-        if(!(retire==1 || cpuPresent==1 || force))return false;
-        if(!activateOnlyPendingSwap(request))return false;
+        if(!(retire==1 || cpuPresent==1 || force)) {presentChainBump(kPresentRetireFail,"retire-disabled");return false;}
+        if(!activateOnlyPendingSwap(request)) {presentChainBump(kPresentRetireFail,"retire-not-head");return false;}
         removeValidated(request);
         IOMobileFramebufferLegacy::completeCurrentSwap();
         native_legacy_retirement_observed(this);
+        presentChainBump(kPresentRetireOk,"retire-ok");
         return true;
     }
     // Separately gated retirement after a real scanout store, shared by copied and blank frames.
@@ -720,6 +781,8 @@ public:
                 reason=5;accepted=true;
             }
         }
+        presentChainBump(kPresentValidate,"validate");
+        if(accepted)presentChainBump(kPresentAccept,"validate-accept");else presentChainBump(kPresentReject,"validate-reject");
         if(accepted)addValidated(request);else removeValidated(request);
         native_legacy_swap_validation_observed(accepted,reason,request,surface);return accepted;
     }

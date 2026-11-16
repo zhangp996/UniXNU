@@ -585,13 +585,44 @@ static bool latency;                            /* touch_lat=1 */
 
 static struct {
 	uint32_t reports, touches, bad, last_x, last_y, reads;
+	/* The report's own 2-bit state and 2-bit event id, counted: state 3 is the chip's release.
+	 * If state 3 never appears in a run, no release judgement in this driver can be right. */
+	uint32_t states[4], event_ids[2];
 } seen;
 
 /* Which fingers were down in the last report, and where. */
 static struct {
 	bool down;
 	uint32_t x, y;
+	uint32_t last_seen;
 } contact[MAX_FINGERS];
+
+/* Every read of the event queue is one look. A finger the controller keeps reporting stays fresh;
+ * the controller reports continuously while a finger is down, so a finger that stops appearing has
+ * lifted. This releases it: the release events themselves are not in the queue this chip posts. */
+static uint32_t look_clock;
+
+static void
+ts_release_stale(void)
+{
+	static unsigned shown;
+
+	for (unsigned f = 0; f < MAX_FINGERS; f++) {
+		if (!contact[f].down) {
+			continue;
+		}
+		if (look_clock - contact[f].last_seen < 4) {
+			continue;
+		}
+		contact[f].down = false;
+		if (shown < 40) {
+			shown++;
+			printf("s6sy791: finger %u released after %u looks without a report\n", f,
+			    look_clock - contact[f].last_seen);
+		}
+		hakios_touch_post(HAKIOS_TOUCH_UP, f, contact[f].x, contact[f].y);
+	}
+}
 
 static uint8_t event_buffer[MAX_EVENTS * EVENT_SIZE];
 
@@ -614,6 +645,7 @@ ts_handle_events(const uint8_t *events, uint32_t count)
 			return;                                 /* the end of the queue */
 		}
 		event_id = e[0] & 0x03;
+		seen.event_ids[event_id & 1]++;
 		if (event_id != 0) {
 			continue;                               /* 1: a status event, not a finger */
 		}
@@ -625,6 +657,7 @@ ts_handle_events(const uint8_t *events, uint32_t count)
 			continue;
 		}
 		state = (e[0] & 0xc0) >> 6;
+		seen.states[state]++;
 		x = (uint32_t)(e[1] << 4) | ((e[3] & 0xf0) >> 4);
 		y = (uint32_t)(e[2] << 4) | (e[3] & 0x0f);
 
@@ -642,13 +675,18 @@ ts_handle_events(const uint8_t *events, uint32_t count)
 		seen.touches++;
 		seen.last_x = x;
 		seen.last_y = y;
-		sx = x >= max_x ? 65535 : x * 65535 / max_x;
-		sy = y >= max_y ? 65535 : y * 65535 / max_y;
+		contact[finger].last_seen = look_clock;
+		/* The frame carries panel pixels: the HID layer scales it with Sm8250TouchFrame.h's
+		 * maxima (SmTouchMaxX + 1, SmTouchMaxY + 1). Normalising to 0..65535 here as well made
+		 * every X past 1439 clamp to the right edge and every Y past 3168 to the bottom edge, so
+		 * a drag outside the top-left corner produced no movement at all. */
+		sx = x > max_x ? max_x : x;
+		sy = y > max_y ? max_y : y;
 		if (flip & 1) {
-			sx = 65535 - sx;
+			sx = max_x - sx;
 		}
 		if (flip & 2) {
-			sy = 65535 - sy;
+			sy = max_y - sy;
 		}
 		if (shown < 40) {
 			shown++;
@@ -681,6 +719,7 @@ ts_read_events(void)
 	uint32_t left;
 
 	seen.reads++;
+	look_clock++;
 	if (!ts_read(CMD_READ_ONE_EVENT, event_buffer, EVENT_SIZE)) {
 		if (seen.bad++ < 8) {
 			printf("s6sy791: the event could not be read\n");
@@ -688,6 +727,7 @@ ts_read_events(void)
 		return;
 	}
 	if (event_buffer[0] == 0) {
+		ts_release_stale();
 		return;                                 /* nothing has happened */
 	}
 	left = event_buffer[7] & 0x3f;
@@ -704,6 +744,7 @@ ts_read_events(void)
 	}
 	seen.reports++;
 	ts_handle_events(event_buffer, left + 1);
+	ts_release_stale();
 }
 
 /* Is the chip there, awake, and in its application (not its boot loader)? */
@@ -914,8 +955,10 @@ s6sy791_thread(__unused void *parameter, __unused wait_result_t result)
 		}
 		if (tick % (60 * (1000000 / poll_us)) == 0) {
 			printf("s6sy791: so far %u reports in %u looks (%u bad), %u finger positions, the last at %u, %u; "
-			    "interrupt line %s\n", seen.reports, seen.reads, seen.bad, seen.touches, seen.last_x,
-			    seen.last_y, int_low() ? "low" : "high");
+			    "interrupt line %s; states %u/%u/%u/%u, event ids %u/%u\n", seen.reports, seen.reads, seen.bad,
+			    seen.touches, seen.last_x, seen.last_y, int_low() ? "low" : "high",
+			    seen.states[0], seen.states[1], seen.states[2], seen.states[3],
+			    seen.event_ids[0], seen.event_ids[1]);
 		}
 		sleep_us(poll_us);
 	}
