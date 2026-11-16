@@ -164,6 +164,7 @@ complete_swap_later(void)
 /* PROBE-ROWS: mirror the diagnostic page's process and ui-trace rows to the serial console. The page
  * renderer is not reached on this port, so the probe starts its own printer. */
 static void gpu_metal_report_once(void);
+static void gpu_metal_diag_report(unsigned tick);
 extern "C" char boot_process_rows[10][120];
 extern "C" char boot_ui_trace_rows[14][120];
 /* Both row arrays are only refreshed by these snapshot calls, which the diagnostic page makes; the page is
@@ -282,6 +283,9 @@ probe_rows_thread(void *, wait_result_t)
 					killed = 1;
 					printf("DISPLAY: killing lsd at tick %u: %d\n", tick, native_kill_named("lsd"));
 				}
+			}
+			if (tick >= 40 && (tick % 20) == 0) {
+				gpu_metal_diag_report(tick);
 			}
 			if (tick == 24) {
 				gpu_metal_report_once();
@@ -1382,6 +1386,54 @@ extern volatile int native_gpu_addon_stage, native_gpu_addon_status;
 uint32_t native_adreno_publish_stats(uint32_t *closed);
 IOService *native_adreno_published_service();
 int gpu_metal_start(void);
+}
+
+/* The accelerator publish counters the Adreno driver keeps (NativeAdrenoPublish.cpp): enough to tell whether
+ * any process reached the published IOAcceleratorES and which one read MetalPluginName. */
+extern "C" {
+struct NativeAdrenoDiagView { uint32_t words[56]; };
+extern volatile struct NativeAdrenoDiagView native_adreno_metal_diag;
+extern char native_adreno_metal_rows[48][96];
+extern volatile uint32_t native_adreno_metal_rows_seq;
+}
+static void
+gpu_metal_diag_report(unsigned tick)
+{
+    unsigned enabled = 0;
+    if (!PE_parse_boot_argn("gpu-metal", &enabled, sizeof(enabled)) || enabled != 1) {
+        return;
+    }
+    const unsigned char *b = (const unsigned char *)&native_adreno_metal_diag;
+    uint32_t w[56];
+    for (int k = 0; k < 56; ++k) {
+        memcpy(&w[k], b + k * 4, 4);
+    }
+    uint32_t closed = 0;
+    const uint32_t opened = native_adreno_publish_stats(&closed);
+    IOService *svc = native_adreno_published_service();
+    const char *opener = (const char *)(b + 220);
+    const char *reader = (const char *)(b + 271);
+    const char *name_reader = (const char *)(b + 322);
+    const char *starter = (const char *)(b + 339);
+    printf("GPUDIAG tick=%u pub=%u closed=%u svc=%p opens=%u prop=%u name=%u calls=%u last_sel=%u last_status=%x\n
+",
+        tick, opened, closed, (void *)svc, w[0], w[5], w[8], w[9], w[10], w[11]);
+    printf("GPUDIAG opener=[%s|%s|%s] reader=[%s|%s|%s] name_reader=[%s] starter=[%s|%s|%s]\n
+",
+        opener, opener + 17, opener + 34, reader, reader + 17, reader + 34,
+        name_reader, starter, starter + 17, starter + 34);
+    printf("GPUDIAG ext entries=%u sel=%u st=%x in=%u out=%u tunnel=%u probes=%u mb_maps=%u mb_calls=%u marks=%u inflight=%u forced=%u\n
+",
+        w[12], w[13], w[14], w[15], w[16], w[17], w[18], w[27], w[28], w[29], w[52], w[54]);
+    printf("GPUDIAG selbits=%08x %08x\n
+", w[19], w[20]);
+    printf("GPUDIAG report=[%s] report2=[%s]\n
+", (const char *)(b + 390), (const char *)(b + 454));
+    for (unsigned r = 0; r < 6; ++r) {
+        const char *row = (const char *)&native_adreno_metal_rows[r];
+        if (row[0]) printf("GPUDIAG row%u=[%s]\n
+", r, row);
+    }
 }
 
 static void
