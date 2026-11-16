@@ -5,9 +5,12 @@
 ## 0. 结论先行
 
 - GPUDIAG 三处移植已提交并推送（`fc3d4b8`、`b4c7831`），内核编译干净，`verify-baseline` CI 在 `b4c7831` 上 success。
-- **但带 GPUDIAG 的内核在真机上于 tick 40 前后 panic**：`"AMFI: No PMGR?\n" @ConfigurationSettings.cpp:235`。dpu5 基线内核同位置打印 `AMFI: finished: 1 0` 并活到 UI。GPUDIAG 因此**从未在任何抓取里出现**（第一次触发即 panic）。
-- 串口"断流"不是主机/采集问题，是 panic 本身杀死 USB serial TX；照片里 panic 块"后面"的 launchd/触摸行是 framebuffer 旧内容＋panic 屏直接绘帧，**照片行序 ≠ 时间序**。
-- 下一步第一实验（不用重编内核）：`gpu-metal=1` → `gpu-metal=0` 拼镜像再 boot。gate 会直接 return，不碰任何 driver 符号；若 panic 消失即锁定 GPUDIAG 函数体为触发点。
+- **根因已确认：镜像漏打 AMFI 补丁**。`build_boot_image.py` 默认跑 `patch-amfi-nopmgr.py`（nop 掉 `"AMFI: No PMGR?"` panic 调用）与 `patch-amfi-trustcache-gate.py`；`--no-amfi` 的前提是"内核已由 build_kernel.sh 打过补丁"，但**本树 build_kernel.sh 根本没有 AMFI 步骤**（HANDOVER-addon-ci.md:177 的说法过期）。本轮三个镜像都沿旧命令带 `--no-amfi` → 未补丁内核 → AMFI 启动即 panic（tick 24–40 之间），GPUDIAG 的第一次触发（tick 40）永远到不了。
+- dry-run 证据：未补丁内核在 `0x6064d04` 为 `0x940069b8`（bl panic）、trustcache gate 为 `0x360010a0`（cbz），与补丁脚本 EXPECTED 完全吻合。
+- 对照实验（`gpu-metal=0`，boot-gpudiag3）同样 panic ⇒ **排除 GPUDIAG 函数体触发假设**；dpu5 基线镜像当年带补丁故正常。
+- 修复镜像 **boot-gpudiag4.img**（`6e30bca7d9b3e458c01b966fe4d7ea869db87a7711488ccd26b86f832ed9ee17`，补丁后内核 `e57a0b1f6347a37bea8d0c9e783f1af3b51723b828e33ba2ae37dc29625ce4d1`，args 991、`gpu-metal=1` 恢复）**真机验证通过**（`gpudiag4-cap.log`，638 KB 连续）：`AMFI: finished: 1 0` 回归；GPUDIAG tick 40→180 连续打印；tick 60 opener=backboardd、tick 180 **opens=8 closed=4 calls=4174 tunnel=4175**（与参考审计 opens=8、tunnel≈calls+1 同形态，参考快照更晚故 calls=8300）；prop=122 name=6 probes=264 marks=11 selbits 全 f；UI 健康（SpringBoard n25/n47、backboardd n38、UIT 行活跃、无 panic）。
+- 遗留小异点（非阻塞）：`last_sel=8 last_status=e00002c7`（kIOReturnUnsupported）、`report=[P2 ee00002c7]`——selector 8 的外部方法返回 unsupported，calls 仍持续增长；参考的 report/report2 为空，此处有记录，后续可查 sel 8 对应方法。`mb_maps=0 mb_calls=0`（mode 12 静默成功路径，未走 map-buffer）。
+- **规则：本树拼镜像一律不带 `--no-amfi`**（build_kernel.sh 不打补丁）；HANDOVER-addon-ci.md:177 与 SESSION-BOOTSTRAP.md:70 的旧命令待修。
 - addon CI run **43869651151**（head `b4c7831`）job `addon` conclusion=**cancelled**（12:46:44Z 起、13:01:47Z 止，约 15 分钟），日志 BlobNotFound；workflow `timeout-minutes: 300`、`cancel-in-progress: false`，故非超时/非并发取消，原因待查（重跑并live看）。
 
 ## 1. 产物与坐标
@@ -17,7 +20,9 @@
 | dpu5 基线内核 sha | `119d07ff589f3e6ec30ec959121508f78dab75f4f627f3c7bd5fc03efd09dda1` |
 | GPUDIAG 内核 sha | `7168ed505511c0becf83c011edf90d3f989a9a6d0405533d638c3d5874834182` |
 | boot-gpudiag.img | `507b95565e5654583eea45c271dcff7f88e00d76e5054a6e1b37817812981d6d`（args 991） |
-| boot-gpudiag2.img | `ef8f1c543fdab19b69a7f03eac6f8985286c127a23b3cfc61d820ad42e42af9f`（args 991，`sheng-crashlog=0`） |
+| boot-gpudiag2.img | `ef8f1c543fdab19b69a7f03eac6f8985286c127a23b3cfc61d820ad42e42af9f`（args 991，`sheng-crashlog=0`，仍漏 AMFI 补丁） |
+| boot-gpudiag3.img | `b9d81a616ee3e4d46a292933423b4fe2318a753ab432501e8386cd8764e34d9b`（`gpu-metal=0` 对照，仍漏补丁 → 同 panic） |
+| boot-gpudiag4.img | `6e30bca7d9b3e458c01b966fe4d7ea869db87a7711488ccd26b86f832ed9ee17`（**带 AMFI 补丁**，`gpu-metal=1`，args 991） |
 | 镜像位置 | `D:\新建文件夹\instantnoodlep-artifacts\`（WSL 侧 `/tmp/boot-gpudiag*.img`） |
 | payload / skeleton / addon | `/tmp/dpu5-payload.img`；`/mnt/d/新建文件夹/instantnoodlep-artifacts/bootEU.img`；`/home/dev/unixnu/_ref/artifacts/14012210733/gpuaddon.bin`（v6） |
 | 抓取日志 | `D:\新建文件夹\_agent\{dpu5-cap,dpu5-verify-cap,gpudiag-cap,gpudiag2-cap}.log` |
@@ -62,13 +67,14 @@ cd /home/dev/unixnu/full-project && python3 tools/r2/build_boot_image.py \
 5. 两次 boot 结束后设备都回到 fastboot → panic 后复位。
 6. 已排除：CrashLogProbe 回放灌爆串口（boot 2 关回放仍断）；GopFramebuffer `9097d0c`"silence text console"（pin 昨天 18:08 已在树里，dpu5 同带；且 escape hatch `offline-legacy-console=1` 在 args 里）；采集脚本/COM 口问题（脚本 AutoFlush、正常 exit、口在）。
 
-**主假设**：tick 40 首次执行 `gpu_metal_diag_report` → `native_adreno_published_service()`（IOService 查找）或 `native_adreno_publish_stats()` 触发 AMFI policy 评估 → `ConfigurationSettings.cpp:235` 读 PMGR 失败 → panic。dpu5 无此调用故 AMFI 正常 finished。
-**备假设**：root 身份重编引入 probe 之外的输入差异（ensure_*.sh / submodule / components.toml 现仍 M）。注意 dev 身份构建曾因 `drivers/RamBlock` dubious ownership 与 root-owned build 目录权限失败；root 构建是否更新了 submodule 未证实（GopFramebuffer 现 HEAD `9097d0c` 且仍 M NativeLegacyDisplay.cpp，与昨天 pin 一致）。
+**主假设（已确认）**：漏打 AMFI 补丁（见 §0）。panic 杀死 USB serial TX 造成"断流"；tick 28–36 静默使 panic 行在串口上紧贴 tick-24 PROC 行。
+**已排除**：GPUDIAG 函数体触发（gpu-metal=0 对照同 panic）；CrashLogProbe 回放灌爆串口（boot 2 关回放仍断）；GopFramebuffer `9097d0c`"silence text console"（pin 昨天 18:08 已在树里，dpu5 同带；且 escape hatch `offline-legacy-console=1` 在 args 里）；采集脚本/COM 口问题（脚本 AutoFlush、正常 exit、口在）。
+**备假设（已无需）**：root 身份重编引入 probe 之外的输入差异——对照与 dry-run 已把差异定位到镜像期补丁，与构建身份无关。
 
 ## 5. 下一步（按序）
 
-1. **gpu-metal=0 实验**（§1 命令，等长 991 B）：boot + 抓取 120 s。panic 消失 ⇒ 锁定函数体；仍在 ⇒ 转备假设，用"只回退 gate 调用、其余不动"的内核再二分。
-2. 若锁定函数体：先只留纯内存读（diag words + rows），去掉 `native_adreno_published_service()`/`native_adreno_publish_stats()` 两个 driver 调用再测；逐步加回定位到具体调用。参考移植里这两调用同样存在但参考树 AMFI/PMGR glue 不同（参考有 BoardGlue 计数数组），不能照搬结论。
+1. ~~gpu-metal=0 实验~~ 已做：对照同 panic ⇒ 排除函数体假设；根因=漏 AMFI 补丁，boot-gpudiag4 验证通过（§0）。GPUDIAG 移植本身无需再改。
+2. 可选跟进：selector 8 的 kIOReturnUnsupported（`NativeAdrenoUserClient` 方法表对照 sel 8）；`mb_maps/mb_calls=0` 是否意味着 Metal backend 的 map-buffer 路径未被客户端使用（mode 12 静默成功的预期行为，待与参考对照）。
 3. 采集时机坑：`capture_eu.ps1` 的找口窗口只有 30 s；设备在 fastboot 时无串口 gadget，**先 boot 再挂抓取**（或 StartDelay 覆盖 send+启动），否则 exit 1 "no console device"。
 4. CI：重 dispatch gpu-addon.yml（ref full-project），live 盯 STEP 12 之后（self-bind 已修；下一风险 codesign/bundle seal/pack）。cancelled 且无日志的 run 不必再挖。
 5. 收尾：删 WSL `/tmp/.ghtok`；**提醒用户吊销本轮聊天里暴露的 PAT**；stray `master` 分支待确认删除；过期文档/注释（`LegacyDisplayProbe.cpp:1375` "Nothing calls native_adreno_publish() yet" 等）待修。
