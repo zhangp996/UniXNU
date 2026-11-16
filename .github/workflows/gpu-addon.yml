@@ -95,6 +95,39 @@ jobs:
           print(str(applied) + ' recorded patches applied to ' + head)
           PY
 
+      - name: Build the pinned bison
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess, tarfile, urllib.request
+          pins = json.loads(pathlib.Path('scripts/data/adreno-compiler-inputs.json').read_text())
+          b = pins['bison']
+          cache = pathlib.Path('.cache')
+          cache.mkdir(exist_ok=True)
+          tarball = cache / pathlib.Path(b['url']).name
+          if not tarball.is_file():
+              urllib.request.urlretrieve(b['url'], tarball)
+          digest = hashlib.sha256(tarball.read_bytes()).hexdigest()
+          if digest != b['sha256']:
+              raise SystemExit('bison tarball checksum mismatch: ' + digest)
+          src = cache / ('bison-' + b['version'])
+          if not src.is_dir():
+              tarfile.open(tarball).extractall(cache)
+          prefix = cache / 'bison-install'
+          env = dict(os.environ, MAKEINFO='true')
+          if not (prefix / 'bin' / 'bison').is_file():
+              subprocess.run(['./configure', '--prefix=' + str(prefix.resolve()), '--disable-nls'],
+                             cwd=str(src), env=env, check=True)
+              subprocess.run(['make', '-j4'], cwd=str(src), env=env, check=True)
+              subprocess.run(['make', 'install'], cwd=str(src), env=env, check=True)
+          tools = cache / 'mesa-tools' / 'bin'
+          tools.mkdir(parents=True, exist_ok=True)
+          link = tools / 'bison'
+          if link.is_symlink() or link.exists():
+              link.unlink()
+          link.symlink_to((prefix / 'bin' / 'bison').resolve())
+          print(subprocess.check_output([str(link), '--version'], text=True).splitlines()[0])
+          PY
+
       - name: Prepare the meson environment
         run: |
           python3 -m venv .cache/mesa-venv
