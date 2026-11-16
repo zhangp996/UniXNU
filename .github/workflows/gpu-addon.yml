@@ -1,0 +1,119 @@
+name: GPU addon (macOS)
+
+# Builds this board's own GPU userspace addon (Turnip with the Darwin KMD backend + the NativeAdrenoMetal plugin)
+# on the same macOS image the kernel job uses, and publishes build/gpuaddon.bin.
+#
+# The Mesa source is fetched at the commit recorded in scripts/data/adreno-compiler-inputs.json and the recorded
+# patches are applied in the recorded order; mesa_patch_identity.validate_recorded_patches then verifies both the
+# source and the patches before anything is built.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: OS target (ios = iPadOS 17, ios27 = iPadOS 27)
+        type: choice
+        options: [ios, ios27]
+        default: ios
+      xcode:
+        description: Xcode version of the macos-26 image
+        required: true
+        default: "26.6"
+      mesa_repository:
+        description: Mesa repository URL (empty uses the mirror recorded in the inputs file)
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gpu-addon-${{ github.ref }}-${{ inputs.target }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  addon:
+    runs-on: macos-26
+    timeout-minutes: 300
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_${{ inputs.xcode }}.app/Contents/Developer
+      TARGET: ${{ inputs.target }}
+    steps:
+      - name: Check out UniXNU
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Lay out the R2 baseline framework
+        run: rsync -a --exclude .git --exclude out --exclude build r2/core/ ./
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install host tools
+        run: brew install llvm lld glslang meson ninja
+
+      - name: Fetch the pinned Mesa source and apply the recorded patches
+        env:
+          MESA_REPOSITORY: ${{ inputs.mesa_repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+          pins = json.loads(pathlib.Path('scripts/data/adreno-compiler-inputs.json').read_text())
+          mesa = pins['mesa']
+          url = os.environ.get('MESA_REPOSITORY') or mesa['mirror']
+          work = pathlib.Path('.cache/mesa-work')
+          work.parent.mkdir(parents=True, exist_ok=True)
+          if not (work / '.git').is_dir():
+              subprocess.run(['git', 'init', '-q', str(work)], check=True)
+              subprocess.run(['git', '-C', str(work), 'remote', 'add', 'origin', url], check=True)
+          subprocess.run(['git', '-C', str(work), 'fetch', '--depth', '1', 'origin', mesa['commit']], check=True)
+          subprocess.run(['git', '-C', str(work), 'checkout', '-q', '--detach', 'FETCH_HEAD'], check=True)
+          head = subprocess.check_output(['git', '-C', str(work), 'rev-parse', 'HEAD'], text=True).strip()
+          if head != mesa['commit']:
+              raise SystemExit('fetched Mesa is ' + head + ', expected ' + mesa['commit'])
+          applied = 0
+          for patch in pins['patches']:
+              path = pathlib.Path(patch).resolve()
+              if not path.is_file():
+                  raise SystemExit('missing recorded patch: ' + patch)
+              subprocess.run(['git', '-C', str(work), 'apply', '--whitespace=nowarn', str(path)], check=True)
+              applied += 1
+          print(str(applied) + ' recorded patches applied to ' + head)
+          PY
+
+      - name: Prepare the meson environment
+        run: |
+          python3 -m venv .cache/mesa-venv
+          .cache/mesa-venv/bin/pip install --quiet --upgrade pip
+          .cache/mesa-venv/bin/pip install --quiet meson ninja
+          .cache/mesa-venv/bin/meson --version
+          mkdir -p .cache/mesa-tools/bin
+          ln -sf "$(command -v glslangValidator)" .cache/mesa-tools/bin/glslangValidator
+
+      - name: Build Turnip with the Darwin KMD backend
+        run: python3 scripts/build-turnip-darwin.py --target "$TARGET"
+
+      - name: Build the NativeAdrenoMetal plugin
+        run: python3 scripts/build-adreno-metal-plugin.py --target "$TARGET"
+
+      - name: Pack the addon
+        run: |
+          python3 scripts/make-gpu-addon.py --publish build/gpuaddon.bin
+          ls -la build/gpuaddon.bin
+          shasum -a 256 build/gpuaddon.bin
+
+      - name: Upload the addon
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gpu-addon-${{ inputs.target }}
+          path: |
+            build/gpuaddon.bin
+          if-no-files-found: warn
+          retention-days: 7
