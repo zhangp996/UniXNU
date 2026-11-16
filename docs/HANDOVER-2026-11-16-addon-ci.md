@@ -207,3 +207,96 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "D:\新建文件夹\_agent\c
 | `r2/core/scripts/data/gpu-metal-vulkan-inputs.json` | metal2vulkan pin `555b13d5` |
 | `.github/workflows/macos.yml` | 基线 CI |
 | `.github/workflows/gpu-addon.yml` | addon CI（本次新建） |
+
+## 10. 换机器交接（在另一台电脑复现）
+
+### 10.1 三类东西，处理方式不同
+
+**A. 代码：全部从 GitHub 重新 clone，不要拷贝**
+
+| 仓库 | 克隆命令 | 体积 | 用途 |
+| --- | --- | --- | --- |
+| 核心 | `git clone --recurse-submodules https://github.com/unixnu/UniXNU` | 8.4 GB（20 个子模块，.git 只 20 MB） | 本地内核构建 |
+| 设备 | `git clone -b bringup-2026-11-12 https://github.com/zhangp996/UniXNU-instantnoodlep-10-27` | 184 MB | 板级驱动/包 |
+| CI 与文档 | `git clone -b full-project https://github.com/zhangp996/UniXNU` | 1.4 GB（artifacts 712 MB + .git 508 MB） | CI 流水线、交接文档、分片产物 |
+
+**B. 必须手工拷贝的文件（合计约 600 MB）**
+
+| 文件 | 来源 | 为什么不能省 |
+| --- | --- | --- |
+| `bootEU.img`（199,782,400 B） | `D:\新建文件夹\instantnoodlep-artifacts\` | R2 骨架，拼 boot image 必需 |
+| `boot-dpu5.img` | 同上 | 已知可用的对照基线（sha256 `cb3761be…`） |
+| `boot-ci-payload.img` | 同上 | 本次 CI payload 的反例镜像 |
+| `capture_eu.ps1` | `D:\新建文件夹\_agent\` | 串口抓取（自动找 COM 口） |
+| `ensure_touchhid.sh` / `ensure_bindings.sh` / `ensure_compat.sh` | `D:\新建文件夹\_agent\` | **`build_kernel.sh` 在建内核前会调用它们**，缺了内核链不过 |
+| `platform-tools\`（24 MB） | `D:\新建文件夹\tools\` | Windows 侧 fastboot（WSL 没有 USB 直通） |
+| `dpu5-cap.log`（181 KB） | `D:\新建文件夹\_agent\` | 对照实验的串口证据 |
+
+**C. 必须在新机器重装的工具链**
+
+| 组件 | 体积 | 说明 |
+| --- | --- | --- |
+| `/opt/unixnu-linux` | 187 MB | **Linux 上的 Apple 工具链**（clang 24.0.0git、`ld`、`ar`、`ranlib`、`nm`、`otool`）。`ensure_bindings.sh` / `ensure_compat.sh` 里路径是硬编码的 |
+| `/opt/edk2` | — | UEFI/SILICIUM 构建用 |
+| WSL2 + Ubuntu 22.04 | — | `git python3 rsync 7z build-essential` |
+| Windows 驱动 | — | fastboot（Android Bootloader Interface）+ USB 串口（VID_1209&PID_316D → COMx） |
+
+> **不需要** macOS/Xcode：内核对 Linux 构建；GPU addon 由 GitHub 的 macOS runner 构建。
+
+### 10.2 新机器操作顺序
+
+```bash
+# 1) WSL 依赖
+sudo apt update && sudo apt install -y git python3 python3-venv rsync p7zip-full build-essential
+
+# 2) 三个仓库（约定放在 /home/dev/unixnu/）
+mkdir -p ~/unixnu && cd ~/unixnu
+git clone --recurse-submodules https://github.com/unixnu/UniXNU
+git clone -b bringup-2026-11-12 https://github.com/zhangp996/UniXNU-instantnoodlep-10-27 UniXNU-instantnoodlep
+git clone -b full-project https://github.com/zhangp996/UniXNU full-project
+
+# 3) 工具链（从旧机器拷贝 /opt/unixnu-linux 与 /opt/edk2）
+sudo rsync -a oldpc:/opt/unixnu-linux /opt/   # 或用移动硬盘
+
+# 4) 辅助脚本必须放回这几个硬编码路径
+#    D:\新建文件夹\_agent\ensure_*.sh、capture_eu.ps1
+#    D:\新建文件夹\tools\platform-tools\
+#    D:\新建文件夹\instantnoodlep-artifacts\bootEU.img 等
+```
+
+### 10.3 凭据（**不要拷贝 token**）
+
+1. 旧 token 已在外泄过，先去 GitHub → Settings → Developer settings 吊销。
+2. 新机器用 `gh auth login`（推荐，凭据进系统钥匙串），或新建 **fine-grained PAT**，权限只需：
+   `Contents: Read and write`、`Actions: Read and write`、`Workflows: Read and write`。
+3. 临时推送用 `GIT_ASKPASS` 一次性传入，**不要**写进 `.git/config`、脚本或文档。
+
+### 10.4 验证清单（新机器上依次跑，任一步失败就先修这一步）
+
+```bash
+# ① 仓库完整
+git -C ~/unixnu/UniXNU submodule status | grep -c '^-'    # 应为 0（没有未初始化子模块）
+
+# ② 本地内核能编（约 10 分钟）
+cd ~/unixnu/full-project && bash tools/r2/build_kernel.sh | tail -5
+# 期望末行是 kernel.macho 的 sha256
+
+# ③ 能拼镜像
+python3 tools/r2/build_boot_image.py --payload <payload.img> \
+  --kernel ~/unixnu/UniXNU/out/instantnoodlep/ipados-17.7.11-21H461/instantnoodlep/kernel/kernel.macho \
+  --skeleton '/mnt/d/新建文件夹/instantnoodlep-artifacts/bootEU.img' --no-amfi --out /tmp/t.img
+# 期望打印 args 字节数（<=1000）与 sha256
+
+# ④ CI 可用
+gh workflow list -R zhangp996/UniXNU
+gh workflow run gpu-addon.yml -R zhangp996/UniXNU -f target=ios -f 'xcode=26.6'
+```
+
+### 10.5 最容易在换机时踩的五个点
+
+1. **COM 口编号会变**：`capture_eu.ps1` 会自动按 VID_1209&PID_316D 找口，但仍要确认设备管理器里没变成别的设备名。
+2. **路径硬编码**：`build_kernel.sh`、`ensure_*.sh` 里写死了 `/home/dev/unixnu/…` 与 `D:\新建文件夹\…`；新机器用户名或盘符不同就要改。
+3. **`_ref/a650-ref-combined` 已不存在**：`build_kernel.sh` 仍 `export SM8250_A650_REFERENCE` 指向它；缺了不致命，但会少 A650 参考归档。
+4. **子模块必须 `--recurse-submodules`**：核心仓有 20 个子模块，`drivers/Adreno740`、`drivers/AdrenoMetal` 都在其中。
+5. **不要拷贝 `out/`（21 GB）与 `_agent/dsc`、`_agent/dmg2x`（约 10 GB 的 IPSW 解包）**：它们都能重建。
+
