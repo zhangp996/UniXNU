@@ -1,0 +1,119 @@
+From 650d29b5544eae7b1e7da935ca355554270f3fcc Mon Sep 17 00:00:00 2001
+From: instantnoodlep bring-up <port@instantnoodlep.invalid>
+Date: Mon, 16 Nov 2026 23:18:35 +0800
+Subject: [PATCH] adreno: lock-free fence snapshot for the display's fence wait
+
+gpudiag6 on instantnoodlep: the fence wait ran on every present path
+(detail2=2, real waits up to 104 ms), but 10752 of the display's 200 us
+queries lost the g.lock trylock (detail2=1) in 376 s, because every GPU
+submit/map/wait holds that same lock. The busy defers added jitter on
+top of the real GPU wait and the user still saw stutter.
+
+Keep a seqlock-protected fence snapshot, refreshed under g.lock after
+every dispatch (both WaitFence polls and normal methods), at mount and
+at publish. native_adreno_fences_detail refreshes when the trylock
+succeeds and otherwise returns the last snapshot, so it never fails
+with busy; a snapshot one dispatch old is safe because the frame's
+submit dispatch refreshes it before the compositor's swap arrives.
+---
+ drivers/Adreno650/NativeAdrenoPublish.cpp | 49 +++++++++++++++++++----
+ 1 file changed, 42 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/Adreno650/NativeAdrenoPublish.cpp b/drivers/Adreno650/NativeAdrenoPublish.cpp
+index 938d5da..56c0d58 100644
+--- a/drivers/Adreno650/NativeAdrenoPublish.cpp
++++ b/drivers/Adreno650/NativeAdrenoPublish.cpp
+@@ -138,6 +138,29 @@ struct Published {
+     uint32_t input_bits=0,output_bits=0;
+     uint32_t opened=0,closed=0;
+ } g;
++/* Lock-free fence snapshot for the display's fence wait. gpudiag6: 10752 trylock-busy defers in 376 s, because every
++ * GPU submit/map/wait holds g.lock and the display's 200 us query kept losing the trylock (detail2=1), adding jitter
++ * on top of the real GPU wait. Writers refresh the snapshot under g.lock after every dispatch; the display seqlock-
++ * reads the last snapshot and never fails with busy. A snapshot one dispatch old is safe: the compositor's swap for a
++ * frame arrives after that frame's submit dispatch already refreshed it. */
++struct FenceSnapshot {
++    volatile uint32_t seq;
++    volatile uint32_t submitted,retired,known;
++};
++FenceSnapshot gFenceSnap={0,0,0,0};
++/* Caller holds g.lock. */
++void refreshFenceSnapshotLocked()
++{
++    if(!g.ring)return;
++    uint32_t done=0;
++    const bool known=!g.ring->poisoned() && g.ring->fenceValue(&done)==kIOReturnSuccess && done<=g.ring->lastSubmitted();
++    const uint32_t sub=g.ring->lastSubmitted();
++    gFenceSnap.seq=gFenceSnap.seq+1;
++    __asm__ volatile("dmb sy" ::: "memory");
++    gFenceSnap.submitted=sub;gFenceSnap.retired=done;gFenceSnap.known=known?1u:0u;
++    __asm__ volatile("dmb sy" ::: "memory");
++    gFenceSnap.seq=gFenceSnap.seq+1;
++}
+ }
+ 
+ class NativeAdrenoGpuPublished : public IOService {
+@@ -272,6 +295,7 @@ bool AGXDeviceUserClient::mount(bool kernel)
+         if(gMailboxOwner)gMailboxOwner->release();
+         retain();gMailboxOwner=this;
+     }
++    refreshFenceSnapshotLocked();
+     IOLockUnlock(g.lock);
+     if(core)delete core;
+     return ok;
+@@ -438,6 +462,7 @@ static IOReturn runCore(AGXDeviceUserClient *connection,uint32_t method,const vo
+             /* The connection's own core while it is live; a close that ran between two polls ends the wait. */
+             IOLockLock(g.lock);
+             status=connection->live_?connection->core_->dispatch(method,&poll,sizeof(poll),output,output_size,&g.clock):kIOReturnNotReady;
++            refreshFenceSnapshotLocked();
+             IOLockUnlock(g.lock);
+             waited=g.clock.now_us(g.clock.cookie)-began;
+             if(status!=kIOReturnTimeout || waited>=timeout_us)break;
+@@ -452,6 +477,7 @@ static IOReturn runCore(AGXDeviceUserClient *connection,uint32_t method,const vo
+         if(method==NativeAdrenoMethodBoMap && !status && connection->live_ && !connection->kernel_)
+             if(NativeAdrenoClientRecord *record=clientRecord(connection->name_))
+                 if(connection->core_->windowPeak()>>20>record->peak_mib)record->peak_mib=uint32_t(connection->core_->windowPeak()>>20);
++        refreshFenceSnapshotLocked();
+         IOLockUnlock(g.lock);
+     }
+     native_adreno_metal_diag.inflight=0;
+@@ -745,13 +771,21 @@ extern "C" bool native_adreno_fences_detail(uint32_t *submitted,uint32_t *retire
+ {
+     if(detail){detail[0]=detail[1]=detail[2]=0;}
+     if(!g.published || !g.ring || !submitted || !retired)return false;
+-    if(!IOLockTryLock(g.lock)){if(detail)detail[2]=1;return false;}
+-    uint32_t done=0;
+-    const bool known=!g.ring->poisoned() && g.ring->fenceValue(&done)==kIOReturnSuccess && done<=g.ring->lastSubmitted();
+-    if(known){*submitted=g.ring->lastSubmitted();*retired=done;if(detail){detail[0]=done;detail[2]=2;}}
+-    else if(detail)detail[2]=3;
+-    IOLockUnlock(g.lock);
+-    return known;
++    /* Refresh when the lock is free; when it is busy, return the last snapshot (every dispatch refreshes it under the
++     * lock) instead of failing: the trylock failure dominated the display's retries in gpudiag6 (detail2=1). */
++    if(IOLockTryLock(g.lock)){refreshFenceSnapshotLocked();IOLockUnlock(g.lock);}
++    uint32_t seq1,seq2,sub,ret,known;
++    do{
++        seq1=gFenceSnap.seq;
++        __asm__ volatile("dmb sy" ::: "memory");
++        sub=gFenceSnap.submitted;ret=gFenceSnap.retired;known=gFenceSnap.known;
++        __asm__ volatile("dmb sy" ::: "memory");
++        seq2=gFenceSnap.seq;
++    }while(seq1!=seq2 || (seq1&1u));
++    if(!known){if(detail)detail[2]=3;return false;}
++    *submitted=sub;*retired=ret;
++    if(detail){detail[0]=ret;detail[2]=2;}
++    return true;
+ }
+ extern "C" bool native_adreno_fences(uint32_t *submitted,uint32_t *retired)
+ {
+@@ -770,6 +804,7 @@ extern "C" IOReturn native_adreno_publish(NativeAdrenoVm *vm,NativeAdrenoSubmit
+     }
+     g.vm=vm;g.submit=submit;g.ring=ring;g.clock=*clock;g.timer=timer;g.info=info;g.input_bits=input_bits;g.output_bits=output_bits;
+     g.service=service;g.published=true;
++    IOLockLock(g.lock);refreshFenceSnapshotLocked();IOLockUnlock(g.lock);
+     service->setName("NativeAdrenoGpu");
+     service->registerService();
+     return kIOReturnSuccess;
+-- 
+2.34.1
+
