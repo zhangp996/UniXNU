@@ -110,6 +110,9 @@ public:
      * this ring issued are accepted. Never writes a register. */
     NativeAdrenoRingFence observeFence(uint32_t fence,const NativeAdrenoRingClock *,
         uint32_t timeout_us,uint32_t *observed);
+    /* The CP-written timestamp right now, without waiting or accounting: the display's fence query
+     * (native_adreno_fences) reads it before every flip/copy. Never writes a register. */
+    IOReturn fenceValue(uint32_t *value);
     /* Reads the CP's state for a fence that stopped advancing into out[NativeAdrenoRingStallWords]: RBBM_STATUS..STATUS3,
      * RBBM_INT_0_STATUS, CP_HW_FAULT, CP_STATUS_1, CP_PROTECT_STATUS, CP_RB_RPTR, CP_RB_WPTR, CP_IB1_BASE (lo, hi),
      * CP_IB1_REM_SIZE, CP_IB2_BASE (lo, hi), CP_IB2_REM_SIZE, CP_BV_RB_RPTR, CP_BV_IB1_BASE lo, CP_BV_IB1_REM_SIZE,

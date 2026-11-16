@@ -1045,28 +1045,6 @@ native_legacy_backend_guard(unsigned slot, void *object, void *caller)
 
 extern "C" int native_gpu_trace_enabled(void) { return 0; }
 extern "C" void native_gpu_trace_record(uint32_t, uint32_t, const uint64_t *, uint32_t) {}
-/* No GPU on this board, so every frame retires as soon as it is submitted: the fence query must
- * report success, otherwise NativeLegacyDisplay treats the fence as unknown and retries every
- * 200 us forever, and the client frames are never copied to the framebuffer. */
-extern "C" bool
-native_adreno_fences(uint32_t *submitted, uint32_t *retired)
-{
-	static uint32_t seq;
-	seq = seq + 1;
-	if (submitted) *submitted = seq;
-	if (retired) *retired = seq;
-	return true;
-}
-extern "C" bool
-native_adreno_fences_detail(uint32_t *submitted, uint32_t *retired, uint32_t *detail)
-{
-	static uint32_t seq;
-	seq = seq + 1;
-	if (submitted) *submitted = seq;
-	if (retired) *retired = seq;
-	if (detail) { detail[0] = 0; detail[1] = 0; detail[2] = 4; }
-	return true;
-}
 /* docs/zh/guide/skip-setup.md: a fresh Data seed boots into Setup, and Setup is the state in which
  * launchd never starts SpringBoard.  The documented tool does two things on macOS: it writes these
  * preferences and it creates the /private/var/containers skeleton lsd needs before its database can

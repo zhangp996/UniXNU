@@ -361,6 +361,14 @@ NativeAdrenoRingFence NativeAdrenoRing::observeFence(uint32_t fence,
         if(clock->idle && clock->idle(clock->cookie))return NativeAdrenoRingFenceTimeout;
     }
 }
+IOReturn NativeAdrenoRing::fenceValue(uint32_t *value)
+{
+    if(!value)return kIOReturnBadArgument;*value=0;
+    if(!attached_)return kIOReturnNotReady;
+    if(cache_.acquire(cache_.cookie,fence_,fence_bytes_))return kIOReturnIOError;
+    *value=fence_[1];
+    return kIOReturnSuccess;
+}
 NativeAdrenoRingFence NativeAdrenoRing::wait(uint32_t fence,const NativeAdrenoRingClock *clock,
     uint32_t timeout_us,uint32_t *observed)
 {

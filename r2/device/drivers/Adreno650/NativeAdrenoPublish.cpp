@@ -737,6 +737,26 @@ IOReturn NativeAdrenoGpuPublished::newUserClient(task_t owningTask,void *securit
 
 /* Publishes the service once. Everything passed in must outlive the system (the board probe keeps them in statics) and
  * the VM, submit object and ring must already be attached to the live GPU context. The core must not be open. */
+/* For the display's fence wait (drivers/GopFramebuffer): the newest fence handed out and the newest one the CP has
+ * written. The compositor submits a frame's swap when its command buffer is scheduled, not when the GPU finished it;
+ * a display that reads or copies the surface waits for the fences handed out before the swap arrived. One ring on this
+ * board, so the CP timestamp is the retired prefix. False before the GPU is published. */
+extern "C" bool native_adreno_fences_detail(uint32_t *submitted,uint32_t *retired,uint32_t *detail)
+{
+    if(detail){detail[0]=detail[1]=detail[2]=0;}
+    if(!g.published || !g.ring || !submitted || !retired)return false;
+    if(!IOLockTryLock(g.lock)){if(detail)detail[2]=1;return false;}
+    uint32_t done=0;
+    const bool known=!g.ring->poisoned() && g.ring->fenceValue(&done)==kIOReturnSuccess && done<=g.ring->lastSubmitted();
+    if(known){*submitted=g.ring->lastSubmitted();*retired=done;if(detail){detail[0]=done;detail[2]=2;}}
+    else if(detail)detail[2]=3;
+    IOLockUnlock(g.lock);
+    return known;
+}
+extern "C" bool native_adreno_fences(uint32_t *submitted,uint32_t *retired)
+{
+    return native_adreno_fences_detail(submitted,retired,nullptr);
+}
 extern "C" IOReturn native_adreno_publish(NativeAdrenoVm *vm,NativeAdrenoSubmit *submit,NativeAdrenoRing *ring,
     const NativeAdrenoRingClock *clock,const NativeAdrenoTimer *timer,const NativeAdrenoAbiDeviceInfo *info,
     uint32_t input_bits,uint32_t output_bits)
