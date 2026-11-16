@@ -58,6 +58,8 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o "$RUNNER_TEMP/rustup.sh"
           sh "$RUNNER_TEMP/rustup.sh" -y --profile minimal --default-toolchain 1.98.0
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # The ios and ios27 bridges link the prebuilt std of the cross target.
+          "$HOME/.cargo/bin/rustup" target add aarch64-apple-ios --toolchain 1.98.0
           "$HOME/.cargo/bin/cargo" --version
 
       - name: Fetch the pinned Mesa source and apply the recorded patches
