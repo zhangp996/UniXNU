@@ -51,7 +51,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install host tools
-        run: brew install llvm lld glslang shaderc spirv-tools meson ninja
+        run: brew install llvm lld glslang shaderc spirv-tools meson ninja bison
 
       - name: Install the pinned Rust toolchain
         run: |
@@ -162,6 +162,7 @@ jobs:
           ln -sf "$(command -v glslangValidator)" .cache/mesa-tools/bin/glslangValidator
           ln -sf "$(command -v glslc)" .cache/mesa-tools/bin/glslc
           ln -sf "$(command -v spirv-val)" .cache/mesa-tools/bin/spirv-val
+          echo "$GITHUB_WORKSPACE/.cache/mesa-tools/bin" >> "$GITHUB_PATH"
           for tool in bison llvm-as ld.lld glslangValidator glslc spirv-val; do
             ".cache/mesa-tools/bin/$tool" --version 2>&1 | head -n 1 || true
           done
