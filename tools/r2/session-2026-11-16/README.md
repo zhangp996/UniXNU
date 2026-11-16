@@ -14,5 +14,6 @@
 | hs_make_console_patch.py | 生成 zzz-console-output-off.patch |
 | hs_swap_dbg2.py | 给组件 NativeLegacyDisplay 加 SWAPDBG（未编译验证，供参考） |
 | hs_make_dpu_patch.py | 生成 patches/display/zzz-gop-dpu-diagnostics.patch |
+| hs_build_dpu2_img.sh | boot-dpu.img 的可诊断版本：恢复 offline-legacy-console=1，去掉已 dead 的 sheng-early-retire=1 |
 
 注意：这些脚本会读写 /tmp 与 /mnt/d；复制到 Windows 侧后无法直接运行，仅作追溯。

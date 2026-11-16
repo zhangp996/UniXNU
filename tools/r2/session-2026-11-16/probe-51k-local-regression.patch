@@ -1,0 +1,537 @@
+diff --git a/package/LegacyDisplayProbe.cpp b/package/LegacyDisplayProbe.cpp
+index 56ff523..8ef0699 100755
+--- a/package/LegacyDisplayProbe.cpp
++++ b/package/LegacyDisplayProbe.cpp
+@@ -30,94 +30,6 @@ extern "C" IOService *native_legacy_display_allocate(void);
+ extern "C" void native_legacy_display_probe(void);
+ extern "C" void native_legacy_display_late_probe(void);
+ extern "C" OSReturn OSKextLoadKextWithIdentifier(const char *);
+-/* Board diagnostic: the logical index the kernel assigns to each physical MPIDR.  The staged SMP
+- * gate selects cores by logical index, so this mapping decides whether all eight physical cores are
+- * covered by sheng-smp-max.  Printed once, the first time the probe runs. */
+-extern int ml_get_cpu_number(uint32_t phys);
+-#include <sys/vnode.h>
+-#include "VarExpect.h"
+-
+-/* Compare the Data volume's /private/var with the checklist the reference seed builder copies
+- * from the OS volume (ye3912/apfs scripts/expected-var.json).  A missing entry is a real gap in
+- * this port's seed, not a difference of opinion about the layout. */
+-/* Read the feature registers userland actually sees.  libdispatch picks its atomic path from
+- * ID_AA64ISAR0_EL1.Atomic and its cache-line size from CTR_EL0.DminLine, and nothing in this
+- * kernel or its firmware traps those registers, so these values are what a userland process reads. */
+-/* The keybag counters only feed the framebuffer banner; print them to serial as well, because
+- * the offline AppleKeyStore state service is what liveactivitiesd needs before chronod can start. */
+-extern uint32_t native_aks_opens, native_aks_calls;
+-/* The keybag probes were compiled but never called, so the offline AppleKeyStore state service was
+- * never created: the counters read opens=0 calls=0 and the stage variables stayed at zero.  Create
+- * it here, before userland daemons ask for keybag state. */
+-extern "C" void native_keystore_probe(void);
+-extern "C" void synthetic_touch_start(void);
+-extern "C" void synthetic_touch_tap(int, int);
+-extern "C" void hakios_s6sy791_init(void);
+-extern "C" void MiniAcceleratorPublishStub(IOService *);
+-extern "C" void OppoBacklightPublish(IOService *);
+-extern "C" void native_board_backlight_start(void);
+-extern "C" void synthetic_touch_release(void);
+-
+-extern volatile uint32_t native_keyevents_stage, native_keystore_stage;
+-extern volatile int native_keyevents_status, native_keystore_load_status;
+-extern volatile uint64_t native_keystore_service;
+-
+-static void report_aks_stage_once(void)
+-{
+-	printf("AKSSTAGE keyevents_stage=%u keyevents_status=%d keystore_stage=%u load_status=%d service=%llx\n",
+-	    native_keyevents_stage, native_keyevents_status, native_keystore_stage,
+-	    native_keystore_load_status, (unsigned long long)native_keystore_service);
+-}
+-
+-static void report_aks_once(void)
+-{
+-	printf("AKSCOUNT opens=%u calls=%u\n", native_aks_opens, native_aks_calls);
+-}
+-
+-static void report_atomics_once(void)
+-{
+-	unsigned long long isar0, ctr;
+-	__asm__ volatile("mrs %0, id_aa64isar0_el1" : "=r"(isar0));
+-	__asm__ volatile("mrs %0, ctr_el0" : "=r"(ctr));
+-	printf("LSEATOM isar0=%llx atomic=%llu lse=%llu ctr=%llx dminline=%llu iminline=%llu\n",
+-	    isar0, (isar0 >> 4) & 0xf, (isar0 >> 20) & 0xf, ctr, (ctr >> 16) & 0xf, ctr & 0xf);
+-}
+-
+-static void check_var_expected(void)
+-{
+-	char path[256];
+-	unsigned present = 0, missing = 0, printed = 0;
+-
+-	for (unsigned i = 0; i < VAR_EXPECTED_COUNT; i++) {
+-		vnode_t vp = NULLVP;
+-
+-		if (snprintf(path, sizeof(path), "/private/var/%s", var_expected[i]) >= (int)sizeof(path)) {
+-			continue;
+-		}
+-		if (vnode_lookup(path, 0, &vp, vfs_context_current()) == 0) {
+-			present++;
+-			vnode_put(vp);
+-		} else {
+-			missing++;
+-			if (printed < 40) {
+-				printf("VAREXP missing: %s\n", var_expected[i]);
+-				printed++;
+-			}
+-		}
+-	}
+-	printf("VAREXP summary: present=%u missing=%u total=%u\n", present, missing, VAR_EXPECTED_COUNT);
+-}
+-static void print_cpu_map_once(void)
+-{
+-	static bool done;
+-	if (done) {
+-		return;
+-	}
+-	done = true;
+-	for (unsigned i = 0; i < 8; i++) {
+-		printf("CPUMAP phys=%#x logical=%d\n", 0x100u * i, ml_get_cpu_number(0x100u * i));
+-	}
+-}
+ static IOService *pendingDisplay;
+ /* The published display, kept for the swap-completion call. */
+ static IOService *gDisplay;
+@@ -163,7 +75,6 @@ complete_swap_later(void)
+ 
+ /* PROBE-ROWS: mirror the diagnostic page's process and ui-trace rows to the serial console. The page
+  * renderer is not reached on this port, so the probe starts its own printer. */
+-static void gpu_metal_report_once(void);
+ extern "C" char boot_process_rows[10][120];
+ extern "C" char boot_ui_trace_rows[14][120];
+ /* Both row arrays are only refreshed by these snapshot calls, which the diagnostic page makes; the page is
+@@ -174,48 +85,6 @@ extern "C" int native_owner_setup_skip(void);
+ extern "C" int native_probe_iosurface_root(void);
+ extern "C" int native_create_iosurface(uint32_t, uint32_t, uint32_t, uint32_t);
+ 
+-/* Board bring-up: signal one process by name, for the experiment in which the connection a blocked client
+- * waits on is torn down and has to be made again.  The process ABI here is the one BootProcessProbe.c uses:
+- * opaque proc_t plus accessors, so no BSD private header is pulled into this translation unit. */
+-struct proc;
+-typedef struct proc *probe_proc_t;
+-extern "C" char *proc_best_name(probe_proc_t);
+-extern "C" int proc_pid(probe_proc_t);
+-extern "C" void proc_iterate(unsigned, int (*)(probe_proc_t, void *), void *,
+-    int (*)(probe_proc_t, void *), void *);
+-extern "C" void psignal(struct proc *, int);
+-#define PROBE_ALLPROCLIST (1U << 0)
+-#define PROBE_NOWAITTRANS (1U << 2)
+-struct kill_ctx { const char *name; int hits; };
+-static int
+-kill_one_proc(probe_proc_t p, void *ctx)
+-{
+-	struct kill_ctx *k = (struct kill_ctx *)ctx;
+-	const char *name = p ? proc_best_name(p) : nullptr;
+-	if (!k || !name) {
+-		return 0;
+-	}
+-	if (__builtin_strcmp(name, k->name) != 0) {
+-		/* Board bring-up: the names proc_best_name reports, so the experiment targets one that exists. */
+-		static int shown;
+-		if (shown < 12) {
+-			shown++;
+-			printf("DISPLAY: proc name '%s'\n", name);
+-		}
+-		return 0;
+-	}
+-	psignal((struct proc *)p, 9);
+-	k->hits++;
+-	return 1;
+-}
+-extern "C" int
+-native_kill_named(const char *name)
+-{
+-	struct kill_ctx k = { name, 0 };
+-	proc_iterate(PROBE_ALLPROCLIST | PROBE_NOWAITTRANS, kill_one_proc, &k, nullptr, nullptr);
+-	return k.hits;
+-}
+-
+ static void
+ probe_rows_thread(void *, wait_result_t)
+ {
+@@ -229,19 +98,6 @@ probe_rows_thread(void *, wait_result_t)
+ 			/* The container tree only exists once the Data volume is up, so the LaunchServices store is
+ 			 * dropped from here as well, a minute into the boot. */
+ 			if (tick == 8) {
+-				{
+-					IOService *resource = IOService::getResourceService();
+-					printf("ACCEL: publishing the empty IOAcceleratorES, resource=%p\n", (void *)resource);
+-					MiniAcceleratorPublishStub(resource);
+-				{
+-					uint32_t bl = 0;
+-					if (PE_parse_boot_argn("backlight", &bl, sizeof(bl)) && bl == 1) {
+-						printf("BACKLIGHT: starting the IN2020 DSI service\n");
+-						native_board_backlight_start();
+-					}
+-				}
+-				}
+-				hakios_s6sy791_init();
+ 				native_probe_iosurface_root();
+ 			}
+ 			if (tick == 12) {
+@@ -253,57 +109,11 @@ probe_rows_thread(void *, wait_result_t)
+ 					native_create_iosurface(1080, 2376, 4352, 10342400);
+ 				}
+ 			}
+-			static unsigned realTouchScreen = 0;
+-			if (tick == 20) {
+-				/* With the real S6SY791 driver running, the synthetic taps would fight it for the
+-				 * native_touch_* seqlock; keep them only when the panel driver is off. */
+-				if (PE_parse_boot_argn("touchscreen", &realTouchScreen, sizeof(realTouchScreen))) {
+-					realTouchScreen = (realTouchScreen == 1);
+-				}
+-			}
+-			if (!realTouchScreen && tick >= 24 && (tick % 4) == 0) {
+-				static unsigned phase;
+-				if ((phase++ & 1) == 0) {
+-					synthetic_touch_tap(540, 1188);
+-					printf("SYNTOUCH down\n");
+-				} else {
+-					synthetic_touch_release();
+-					printf("SYNTOUCH up\n");
+-				}
+-			}
+-			if (tick % 4 == 0) {
+-				/* Board bring-up experiment: end lsd once, so the connection SpringBoard is waiting on is
+-				 * torn down and has to be made again.  kill-lsd=<tick> selects the sample (0 = never). */
+-				static unsigned kill_tick, killed;
+-				if (!kill_tick) {
+-					PE_parse_boot_argn("kill-lsd", &kill_tick, sizeof(kill_tick));
+-				}
+-				if (kill_tick && !killed && tick >= kill_tick) {
+-					killed = 1;
+-					printf("DISPLAY: killing lsd at tick %u: %d\n", tick, native_kill_named("lsd"));
+-				}
+-			}
+-			if (tick == 24) {
+-				gpu_metal_report_once();
+-			}
+-			if (tick == 24) {
+-				synthetic_touch_tap(16384, 16384);
+-				printf("SYNTOUCH tap sent\n");
+-				/* After the tick-20 AKS attempt: report where the service creation stopped. */
+-				report_aks_stage_once();
+-				report_aks_once();
+-			}
+ 			if (tick == 20) {
+-				synthetic_touch_start();
+ 				/* Re-run the Setup skip here: the early call runs before the Data volume covers
+ 				 * /private/var, so the container tree it creates is hidden by the mount. */
+ 				printf("DISPLAY: re-run the Setup skip on the mounted Data volume: %d\n",
+ 				    native_owner_setup_skip());
+-				/* Now that /private/var is the Data volume, compare it with the reference checklist. */
+-				check_var_expected();
+-				report_atomics_once();
+-				report_aks_once();
+-				native_keystore_probe();
+ 			}
+ 		}
+ 		for (unsigned i = 0; i < 10; i++) {
+@@ -776,11 +586,6 @@ publish_thread(void *, wait_result_t)
+ 	publish_display();
+ }
+ 
+-/* Board backlight: the sibling IN2020 port publishes AppleARMBacklight-conforming brightness properties over
+- * the DSI0 transport (In2020BacklightService.h).  Started once, after the display family is loaded. */
+-static bool gBacklightStarted __attribute__((unused));
+-/* Backlight: In2020BacklightService.h is kept in the package; wiring waits for a kext-clean C++ translation unit. */
+-
+ extern "C" void
+ native_legacy_display_late_probe(void)
+ {
+@@ -788,7 +593,6 @@ native_legacy_display_late_probe(void)
+ 	 * done by offline-mobile-graphics-load (offline-component-load-probes.patch), which then calls
+ 	 * native_legacy_display_probe(); this entry only records that ordering. */
+ 	printf("DISPLAY: late probe (load handled by offline-mobile-graphics-load)\n");
+-	print_cpu_map_once();
+ }
+ 
+ 
+@@ -854,13 +658,14 @@ native_legacy_gop_mapping_observed(IOService *object, IOMemoryMap *mapping, uint
+ 	chosen->release();
+ 	return ok;
+ }
+-/* Report the frame as taken by the presentation path: the component then retires the swap early,
+- * inside the family's work loop, which is the only place completeCurrentSwap() wakes the waiter.
+- * The probe copies the frame itself in the swap-validation hook. */
+-/* This board has no GPU that can write the scanout memory, so the offer must be declined:
+- * returning true takes the driver GPU hand-off branch, which retires the swap without ever
+- * copying the client frame to the framebuffer - the screen stays on the last console frame
+- * while every userland swap is silently dropped. */
++/* Refuse the GPU hand-off. Nothing in this board's userspace serves an offered frame (the v6 addon carries
++ * no GpuScanoutClient), and the component's offer branch latches "transferred" until
++ * native_legacy_gpu_complete() arrives -- no refused offer leaves a swap waiting for that. Claiming the
++ * frame here (this file returned true from 2026-11-16 05:33) retired swap 1 early and then wedged the
++ * queue: kickOnce() short-circuits on transferred, so the later swaps were validated and copied by the
++ * swap-validation hook but never retired, and backboardd sat in w16. Returning false puts the component's
++ * own CPU present path back in charge: that is the path the 8c-gpu boots used for 896+ measured frames
++ * (DISPLAY frames=... , transfer rc=0x0, copy timing). */
+ extern "C" bool native_legacy_gpu_offer(void *, IOMemoryDescriptor *, uint64_t, uint32_t, uint32_t, uint32_t) { return false; }
+ extern "C" void native_legacy_gpu_fallback_observed(int) {}
+ extern "C" void native_legacy_pm_observed(unsigned, IOReturn, unsigned long) {}
+@@ -877,6 +682,41 @@ extern "C" void native_legacy_swap_stage(unsigned stage)
+ }
+ /* Present one surface on the firmware framebuffer: map the surface's pixel descriptor and copy the rows
+  * into the GOP memory, the way the sibling port does on the compositor's own thread. */
++/* The compositor presents on its own thread once per frame: keep the framebuffer and the surface
++ * mappings across frames instead of building and releasing 10 MiB mappings every time, and write the
++ * framebuffer through a write-combined mapping (the copy is a pure stream of rows, never read back).
++ * Frame statistics go to the serial log every two seconds so the present rate and copy cost are
++ * readable without a profiler. */
++static IOMemoryDescriptor *present_fb_desc;
++static IOMemoryMap *present_fb_map;
++static uint64_t present_fb_phys;
++static uint64_t present_fb_bytes;
++static void *present_source_desc;
++static IOMemoryMap *present_source_map;
++static unsigned present_frames;
++static uint64_t present_copy_ticks;
++static uint64_t present_last_report;
++static uint64_t present_last_frame;
++
++extern "C" uint64_t mach_absolute_time(void);
++
++static void
++present_stats(void)
++{
++	uint64_t now = mach_absolute_time();
++	uint64_t elapsed = now - present_last_report;
++	if (elapsed < 48000000ULL) {
++		return;
++	}
++	unsigned frames = present_frames - present_last_frame;
++	printf("DISPLAY: present stats frames=%u interval_ticks=%llu avg_copy_ticks=%llu fps_x100=%llu\n",
++	    present_frames, (unsigned long long)(frames ? elapsed / frames : 0),
++	    (unsigned long long)(present_frames ? present_copy_ticks / present_frames : 0),
++	    (unsigned long long)(elapsed ? frames * 100000000ULL / elapsed : 0));
++	present_last_frame = present_frames;
++	present_last_report = now;
++}
++
+ static void
+ present_surface(void *surface)
+ {
+@@ -887,18 +727,9 @@ present_surface(void *surface)
+ 	uint32_t width = 0, height = 0, stride = 0, format = 0;
+ 	uint64_t allocation = 0;
+ 	void *descriptor = nullptr;
+-	/* Measured layout: +0x60 holds the height (480 for this panel's compositor surface), +0x68 the
+-	 * stride (4352 = 1088 * 4) and +0x90 the allocation (4352 * 480).  The width is derived from the
+-	 * stride; the words around the block are logged so the exact field can be pinned next time. */
+-	uint32_t words[8] = {};
+-	for (unsigned i = 0; i < 8; i++) {
+-		memcpy(&words[i], (unsigned char *)surface + 0x50 + 4 * i, 4);
+-	}
+ 	memcpy(&width, (unsigned char *)surface + 0x58, 4);
+ 	memcpy(&height, (unsigned char *)surface + 0x60, 4);
+ 	memcpy(&stride, (unsigned char *)surface + 0x68, 4);
+-	printf("DISPLAY: surface words +50 %08x %08x %08x %08x %08x %08x %08x %08x\n",
+-	    words[0], words[1], words[2], words[3], words[4], words[5], words[6], words[7]);
+ 	if (!width && stride >= 4) {
+ 		width = stride / 4;
+ 	}
+@@ -907,48 +738,56 @@ present_surface(void *surface)
+ 	memcpy(&descriptor, (unsigned char *)surface + 0x30, 8);
+ 	PE_Video video = {};
+ 	IOReturn console_rc = PE_current_console(&video);
+-	printf("DISPLAY: present surface=%p %ux%u stride=%u fmt=%08x alloc=%llu desc=%p console=%d base=0x%llx %lux%lu rb=%lu\n",
+-	    surface, width, height, stride, format, (unsigned long long)allocation, descriptor,
+-	    (int)console_rc, (unsigned long long)video.v_baseAddr, (unsigned long)video.v_width,
+-	    (unsigned long)video.v_height, (unsigned long)video.v_rowBytes);
+-	if (console_rc || !video.v_baseAddr || !width || !height || !stride || !descriptor) {
+-		return;
++	if (presents < 3) {
++		printf("DISPLAY: present surface=%p %ux%u stride=%u fmt=%08x alloc=%llu desc=%p console=%d base=0x%llx %lux%lu rb=%lu\n",
++		    surface, width, height, stride, format, (unsigned long long)allocation, descriptor,
++		    (int)console_rc, (unsigned long long)video.v_baseAddr, (unsigned long)video.v_width,
++		    (unsigned long)video.v_height, (unsigned long)video.v_rowBytes);
+ 	}
+-	IOMemoryDescriptor *source = (IOMemoryDescriptor *)descriptor;
+-	IOMemoryMap *source_map = source->map(kIOMapDefaultCache | kIOMapAnywhere);
+-	if (!source_map) {
+-		printf("DISPLAY: present: surface map failed\n");
++	if (console_rc || !video.v_baseAddr || !width || !height || !stride || !descriptor) {
+ 		return;
+ 	}
+ 	/* v_baseAddr carries a flag in its low bits (0x9c000001 for this panel); the framebuffer itself
+-	 * starts at the page base, and an unaligned destination aborts the copy. */
++	 * starts at the page base and an unaligned destination aborts the copy. */
+ 	uint64_t fb_phys = (uint64_t)video.v_baseAddr & ~0xFFFULL;
+-	uint64_t fb_off = 0;
+-	IOByteCount fb_bytes = (IOByteCount)((uint64_t)video.v_rowBytes * video.v_height);
+-	IOMemoryDescriptor *fb_desc = IOMemoryDescriptor::withPhysicalAddress((IOPhysicalAddress)fb_phys,
+-	    fb_bytes, kIODirectionOutIn);
+-	IOMemoryMap *fb_map = fb_desc ? fb_desc->map(kIOMapDefaultCache | kIOMapAnywhere) : nullptr;
+-	if (!fb_map) {
+-		printf("DISPLAY: present: framebuffer map failed\n");
+-		source_map->release();
+-		if (fb_desc) {
+-			fb_desc->release();
++	uint64_t fb_bytes = (uint64_t)video.v_rowBytes * video.v_height;
++	if (!present_fb_map || present_fb_phys != fb_phys || present_fb_bytes != fb_bytes) {
++		if (present_fb_map) { present_fb_map->release(); present_fb_map = nullptr; }
++		if (present_fb_desc) { present_fb_desc->release(); present_fb_desc = nullptr; }
++		present_fb_desc = IOMemoryDescriptor::withPhysicalAddress((IOPhysicalAddress)fb_phys,
++		    (IOByteCount)fb_bytes, kIODirectionOutIn);
++		present_fb_map = present_fb_desc ?
++		    present_fb_desc->map(kIOMapWriteCombineCache | kIOMapAnywhere) : nullptr;
++		if (!present_fb_map) {
++			printf("DISPLAY: present: framebuffer map failed\n");
++			return;
++		}
++		present_fb_phys = fb_phys;
++		present_fb_bytes = fb_bytes;
++	}
++	if (!present_source_map || present_source_desc != descriptor) {
++		if (present_source_map) { present_source_map->release(); present_source_map = nullptr; }
++		present_source_desc = descriptor;
++		present_source_map = ((IOMemoryDescriptor *)descriptor)->map(kIOMapDefaultCache | kIOMapAnywhere);
++		if (!present_source_map) {
++			printf("DISPLAY: present: surface map failed\n");
++			return;
+ 		}
+-		return;
+ 	}
+-	unsigned char *src = (unsigned char *)source_map->getVirtualAddress();
+-	unsigned char *dst = (unsigned char *)fb_map->getVirtualAddress() + fb_off;
++	unsigned char *src = (unsigned char *)present_source_map->getVirtualAddress();
++	unsigned char *dst = (unsigned char *)present_fb_map->getVirtualAddress();
+ 	uint32_t rows = height < video.v_height ? height : (uint32_t)video.v_height;
+ 	uint32_t cols = stride < video.v_rowBytes ? stride : (uint32_t)video.v_rowBytes;
++	uint64_t started = mach_absolute_time();
+ 	for (uint32_t row = 0; row < rows; row++) {
+ 		memcpy(dst + (uint64_t)row * video.v_rowBytes, src + (uint64_t)row * stride, cols);
+ 	}
++	present_copy_ticks += mach_absolute_time() - started;
+ 	if (presents++ < 3) {
+ 		printf("DISPLAY: present copied %u rows x %u bytes (frame %u)\n", rows, cols, presents);
+ 	}
+-	fb_map->release();
+-	fb_desc->release();
+-	source_map->release();
++	present_frames++;
++	present_stats();
+ }
+ 
+ extern "C" void native_legacy_swap_validation_observed(bool accepted, unsigned reason, const void *request,
+@@ -1041,28 +880,8 @@ native_legacy_backend_guard(unsigned slot, void *object, void *caller)
+ 
+ extern "C" int native_gpu_trace_enabled(void) { return 0; }
+ extern "C" void native_gpu_trace_record(uint32_t, uint32_t, const uint64_t *, uint32_t) {}
+-/* No GPU on this board, so every frame retires as soon as it is submitted: the fence query must
+- * report success, otherwise NativeLegacyDisplay treats the fence as unknown and retries every
+- * 200 us forever, and the client frames are never copied to the framebuffer. */
+-extern "C" bool
+-native_adreno_fences(uint32_t *submitted, uint32_t *retired)
+-{
+-	static uint32_t seq;
+-	seq = seq + 1;
+-	if (submitted) *submitted = seq;
+-	if (retired) *retired = seq;
+-	return true;
+-}
+-extern "C" bool
+-native_adreno_fences_detail(uint32_t *submitted, uint32_t *retired, uint32_t *detail)
+-{
+-	static uint32_t seq;
+-	seq = seq + 1;
+-	if (submitted) *submitted = seq;
+-	if (retired) *retired = seq;
+-	if (detail) { detail[0] = 0; detail[1] = 0; detail[2] = 4; }
+-	return true;
+-}
++extern "C" bool native_adreno_fences(uint32_t *, uint32_t *) { return false; }
++extern "C" bool native_adreno_fences_detail(uint32_t *, uint32_t *, uint32_t *) { return false; }
+ /* docs/zh/guide/skip-setup.md: a fresh Data seed boots into Setup, and Setup is the state in which
+  * launchd never starts SpringBoard.  The documented tool does two things on macOS: it writes these
+  * preferences and it creates the /private/var/containers skeleton lsd needs before its database can
+@@ -1128,10 +947,6 @@ native_make_dir(const char *parent_path, const char *leaf, vfs_context_t ctx)
+ extern "C" int
+ native_owner_setup_skip(void)
+ {
+-	/* setup-skip=0 writes the setup state back to "not done" so the Hello screen can be reached; the
+-	 * persistent store otherwise keeps whatever an earlier boot wrote. */
+-	unsigned skip = 1;
+-	PE_parse_boot_argn("setup-skip", &skip, sizeof(skip));
+ 	static const char purple[] =
+ 	    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+ 	    "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+@@ -1210,15 +1025,8 @@ native_owner_setup_skip(void)
+ 	int overrides_error = native_write_preference(
+ 	    "/private/var/db/com.apple.xpc.launchd/overrides.plist", overrides, sizeof(overrides) - 1);
+ 	printf("DISPLAY: chronod override written: %d\n", overrides_error);
+-	static const char purple_off[] =
+-	    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+-	    "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+-	    "<plist version=\"1.0\"><dict>"
+-	    "<key>SetupDone</key><false/><key>SetupFinishedAllSteps</key><false/>"
+-	    "<key>SetupVersion</key><integer>11</integer><key>daemonizeNeedsToRun</key><true/>"
+-	    "</dict></plist>\n";
+ 	int purple_error = native_write_preference("/private/var/mobile/Library/Preferences/com.apple.purplebuddy.plist",
+-	    (skip == 0) ? purple_off : purple, (skip == 0) ? sizeof(purple_off) - 1 : sizeof(purple) - 1);
++	    purple, sizeof(purple) - 1);
+ 	int spring_error = native_write_preference("/private/var/mobile/Library/Preferences/com.apple.springboard.plist",
+ 	    springboard, sizeof(springboard) - 1);
+ 	int migration_error = native_write_preference("/private/var/mobile/Library/Preferences/com.apple.migration.plist",
+@@ -1336,11 +1144,8 @@ native_create_iosurface(uint32_t width, uint32_t height, uint32_t stride, uint32
+ 	return (int)rc;
+ }
+ 
+-/* --- A650 GPU archive link stubs ------------------------------------------------------------
+- * drivers/Adreno650 (libAdreno650.a) references three symbols that the reference board gets from
+- * its own GOP handoff and boot-log export.  This board has neither yet, so provide weak defaults:
+- * a real implementation added later wins without touching the archive.  They are only reached
+- * once the GPU publish hook runs (see the GPU plan in docs/evidence). */
++/* --- A650 GPU archive link stubs: the reference board gets these from its GOP handoff and boot-log
++ * export; this board has neither yet, so provide weak defaults. A strong implementation wins. */
+ extern "C" __attribute__((weak)) IOReturn
+ native_gop_handoff_call(uint32_t op, void *task, const void *input, size_t input_size, void *output,
+     size_t output_size)
+@@ -1362,42 +1167,8 @@ boot_log_export_put(uint32_t generation, uint32_t total, uint32_t offset, const
+ 	return -1;
+ }
+ 
+-/* The display probe still calls the empty-accelerator publisher when accel_stub=1.  With the A650
+- * archive linked MiniAcceleratorES.o stays out of the display archive, so provide a weak no-op here:
+- * a strong definition (the stub rebuilt, or a real accelerator) still wins at link time. */
+ extern "C" __attribute__((weak)) void
+ MiniAcceleratorPublishStub(IOService * provider)
+ {
+ 	(void)provider;
+ }
+-
+-/* --- GPU stage: one diagnostic line per boot ------------------------------------------------
+- * Nothing calls native_adreno_publish() yet (the board power/GMU glue is still to be ported from
+- * the reference port), so this reports the three facts the port needs before that code is written:
+- * how many addon files landed, whether the GPU extensions union mounted, and whether the GMU/ZAP
+- * firmware images are actually linked in (they are weak defaults until a builder embeds them). */
+-extern "C" {
+-extern volatile int native_gpu_addon_files, native_gpu_addon_written, native_gpu_addon_failed;
+-extern volatile int native_gpu_addon_stage, native_gpu_addon_status;
+-uint32_t native_adreno_publish_stats(uint32_t *closed);
+-IOService *native_adreno_published_service();
+-int gpu_metal_start(void);
+-}
+-
+-static void
+-gpu_metal_report_once(void)
+-{
+-	unsigned enabled = 0;
+-	if (!PE_parse_boot_argn("gpu-metal", &enabled, sizeof(enabled)) || enabled != 1) {
+-		return;
+-	}
+-	uint32_t closed = 0;
+-	const uint32_t opened = native_adreno_publish_stats(&closed);
+-	printf("GPU: addon files=%d written=%d failed=%d; extensions stage=%d status=%d; accelerator=%u open=%u service=%p\n",
+-	    (int)native_gpu_addon_files, (int)native_gpu_addon_written, (int)native_gpu_addon_failed,
+-	    (int)native_gpu_addon_stage, (int)native_gpu_addon_status,
+-	    opened, closed,
+-	    (void *)native_adreno_published_service());
+-	printf("GPU: bring-up mode 12\n");
+-	gpu_metal_start();
+-}
