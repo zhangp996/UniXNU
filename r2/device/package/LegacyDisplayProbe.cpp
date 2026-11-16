@@ -1415,24 +1415,18 @@ gpu_metal_diag_report(unsigned tick)
     const char *reader = (const char *)(b + 271);
     const char *name_reader = (const char *)(b + 322);
     const char *starter = (const char *)(b + 339);
-    printf("GPUDIAG tick=%u pub=%u closed=%u svc=%p opens=%u prop=%u name=%u calls=%u last_sel=%u last_status=%x\n
-",
+    printf("GPUDIAG tick=%u pub=%u closed=%u svc=%p opens=%u prop=%u name=%u calls=%u last_sel=%u last_status=%x\n",
         tick, opened, closed, (void *)svc, w[0], w[5], w[8], w[9], w[10], w[11]);
-    printf("GPUDIAG opener=[%s|%s|%s] reader=[%s|%s|%s] name_reader=[%s] starter=[%s|%s|%s]\n
-",
+    printf("GPUDIAG opener=[%s|%s|%s] reader=[%s|%s|%s] name_reader=[%s] starter=[%s|%s|%s]\n",
         opener, opener + 17, opener + 34, reader, reader + 17, reader + 34,
         name_reader, starter, starter + 17, starter + 34);
-    printf("GPUDIAG ext entries=%u sel=%u st=%x in=%u out=%u tunnel=%u probes=%u mb_maps=%u mb_calls=%u marks=%u inflight=%u forced=%u\n
-",
+    printf("GPUDIAG ext entries=%u sel=%u st=%x in=%u out=%u tunnel=%u probes=%u mb_maps=%u mb_calls=%u marks=%u inflight=%u forced=%u\n",
         w[12], w[13], w[14], w[15], w[16], w[17], w[18], w[27], w[28], w[29], w[52], w[54]);
-    printf("GPUDIAG selbits=%08x %08x\n
-", w[19], w[20]);
-    printf("GPUDIAG report=[%s] report2=[%s]\n
-", (const char *)(b + 390), (const char *)(b + 454));
+    printf("GPUDIAG selbits=%08x %08x\n", w[19], w[20]);
+    printf("GPUDIAG report=[%s] report2=[%s]\n", (const char *)(b + 390), (const char *)(b + 454));
     for (unsigned r = 0; r < 6; ++r) {
         const char *row = (const char *)&native_adreno_metal_rows[r];
-        if (row[0]) printf("GPUDIAG row%u=[%s]\n
-", r, row);
+        if (row[0]) printf("GPUDIAG row%u=[%s]\n", r, row);
     }
 }
 
