@@ -82,7 +82,15 @@ jobs:
               path = pathlib.Path(patch).resolve()
               if not path.is_file():
                   raise SystemExit('missing recorded patch: ' + patch)
-              subprocess.run(['git', '-C', str(work), 'apply', '--whitespace=nowarn', str(path)], check=True)
+              # The recorded patches are hand-edited: some create a file from /dev/null without the
+              # 'new file mode' / 'index' lines git apply needs, so fall back to patch(1) for those.
+              git = subprocess.run(['git', '-C', str(work), 'apply', '--whitespace=nowarn', str(path)],
+                                 capture_output=True, text=True)
+              if git.returncode != 0:
+                  fix = subprocess.run(['patch', '-p1', '-N', '-f', '-s', '-d', str(work), '-i', str(path)],
+                                       capture_output=True, text=True)
+                  if fix.returncode != 0:
+                      raise SystemExit('patch failed: ' + patch + ': ' + (git.stderr or '') + (fix.stderr or ''))
               applied += 1
           print(str(applied) + ' recorded patches applied to ' + head)
           PY
