@@ -222,22 +222,18 @@ jobs:
       - name: Report the kernel build environment
         if: always()
         run: |
+          set +e
           echo '--- XNU_* environment ---'
-          env | grep -E '^XNU_' | sort || true
-          echo '--- board hook archives ---'
-          TREE=$(ls -d "$GITHUB_WORKSPACE"/out/*/*/tree 2>/dev/null | head -n 1)
-          echo "tree: $TREE"
-          for d in native-legacy-display qcom-usb-debug ram-watchdog board-compat adreno650 io-storage-bindings verified-block-bridge mockfs-fixture native-prelink; do
-            if [ -d "$TREE/build/$d" ]; then
-              printf '  %-24s ' "$d"; ls "$TREE/build/$d"/*.a 2>/dev/null | tr '\n' ' '; echo
-            else
-              printf '  %-24s MISSING\n' "$d"
-            fi
-          done
+          env | grep -E '^XNU_' | sort
           echo '--- defconfig native switches ---'
-          grep -n 'CONFIG_XNU_NATIVE' device/configs/*defconfig || true
+          grep -n 'CONFIG_XNU_' device/configs/*defconfig
           echo '--- exported XNU_EXTRA_LD_ARCHIVES ---'
           echo "${XNU_EXTRA_LD_ARCHIVES:-(unset)}"
+          echo '--- workspace top ---'
+          ls -la | head -25
+          echo '--- device top ---'
+          ls device | head -25
+          exit 0
 
       - name: Build kernel
         id: kernel
