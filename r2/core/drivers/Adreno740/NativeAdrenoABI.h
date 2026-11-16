@@ -13,7 +13,6 @@
 enum {
     NativeAdrenoAbiVersion = 2,
     NativeAdrenoAbiMaxBuffers = 128,   /* a frame's IBs in one submission (Turnip splits a larger one) */
-    NativeAdrenoAbiMaxBoBytesShift = 28, /* 256MiB per object */
     NativeAdrenoMethodQuery = 1,
     NativeAdrenoMethodBoAlloc = 2,
     NativeAdrenoMethodBoMap = 3,
@@ -30,8 +29,9 @@ enum {
     NativeAdrenoMethodBoCpuUnmap = 14,
     NativeAdrenoMethodGetDeviceInfo = 15,
     NativeAdrenoMethodBoImport = 16,
-    NativeAdrenoAbiMetadataBytes = 64,
-    NativeAdrenoAbiMaxQueues = 8
+    NativeAdrenoMethodSetPriority = 17,
+    NativeAdrenoMethodNote = 18,
+    NativeAdrenoAbiMetadataBytes = 64
 };
 struct NativeAdrenoAbiParams {
     uint32_t abi_version;
@@ -41,7 +41,9 @@ struct NativeAdrenoAbiParams {
     uint64_t max_bo_bytes;
 };
 enum {
-    NativeAdrenoParamsHostImport = 1  /* BoImport pins the caller's own pages (an IOSurface's) as a BO */
+    NativeAdrenoParamsHostImport = 1,  /* BoImport pins the caller's own pages (an IOSurface's) as a BO */
+    NativeAdrenoParamsOwnedCoherent = 2, /* BOs are cacheable for the CPU and mapped write-back inner-shareable for the GPU (IO coherence): map them with the default cache mode, not write-combined */
+    NativeAdrenoParamsMemoryPressure = 4   /* now: the system could not give the last user BO its memory; give cached BOs back */
 };
 struct NativeAdrenoAbiBoAlloc {
     uint64_t bytes;               /* 4KiB multiple, <= max_bo_bytes */
@@ -113,6 +115,22 @@ struct NativeAdrenoAbiBoCpuUnmap {
     uint64_t handle;
     uint32_t token;               /* exactly the token returned by map */
     uint32_t reserved;            /* zero */
+};
+/* The GPU priorities the process's Metal queues asked for, in Metal's numbering (MTLGPUPriority: 0 high, 1 normal, 2 low, 3 disabled,
+ * 4 normal-high, 5 real-time; the strongest of its queues): foreground while the process renders visible UI, background otherwise (its
+ * GPU role, task_get_gpu_role). A new connection has normal and disabled, a new Metal queue's values. */
+struct NativeAdrenoAbiPriority {
+    uint32_t foreground;          /* 0..5, 3 refused */
+    uint32_t background;          /* 0..5 */
+};
+/* A note a process leaves in the kernel's log (the board's export writes it as a row of kernel.rings.txt), for what only the process knows
+ * and has no file of its own to put it in (a sandboxed extension): its slow render passes and the pipelines it made or was refused.
+ * kind 1 pass, 2 pipeline; the words are the kind's record (NativeAdrenoNotePass, NativeAdrenoNotePipeline in the frontend). */
+enum { NativeAdrenoNoteWords = 30, NativeAdrenoNotePass = 1, NativeAdrenoNotePipeline = 2 };
+struct NativeAdrenoAbiNote {
+    uint32_t kind;
+    uint32_t count;               /* words used, <= NativeAdrenoNoteWords */
+    uint32_t words[NativeAdrenoNoteWords];
 };
 struct NativeAdrenoAbiQueue {
     uint64_t queue;               /* zero for create, an open id for close */
