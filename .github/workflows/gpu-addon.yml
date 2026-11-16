@@ -51,7 +51,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install host tools
-        run: brew install llvm lld glslang shaderc meson ninja
+        run: brew install llvm lld glslang shaderc spirv-tools meson ninja
 
       - name: Install the pinned Rust toolchain
         run: |
@@ -151,8 +151,20 @@ jobs:
           .cache/mesa-venv/bin/pip install --quiet -r scripts/requirements-adreno-compiler.txt
           .cache/mesa-venv/bin/meson --version
           mkdir -p .cache/mesa-tools/bin
+          # Homebrew's LLVM is keg-only, so the llvm-* utilities the build reaches through shutil.which
+          # are linked into the directory build-turnip-darwin.py puts first on PATH. clang itself is
+          # left alone: the cross file reaches the SDK through xcrun.
+          LLVM_BIN="$(brew --prefix llvm)/bin"
+          for tool in llvm-as llvm-config llvm-mc llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-size; do
+            ln -sf "$LLVM_BIN/$tool" ".cache/mesa-tools/bin/$tool"
+          done
+          ln -sf "$(brew --prefix lld)/bin/ld.lld" .cache/mesa-tools/bin/ld.lld
           ln -sf "$(command -v glslangValidator)" .cache/mesa-tools/bin/glslangValidator
           ln -sf "$(command -v glslc)" .cache/mesa-tools/bin/glslc
+          ln -sf "$(command -v spirv-val)" .cache/mesa-tools/bin/spirv-val
+          for tool in bison llvm-as ld.lld glslangValidator glslc spirv-val; do
+            ".cache/mesa-tools/bin/$tool" --version 2>&1 | head -n 1 || true
+          done
 
       - name: Build Turnip with the Darwin KMD backend
         run: python3 scripts/build-turnip-darwin.py --target "$TARGET"
