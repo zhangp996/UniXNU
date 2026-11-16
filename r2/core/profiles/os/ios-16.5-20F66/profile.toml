@@ -1,0 +1,70 @@
+# iOS 16.5 (20F66) OS profile — iPhone X (iPhone10,3 / d221ap, A11) as the Apple OS source.
+# Target hardware remains OnePlus 8 Pro (SM8250); this profile only swaps the Apple OS version.
+# PROVISIONAL: constants marked TBD must be derived from the fetched 20F66 kernelcache / DeviceTree / dyld.
+["os"]
+"name" = "ios-16.5-20F66"
+"darwin" = "22.6.0"
+"xnu_version" = "8796.141.3"
+"xnu_revision" = "f625db25f47631424dc62ac1c3414b6e530f7e8a"
+"driverkit_tag" = "xnu-8796.101.5"
+"trustcache_tag" = "xnu-8796.101.5"
+"abi" = ["IOGPUFamily", "IOHIDFamily", "IOMobileGraphicsFamily"]
+
+["ipsw"]
+"url" = "https://updates.cdn-apple.com/2023SummerFCS/fullrestores/042-27766/iPhone10,3,iPhone10,6_16.5_20F66_Restore.ipsw"
+"product" = "iPhone10,3"
+"version" = "16.5"
+"build" = "20F66"
+"device_class" = "d221ap"
+"chip_id" = 32789
+"board_id" = 14
+"fetch" = ["KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,SystemTrustCache"]
+
+["kernel"]
+["kernel"."prelink"]
+"tool" = "kits/XnuPrelink/emit_prelink.py"
+"kernel" = "build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped.noctf"
+"kernelcache_sha256" = "TBD-decompressed-20F66"
+"slide" = "-0x1000000"
+"early_security_init" = "TBD-AMFI-address-20F66"
+"roots" = ["com.apple.AppleFSCompression.AppleFSCompressionTypeZlib", "com.apple.driver.AppleARMPlatform", "com.apple.driver.AppleARMWatchdogTimer", "com.apple.driver.AppleEffaceableStorage", "com.apple.driver.AppleMobileFileIntegrity", "com.apple.driver.ApplePMGR", "com.apple.driver.IODARTFamily", "com.apple.filesystems.apfs", "com.apple.iokit.CoreAnalyticsFamily", "com.apple.iokit.IOAVFamily", "com.apple.iokit.IOAudio2Family", "com.apple.iokit.IOCryptoAcceleratorFamily", "com.apple.iokit.IOGPUFamily", "com.apple.iokit.IOHDCPFamily", "com.apple.iokit.IOMobileGraphicsFamily", "com.apple.iokit.IOReportFamily", "com.apple.iokit.IOSlowAdaptiveClockingFamily", "com.apple.iokit.IOStorageFamily", "com.apple.iokit.IOSurface", "com.apple.kec.Libm", "com.apple.kec.corecrypto", "com.apple.kext.AppleMatch", "com.apple.kext.CoreTrust", "com.apple.security.AppleImage4", "com.apple.security.sandbox", "com.apple.iokit.IOHIDFamily", "com.apple.iokit.IOHIDEventDriver"]
+
+["payload"]
+"text_fixups" = []
+"trust_cache_sha256" = []
+
+["adt"]
+["adt"."root"]
+["adt"."root"."string"]
+"model" = "iPhone10,3"
+"target-type" = "D221"
+"compatible" = "D221AP"
+["adt"."chosen"]
+["adt"."chosen"."string"]
+"osenvironment" = "main"
+"crypto-hash-method" = "sha-384"
+["adt"."chosen"."u32"]
+"certificate-production-status" = 0
+"effective-production-status-ap" = 0
+"certificate-security-mode" = 1
+"effective-security-mode-sep" = 1
+"amfi-only-platform-code" = 1
+["adt"."product"]
+["adt"."product"."string"]
+"product-name" = "iPhone X"
+"product-description" = "iPhone X"
+"artwork-device-idiom" = "phone"
+"artwork-display-gamut" = "P3"
+"compatible-device-fallback" = "iPhone10,6"
+["adt"."product"."u32"]
+"artwork-device-subtype" = 2436
+"artwork-scale-factor" = 3
+["adt"."defaults"]
+["adt"."defaults"."u32"]
+"kern.maxvnodes" = 66560
+
+[userdata]
+windows = [{ name = "OS", component = "OS" }, { name = "SystemOS", component = "Cryptex1,SystemOS", optional = true }]
+
+[root]
+os_volume_uuid = "TBD-20F66-root-volume-uuid"

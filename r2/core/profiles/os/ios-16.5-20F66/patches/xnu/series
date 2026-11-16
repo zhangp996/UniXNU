@@ -1,0 +1,3 @@
+# iOS 16.5 / XNU 8796.141.3 patch series — PROVISIONAL.
+# The 10063 prelink patches do not apply to 8796; 8796 equivalents must be authored.
+arch:../../../patches/xnu/zzz-boot-progress.patch
