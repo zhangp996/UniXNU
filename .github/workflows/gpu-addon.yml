@@ -141,7 +141,7 @@ jobs:
         run: python3 scripts/build-turnip-darwin.py --target "$TARGET"
 
       - name: Build the NativeAdrenoMetal plugin
-        run: python3 scripts/build-adreno-metal-plugin.py --target "$TARGET"
+        run: python3 scripts/build-adreno-metal-plugin.py --target "$TARGET" --no-replay
 
       - name: Pack the addon
         run: |
