@@ -99,7 +99,7 @@ jobs:
         run: |
           python3 -m venv .cache/mesa-venv
           .cache/mesa-venv/bin/pip install --quiet --upgrade pip
-          .cache/mesa-venv/bin/pip install --quiet meson ninja
+          .cache/mesa-venv/bin/pip install --quiet meson ninja packaging mako pyyaml
           .cache/mesa-venv/bin/meson --version
           mkdir -p .cache/mesa-tools/bin
           ln -sf "$(command -v glslangValidator)" .cache/mesa-tools/bin/glslangValidator
