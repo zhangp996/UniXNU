@@ -19,7 +19,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zlib.h>
+#include <functional>
 #include <set>
+#include <atomic>
 #include <string>
 #include <vector>
 #ifndef CACHEEXPORT_FORMAT_ONLY   // the format alone (host check, bridge/cache_export_host.cpp); the plugin also gets the sender
@@ -54,6 +56,10 @@ static void scan(const std::string &root, const std::string &relative, std::vect
     if (!dir) return;
     while (dirent *entry = readdir(dir)) {
         if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
+        // A concurrent import or cache writer has not published these entries yet.
+        const std::string leaf = entry->d_name;
+        if (leaf.front() == '.' || leaf.find(".import.") != std::string::npos ||
+            (leaf.size() >= 4 && leaf.compare(leaf.size()-4, 4, ".tmp") == 0)) continue;
         const std::string path = relative.empty() ? std::string(entry->d_name) : relative + "/" + entry->d_name;
         struct stat st = {};
         if (lstat((root + "/" + path).c_str(), &st) != 0) continue;
@@ -144,6 +150,8 @@ struct PackReader {
     using InflateFn = int (*)(z_streamp, int);
     using EndFn = int (*)(z_streamp);
     FILE *in = nullptr;
+    // Where the compressed bytes come from (the pack file).
+    std::function<bool(void *, size_t)> source;
     z_stream z = {};
     InflateFn inflateFn = nullptr;
     EndFn endFn = nullptr;
@@ -152,18 +160,25 @@ struct PackReader {
     uint8_t input[65536];
     ~PackReader() {if (open) endFn(&z); if (in) fclose(in);}
     bool start(const char *path) {
+        if (!(in = fopen(path, "rb"))) return false;
+        struct stat st = {};
+        if (fstat(fileno(in), &st) != 0 || (uint64_t)st.st_size > kPackLimit) return false;
+        FILE *file = in;
+        return startWith([file](void *out, size_t n) {return fread(out, 1, n, file) == n;}, (uint64_t)st.st_size);
+    }
+    // A pack of `bytes` bytes (its 16-byte head included) that `read` hands out in order.
+    bool startWith(std::function<bool(void *, size_t)> read, uint64_t bytes) {
         static void *lib = dlopen("/usr/lib/libz.1.dylib", RTLD_NOW | RTLD_LOCAL);
         auto init = lib ? (InitFn)dlsym(lib, "inflateInit_") : nullptr;
         inflateFn = lib ? (InflateFn)dlsym(lib, "inflate") : nullptr;
         endFn = lib ? (EndFn)dlsym(lib, "inflateEnd") : nullptr;
-        if (!init || !inflateFn || !endFn || !(in = fopen(path, "rb"))) return false;
-        struct stat st = {};
+        source = std::move(read);
         uint8_t head[16];
         uint32_t raw = 0, zbytes = 0;
-        if (fstat(fileno(in), &st) != 0 || (uint64_t)st.st_size > kPackLimit || fread(head, 1, 16, in) != 16 || memcmp(head, "SHEXP001", 8)) return false;
+        if (!init || !inflateFn || !endFn || !source(head, 16) || memcmp(head, "SHEXP001", 8)) return false;
         memcpy(&raw, head + 8, 4);
         memcpy(&zbytes, head + 12, 4);
-        if ((uint64_t)zbytes != (uint64_t)st.st_size - 16) return false;
+        if ((uint64_t)zbytes != bytes - 16) return false;
         left = zbytes; expect = raw;
         open = init(&z, ZLIB_VERSION, (int)sizeof z) == Z_OK;
         return open;
@@ -175,7 +190,7 @@ struct PackReader {
             if (ended) return false;
             if (!z.avail_in && left) {
                 const size_t want = left < sizeof input ? (size_t)left : sizeof input;
-                if (fread(input, 1, want, in) != want) return false;
+                if (!source(input, want)) return false;
                 left -= want;
                 z.next_in = input;
                 z.avail_in = (uInt)want;
@@ -205,12 +220,18 @@ struct PackReader {
 // scripts/add-gpu-plugin-data.py --pipeline-pack). Its files go into this process's own cache directory, so they carry this process's owner
 // and mode; a file that is already there with the same size is kept. Files are written beside their place and renamed only once the
 // whole pack has been read and checked: a damaged pack imports nothing. Returns the number of files written, or -1.
+static int importStream(PackReader &r, const std::string &directory);
 static int importPack(const char *pack, const std::string &directory) {
     if (access(pack, R_OK) != 0) return 0;
     PackReader r;
     if (!r.start(pack)) return -1;
+    return importStream(r, directory);
+}
+static int importStream(PackReader &r, const std::string &directory) {
+    static std::atomic<unsigned long long> importSequence{0};
+    const std::string suffix=".import."+std::to_string(getpid())+"."+std::to_string(importSequence.fetch_add(1));
     std::vector<std::string> written;
-    auto fail = [&]() {for (const std::string &f : written) unlink((f + ".import").c_str()); return -1;};
+    auto fail = [&]() {for (const std::string &f : written) unlink((f + suffix).c_str()); return -1;};
     char magic[8];
     uint32_t rootLength = 0, count = 0;
     if (!r.read(magic, 8) || memcmp(magic, "M2VCACH1", 8) || !r.read(&rootLength, 4) || rootLength > 4096 || !r.skip(rootLength) ||
@@ -232,7 +253,7 @@ static int importPack(const char *pack, const std::string &directory) {
         for (size_t slash = full.find('/', directory.size() + 1); slash != std::string::npos; slash = full.find('/', slash + 1))
             mkdir(full.substr(0, slash).c_str(), 0700);
         written.push_back(full);
-        FILE *out = fopen((full + ".import").c_str(), "wb");
+        FILE *out = fopen((full + suffix).c_str(), "wb");
         if (!out) return fail();
         bool ok = true;
         for (uint64_t left = size; ok && left;) {
@@ -245,7 +266,7 @@ static int importPack(const char *pack, const std::string &directory) {
     }
     if (!r.finished()) return fail();
     int renamed = 0;
-    for (const std::string &f : written) if (rename((f + ".import").c_str(), f.c_str()) == 0) ++renamed; else unlink((f + ".import").c_str());
+    for (const std::string &f : written) if (rename((f + suffix).c_str(), f.c_str()) == 0) ++renamed; else unlink((f + suffix).c_str());
     baked().insert(seen.begin(), seen.end());   // only a pack read to its end counts
     return renamed;
 }
