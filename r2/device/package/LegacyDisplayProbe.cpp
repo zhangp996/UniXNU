@@ -1045,6 +1045,9 @@ native_legacy_backend_guard(unsigned slot, void *object, void *caller)
 
 extern "C" int native_gpu_trace_enabled(void) { return 0; }
 extern "C" void native_gpu_trace_record(uint32_t, uint32_t, const uint64_t *, uint32_t) {}
+/* Pixel capture is part of the merged display's GPU trace; tracing is disabled on this board
+ * (native_gpu_trace_enabled returns 0), so the sink is an inert stub that satisfies the link. */
+extern "C" int native_gpu_pixel_put(const struct NativeGpuPixelPiece *, uint32_t) { return 0; }
 /* docs/zh/guide/skip-setup.md: a fresh Data seed boots into Setup, and Setup is the state in which
  * launchd never starts SpringBoard.  The documented tool does two things on macOS: it writes these
  * preferences and it creates the /private/var/containers skeleton lsd needs before its database can
