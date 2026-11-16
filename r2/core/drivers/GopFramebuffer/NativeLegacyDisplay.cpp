@@ -1133,6 +1133,10 @@ public:
         }
         OSSafeReleaseNULL(mapping);return valid;
     }
+    /* No hardware timing engine on this board: vsync is the work-loop timer (sheng-vsync), so the
+     * family's timing query (slot 345) answers false. The audit classifies 345 as an abstract leaf;
+     * owning it here keeps the vtable bound to this backend instead of the original base symbol. */
+    bool isTimingEnabled() override {return false;}
 #define LEAF(n) __attribute__((noreturn,noinline)) void opaque##n() override { native_legacy_backend_guard(n,this,__builtin_return_address(0)); }
     NATIVE_LEGACY_LEAVES(LEAF)
 #undef LEAF
