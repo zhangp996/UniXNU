@@ -1,0 +1,126 @@
+From cc329f10cf81db956a1fb7b86260f748424294a7 Mon Sep 17 00:00:00 2001
+From: root <root@DESKTOP-D1OC6L2>
+Date: Mon, 16 Nov 2026 22:59:33 +0800
+Subject: [PATCH] display: wait on the Adreno fence before every present path
+
+gpudiag5 on instantnoodlep: direct scanout refused (dead0001), the
+GPU-offer probe is a stub, so all 128 frames took the CPU copy, which
+never called gpuWrote; zero fence events and tearing persisted.
+
+Move the fence wait to the common transfer head so the DPU flip, the
+GPU offer and the CPU copy all wait for the GPU to retire the rendering
+submitted before the swap. Create fenceTimer in start() even when
+startDirect refuses direct scanout. Print FENCEWAIT defer/pass lines
+and fence counters in the DISPLAY summary for serial verification,
+because the probe's trace record sink is an inert stub.
+---
+ NativeLegacyDisplay.cpp  | 32 +++++++++++++++++++++++++++-----
+ Test/check-fence-wait.py |  1 +
+ 2 files changed, 28 insertions(+), 5 deletions(-)
+
+diff --git a/NativeLegacyDisplay.cpp b/NativeLegacyDisplay.cpp
+index b23e4fd..fd57fc4 100644
+--- a/NativeLegacyDisplay.cpp
++++ b/NativeLegacyDisplay.cpp
+@@ -330,6 +330,7 @@ class NativeLegacyDisplay : public IOMobileFramebufferLegacy {
+     uint32_t fenceTarget=0;
+     uint64_t fenceSince=0;
+     bool fenceCaptured=false,fenceSlow=false;
++    uint32_t fenceDetailLast[3]={0,0,4};
+     IOTimerEventSource *fenceTimer=nullptr;
+     bool directOn=false,directBoot=true;
+     // What the firmware left in the two video pipes: the address and stride the panel actually scans now. Restoring
+@@ -362,9 +363,8 @@ class NativeLegacyDisplay : public IOMobileFramebufferLegacy {
+         directPages=static_cast<uint64_t *>(IOMallocData(8192*sizeof(uint64_t)));
+         IOWorkLoop *loop=getWorkLoop();
+         latchTimer=loop?IOTimerEventSource::timerEventSource(this,&NativeLegacyDisplay::latchFired):nullptr;
+-        fenceTimer=loop?IOTimerEventSource::timerEventSource(this,&NativeLegacyDisplay::fenceFired):nullptr;
+-        if(!mdpMap || !directPages || !latchTimer || !fenceTimer || loop->addEventSource(fenceTimer)!=kIOReturnSuccess || loop->addEventSource(latchTimer)!=kIOReturnSuccess) {
+-            OSSafeReleaseNULL(mdpMap);OSSafeReleaseNULL(latchTimer);OSSafeReleaseNULL(fenceTimer);
++        if(!mdpMap || !directPages || !latchTimer || loop->addEventSource(latchTimer)!=kIOReturnSuccess) {
++            OSSafeReleaseNULL(mdpMap);OSSafeReleaseNULL(latchTimer);
+             if(directPages){IOFreeData(directPages,8192*sizeof(uint64_t));directPages=nullptr;}
+             printf("DPUDBG direct setup failed map=%p pages=%p timer=%p mode=%u\n",(void *)mdpMap,(void *)directPages,(void *)latchTimer,mode);
+             return;
+@@ -438,10 +438,12 @@ class NativeLegacyDisplay : public IOMobileFramebufferLegacy {
+         uint32_t submitted=0,retired=0,detail[3]={0,0,4};
+         // Preserve the CPU-only backend when no GPU fence interface is linked.
+         if(!&native_adreno_fences_detail && !&native_adreno_fences) {
++            static bool said=false;if(!said){said=true;printf("FENCEWAIT no-provider linked; CPU-only present\n");}
+             gpuTraceEvent(GpuTraceDisplayFence,0,traceId(request),0,0,0,0,0,0,0,4);return true;
+         }
+         const bool known=&native_adreno_fences_detail?native_adreno_fences_detail(&submitted,&retired,detail):
+             (&native_adreno_fences && native_adreno_fences(&submitted,&retired));
++        fenceDetailLast[0]=detail[0];fenceDetailLast[1]=detail[1];fenceDetailLast[2]=detail[2];
+         if(known && !fenceCaptured) {
+             fenceTarget=submitted;fenceCaptured=true;
+         }
+@@ -466,6 +468,7 @@ class NativeLegacyDisplay : public IOMobileFramebufferLegacy {
+             fenceSlow=true;
+         }
+         gpuTraceEvent(GpuTraceDisplayFence,0,traceId(request),known?3:4,fenceTarget,submitted,retired,ns,detail[0],detail[1],detail[2]);
++        if(!fenceTimer)return true;
+         fenceTimer->setTimeoutUS(200);
+         return false;
+     }
+@@ -622,6 +625,11 @@ public:
+     bool start(IOService *provider) override {
+         if(!startDisplay(provider))return false;
+         publishOneLayer();
++        // The fence wait serves every present path (the CPU copy included), so its retry timer must exist even
++        // when startDirect() refuses direct scanout and returns before creating any timer (gpudiag5: dead0001).
++        IOWorkLoop *loop=getWorkLoop();
++        fenceTimer=loop?IOTimerEventSource::timerEventSource(this,&NativeLegacyDisplay::fenceFired):nullptr;
++        if(fenceTimer && loop->addEventSource(fenceTimer)!=kIOReturnSuccess)OSSafeReleaseNULL(fenceTimer);
+         startVsync();startDirect();return true;
+     }
+     // CoreAnimation reads how many layers the display scans out from IOMFBNumLayers (MaxNumLayers). Without the property it may hand a
+@@ -782,9 +790,23 @@ public:
+         }
+         noteSurface(surface,memory);
+         const bool half=nativeHalf(native_legacy_surface_format(surface),native_legacy_surface_planes(surface));
++        // Every present path reads this surface (DPU flip, GPU offer, CPU copy): wait until the GPU retired the
++        // rendering submitted before this swap, or the scanout store catches the GPU mid-write (tearing/flicker).
++        // gpudiag5 proved the wait must live here: direct scanout is refused on this board (dead0001) and the
++        // GPU-offer probe is a stub, so all frames take the CPU copy below, which never waited before.
++        if(!gpuWrote(request)) {
++            transferred=true;
++            static unsigned defers=0;++defers;
++            if(defers<=6 || (defers&255)==0)
++                printf("FENCEWAIT defer n=%u target=%u detail2=%u waits=%u\n",defers,fenceTarget,fenceDetailLast[2],native_legacy_direct[9]);
++            return;
++        }
++        {static unsigned passes=0;++passes;
++         if(passes<=12 || (passes&127)==0)
++             printf("FENCEWAIT pass n=%u target=%u detail2=%u wait_us=%u max_us=%u slow=%u\n",
++                 passes,fenceTarget,fenceDetailLast[2],native_legacy_direct[10],native_legacy_direct[11],native_legacy_direct[12]);}
+         if(directOn && !half && !gpuBypass && latchRequest)stat(5);
+         if(directOn && !half && !gpuBypass && !latchRequest) {
+-            if(!gpuWrote(request)) {transferred=true;return;}
+             const int slot=directSlot(surface,memory);
+             if(slot>=0) {
+                 presentChainBump(kPresentDirect,"dpu-flip");
+@@ -918,7 +940,7 @@ public:
+                  (uint32_t)bootVideo.v_width,(uint32_t)bootVideo.v_height,0xff000000U);
+              __asm__ volatile("dsb sy" ::: "memory");
+          }
+-         if((consoleFrames%128)==0)IOLog("DISPLAY frames=%u direct flip=%u map=%u fail=%u late=%u maxus=%u meanus=%u lost=%u fallback=%u boot=%u\n",consoleFrames,native_legacy_direct[0],native_legacy_direct[1],native_legacy_direct[2],native_legacy_direct[3],native_legacy_direct[4],native_legacy_direct[1]?native_legacy_direct[5]/native_legacy_direct[1]:0,native_legacy_direct[6],native_legacy_direct[7],native_legacy_direct[8]);
++         if((consoleFrames%128)==0)IOLog("DISPLAY frames=%u direct flip=%u map=%u fail=%u late=%u maxus=%u meanus=%u lost=%u fallback=%u boot=%u fence_waits=%u fence_us=%u fence_max_us=%u fence_slow=%u\n",consoleFrames,native_legacy_direct[0],native_legacy_direct[1],native_legacy_direct[2],native_legacy_direct[3],native_legacy_direct[4],native_legacy_direct[1]?native_legacy_direct[5]/native_legacy_direct[1]:0,native_legacy_direct[6],native_legacy_direct[7],native_legacy_direct[8],native_legacy_direct[9],native_legacy_direct[10],native_legacy_direct[11],native_legacy_direct[12]);
+         }
+         finishTransfer(request);
+     }
+diff --git a/Test/check-fence-wait.py b/Test/check-fence-wait.py
+index 98b6ae7..4e6aa89 100644
+--- a/Test/check-fence-wait.py
++++ b/Test/check-fence-wait.py
+@@ -52,6 +52,7 @@ struct Display {
+     uint32_t fenceTarget=0;
+     uint64_t fenceSince=0;
+     bool fenceCaptured=false,fenceSlow=false,traceGpuComplete=false,gpuRetired=false,transferred=false;
++    uint32_t fenceDetailLast[3]={0,0,4};
+     Timer timer;
+     Timer *fenceTimer=&timer;
+     unsigned waits=0,passed=0;
+-- 
+2.34.1
+
