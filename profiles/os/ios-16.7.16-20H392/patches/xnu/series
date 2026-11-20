@@ -63,3 +63,4 @@ rebased/clang-drop-auto-var-init-acknowledgement.patch
 rebased/clang-kalloc-void-ptr-compat.patch
 rebased/clang-uio-stackbuf-array-align.patch
 rebased/iorpc-kernel-content.patch
+rebased/kpc-arm64-from-xnu-10063.patch
