@@ -65,3 +65,4 @@ rebased/clang-uio-stackbuf-array-align.patch
 rebased/iorpc-kernel-content.patch
 rebased/kpc-arm64-from-xnu-10063.patch
 rebased/clang-compile-records-mj.patch
+rebased/pthread-jit-entitled-callback.patch
