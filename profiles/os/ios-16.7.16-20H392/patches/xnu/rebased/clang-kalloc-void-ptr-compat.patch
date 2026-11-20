@@ -1,0 +1,16 @@
+--- a/osfmk/kern/kalloc.h
++++ b/osfmk/kern/kalloc.h
+@@ -822,11 +822,8 @@
+  * @param type          the type which the pointer will be checked against.
+  */
+ #define KALLOC_TYPE_IS_COMPATIBLE_PTR(ptr, type)                   \
+-	_Pragma("clang diagnostic push")                               \
+-	_Pragma("clang diagnostic ignored \"-Wvoid-ptr-dereference\"") \
+-	(__builtin_xnu_types_compatible(__typeof__(*(ptr)), type) ||   \
+-	    __builtin_xnu_types_compatible(__typeof__(*(ptr)), void))  \
+-	_Pragma("clang diagnostic pop")
++	(__builtin_xnu_types_compatible(__typeof__(ptr), type *) ||    \
++	    __builtin_xnu_types_compatible(__typeof__(ptr), void *))
+ 
+ #define KALLOC_TYPE_ASSERT_COMPATIBLE_POINTER(ptr, type) \
+ 	_Static_assert(KALLOC_TYPE_IS_COMPATIBLE_PTR(ptr, type), \

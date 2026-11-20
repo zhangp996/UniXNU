@@ -61,3 +61,4 @@ rebased/offline-owner-systemos-mount.patch
 # carries neither FREEZE_ENABLED_DEFAULT nor the broken "#if (XNU_TARGET_OS_IOS && ||"
 # precondition the official patch fixes (probed 2026-11-20); no target exists.
 rebased/clang-drop-auto-var-init-acknowledgement.patch
+rebased/clang-kalloc-void-ptr-compat.patch
