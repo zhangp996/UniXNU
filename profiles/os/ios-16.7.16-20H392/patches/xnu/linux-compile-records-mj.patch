@@ -1,0 +1,33 @@
+# xnu-8796 MakeInc.rule predates the -MJ per-object compile records that
+# xnu-10063 adds (S/C/P_RULE_1A). unixnu kernel.py requires startup.o.json
+# to tolerate the bootstrap link stop and to feed the archive builders.
+# Add -MJ $(@:o=o.json) to the three compile rules (clang writes the record).
+--- a/makedefs/MakeInc.rule
++++ b/makedefs/MakeInc.rule
+@@ -392,7 +392,7 @@
+ #
+ 
+ S_RULE_0=@$(LOG_AS) "$@"
+-S_RULE_1A=$(_v)${S_KCC} -c ${SFLAGS} -MD -MF $(@:o=d) -MP ${$@_SFLAGS_ADD} ${INCFLAGS} ${$@_INCFLAGS}
++S_RULE_1A=$(_v)${S_KCC} -c ${SFLAGS} -MD -MF $(@:o=d) -MJ $(@:o=o.json) -MP ${$@_SFLAGS_ADD} ${INCFLAGS} ${$@_INCFLAGS}
+ S_RULE_1B=$(<F)
+ S_RULE_2=
+ 
+@@ -400,7 +400,7 @@
+ # Compilation rules to generate .o from .c for normal files
+ #
+ C_RULE_0=@$(LOG_CC) "$@"
+-C_RULE_1A=$(_v)${KCC} -c ${filter-out ${$@_CFLAGS_RM}, ${CFLAGS} ${CWARNFLAGS}} -MD -MF $(@:o=d) -MP ${$@_CFLAGS_ADD} ${$@_CWARNFLAGS_ADD} ${INCFLAGS} ${$@_INCFLAGS}
++C_RULE_1A=$(_v)${KCC} -c ${filter-out ${$@_CFLAGS_RM}, ${CFLAGS} ${CWARNFLAGS}} -MD -MF $(@:o=d) -MJ $(@:o=o.json) -MP ${$@_CFLAGS_ADD} ${$@_CWARNFLAGS_ADD} ${INCFLAGS} ${$@_INCFLAGS}
+ C_RULE_1B=$(<F)
+ C_RULE_2=
+ 
+@@ -424,7 +424,7 @@
+ #   The config tool slickly changes the last source filename char to 'o'
+ #   for the object filename.
+ P_RULE_0=@$(LOG_CXX) "$@"
+-P_RULE_1A=$(_v)${KC++} -o $@ -c ${CXXFLAGS} ${filter-out ${$@_CFLAGS_RM}, ${CFLAGS} ${CXXWARNFLAGS}} -MD -MF $(@:o=d) -MP ${$@_CFLAGS_ADD} ${$@_CXXWARNFLAGS_ADD} ${INCFLAGS} ${$@_INCFLAGS}
++P_RULE_1A=$(_v)${KC++} -o $@ -c ${CXXFLAGS} ${filter-out ${$@_CFLAGS_RM}, ${CFLAGS} ${CXXWARNFLAGS}} -MD -MF $(@:o=d) -MJ $(@:o=o.json) -MP ${$@_CFLAGS_ADD} ${$@_CXXWARNFLAGS_ADD} ${INCFLAGS} ${$@_INCFLAGS}
+ P_RULE_1B=$(<F)
+ P_RULE_2=
+ 

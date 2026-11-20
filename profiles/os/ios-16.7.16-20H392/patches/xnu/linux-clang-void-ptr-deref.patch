@@ -1,0 +1,34 @@
+# New for xnu-8796 on mainline clang: *(void*) is a hard error in C++ while Apple's
+# downstream clang downgrades it to -Wvoid-ptr-dereference. Every IOKit class using
+# __IOOverrideTypedOperators hits this via operator delete(void *mem). C++ derives the
+# element type without indirection; C keeps __typeof__(*(ptr)) under the pragma.
+--- a/osfmk/kern/kalloc.h
++++ b/osfmk/kern/kalloc.h
+@@ -821,10 +821,25 @@
+  * @param ptr           the pointer whose type needs to be checked.
+  * @param type          the type which the pointer will be checked against.
+  */
++#ifdef __cplusplus
++/* Mainline clang makes *(void*) a hard error in C++ (Apple's downstream clang
++ * downgrades it to -Wvoid-ptr-dereference, suppressed below). Derive the
++ * pointed-to type without indirection; void* stays the documented wildcard.
++ * kalloc.h is included inside extern "C" blocks; restore C++ linkage for the
++ * templates explicitly (mainline clang rejects templates with C linkage). */
++extern "C++" {
++template<class T> struct __kalloc_elem_type { using type = T; };
++template<class T> struct __kalloc_elem_type<T *> { using type = T; };
++}
++#define __KALLOC_ELEM_TYPE(ptr) typename __kalloc_elem_type<__typeof__(ptr)>::type
++#else
++#define __KALLOC_ELEM_TYPE(ptr) __typeof__(*(ptr))
++#endif
++
+ #define KALLOC_TYPE_IS_COMPATIBLE_PTR(ptr, type)                   \
+ 	_Pragma("clang diagnostic push")                               \
+ 	_Pragma("clang diagnostic ignored \"-Wvoid-ptr-dereference\"") \
+-	(__builtin_xnu_types_compatible(__typeof__(*(ptr)), type) ||   \
+-	    __builtin_xnu_types_compatible(__typeof__(*(ptr)), void))  \
++	(__builtin_xnu_types_compatible(__KALLOC_ELEM_TYPE(ptr), type) ||   \
++	    __builtin_xnu_types_compatible(__KALLOC_ELEM_TYPE(ptr), void))  \
+ 	_Pragma("clang diagnostic pop")
+ 

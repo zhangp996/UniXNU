@@ -1,0 +1,222 @@
+# iOS 16.7.16 (20H392) OS profile — iPhone X (iPhone10,6 / d221ap, A11) as the Apple OS source.
+# Target hardware remains OnePlus 8 Pro IN2020 (instantnoodlep / SM8250); this profile only
+# swaps the Apple OS version. Supersedes the provisional ios-16.5-20F66 skeleton.
+#
+# Every constant below was measured from the user's local restore image
+# iPhone10,3,iPhone10,6_16.7.16_20H392_Restore.ipsw (6,171,035,648 B) by
+# tools/r2/extract_ipsw_pins.py on 2026-11-17; the full measurement record is
+# out/ipsw/20H392/ipsw-pins-20H392.json (regenerate with the same script).
+#
+# Source baseline: the donor kernelcache is Darwin 22.6.0,
+#   xnu-8796.142.1.703.8~1/RELEASE_ARM64_T8015 (built 2024-07-02).
+# Apple did not publish 8796.142.1; the closest public drop of the same train is
+# xnu-8796.141.3 (tag commit 1b191cb58250d0705d8a51287127505aa4bc0789), which is the
+# source this profile builds. The prelink/storage bindings below are measured from the
+# actual 20H392 donor, not from the source drop, so the binary contract stays exact.
+
+["os"]
+"name" = "ios-16.7.16-20H392"
+"darwin" = "22.6.0"
+"xnu_version" = "8796.141.3"
+"xnu_revision" = "1b191cb58250d0705d8a51287127505aa4bc0789"
+"driverkit_tag" = "xnu-8796.141.3"
+"trustcache_tag" = "xnu-8796.141.3"
+"abi" = ["IOGPUFamily", "IOHIDFamily", "IOMobileGraphicsFamily"]
+
+["ipsw"]
+# The restore image is not redistributable: the value names the member so the entry is
+# self-identifying. Point the build at the local copy with --ipsw or UNIXNU_IPSW
+# (CI: the macos.yml ipsw_url input).
+"url" = "iPhone10,3,iPhone10,6_16.7.16_20H392_Restore.ipsw"
+"product" = "iPhone10,6"
+"version" = "16.7.16"
+"build" = "20H392"
+"device_class" = "d221ap"
+# BuildManifest BuildIdentities, Erase row for d221ap: ApChipID 0x8015 (A11, t8015),
+# ApBoardID 0x0E. d22ap (iPhone10,3) uses ApBoardID 0x06 with the same kernelcache.
+"chip_id" = 32789
+"board_id" = 14
+"fetch" = ["KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,SystemTrustCache"]
+
+["ipsw"."sha256"]
+# Measured member hashes (extract_ipsw_pins.py, 2026-11-17). unixnu ipsw fetch checks
+# every extracted member against its pin.
+"087-86698-044.dmg" = "80f426d5b8fca8552f95be427434f1911dbb4c2c6d28aad94f2426ddd0c92483"
+"087-86593-047.dmg" = "9cd738f3b0169055549df84ad6d8d13e50a2da39af618ce0522ca4e06df86849"
+"087-86715-047.dmg" = "391f2df322c3172b021b2874f6da5c3e78b70b3df8f502e1a4af2b1d715c4608"
+"kernelcache.release.iphone10b" = "2d6a13d040aaf87cec09bb6906d43e9bd8cea951e43d1aa1cd62707dfdc5aaec"
+"DeviceTree.d221ap.im4p" = "889e838319619c10f5f7f6ef25f9ff2a3a652a3c078803038ba678efa1201b79"
+"087-86698-044.dmg.trustcache" = "63e01c03b31e1532a5581a24865490673f0b5c297b0199fe0095637c6100ef4b"
+"087-86593-047.dmg.trustcache" = "9cc478fe3525e2683b5b9ea1eea0851eaebebdab21d206556233400e59d2e361"
+
+["kernel"]
+
+["kernel"."prelink"]
+"tool" = "kits/XnuPrelink/emit_prelink.py"
+# xnu-8796 links no .unstripped.noctf: MakeInc.kernel's primary outputs are the raw
+# linked .unstripped kernel, the stripped kernel, .dSYM, .link and the static archive.
+# The raw linked kernel carries no CTF section, so there is nothing to strip.
+"kernel" = "build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped"
+# sha256 of the decompressed arm64 kernelcache Mach-O slice (IMG4 -> LZFSE -> the single
+# 0x0100000c fat slice), which is what scripts/unixnu/ipsw.py writes to kernelcache.decompressed.
+"kernelcache_sha256" = "2ec297bac95bcba01046fd0148e97e7e5885c05a6c18827f39f534ba375c1221"
+"slide" = "-0x1000000"
+# early_security_init is deliberately unset for bring-up. The contract (OSKext::start reads
+# _NativePrelinkEarlySecurityInit, adds the slide, requires a 4-aligned address inside a
+# read-execute non-writable segment of the module, calls it before MAC policy lockdown)
+# needs an unslid __TEXT_EXEC function address inside AppleMobileFileIntegrity. The module
+# is measured: _PrelinkExecutableLoadAddr 0xfffffff004e23cc0, size 43481 (0xa9d9). Picking
+# the function is a reversing task; the 17.7.11 value (0xfffffff005ab4ae0) is version bound
+# and must not be copied. With it unset emit_prelink skips the path: AMFI still starts
+# through its ordinary start routine. Record the measured address here once identified.
+# "early_security_init" = "com.apple.driver.AppleMobileFileIntegrity=<unslid __TEXT_EXEC address>"
+# Every entry below is present in the 20H392 kernelcache __PRELINK_INFO (239 kexts;
+# verified against the measured bundle list, including IOHIDEventDriver).
+"roots" = [
+  "com.apple.AppleFSCompression.AppleFSCompressionTypeZlib",
+  "com.apple.driver.AppleARMPlatform",
+  "com.apple.driver.AppleARMWatchdogTimer",
+  "com.apple.driver.AppleAudioClockLibs",
+  "com.apple.driver.AppleEffaceableStorage",
+  "com.apple.driver.AppleIISController",
+  "com.apple.driver.AppleM2ScalerCSCDriver",
+  "com.apple.driver.AppleMobileFileIntegrity",
+  "com.apple.driver.ApplePMGR",
+  "com.apple.driver.IODARTFamily",
+  "com.apple.filesystems.apfs",
+  "com.apple.iokit.CoreAnalyticsFamily",
+  "com.apple.iokit.IOAVFamily",
+  "com.apple.iokit.IOAudio2Family",
+  "com.apple.iokit.IOCECFamily",
+  "com.apple.iokit.IOCryptoAcceleratorFamily",
+  "com.apple.iokit.IOGPUFamily",
+  "com.apple.iokit.IOHDCPFamily",
+  "com.apple.iokit.IOMobileGraphicsFamily",
+  "com.apple.iokit.IOReportFamily",
+  "com.apple.iokit.IOSlowAdaptiveClockingFamily",
+  "com.apple.iokit.IOStorageFamily",
+  "com.apple.iokit.IOSurface",
+  "com.apple.kec.Libm",
+  "com.apple.kec.corecrypto",
+  "com.apple.kext.AppleMatch",
+  "com.apple.kext.CoreTrust",
+  "com.apple.security.AppleImage4",
+  "com.apple.security.sandbox",
+  "com.apple.iokit.IOHIDFamily",
+  "com.apple.iokit.IOHIDEventDriver",
+]
+
+["payload"]
+# No signed-text fixup has been determined for this OS yet. Entries are specific byte
+# changes in the dyld shared cache inside 087-86698-044.dmg, added when a boot fails on
+# one; an empty list means "none needed yet", not "none will be".
+"text_fixups" = []
+# The two trust caches shipped in the IPSW (StaticTrustCache, Cryptex1,SystemTrustCache),
+# measured; checked against the file passed with --trust-cache.
+"trust_cache_sha256" = [
+  "63e01c03b31e1532a5581a24865490673f0b5c297b0199fe0095637c6100ef4b",
+  "9cc478fe3525e2683b5b9ea1eea0851eaebebdab21d206556233400e59d2e361",
+]
+
+["adt"]
+
+["adt"."root"]
+
+["adt"."root"."string"]
+# Measured from Firmware/all_flash/DeviceTree.d221ap.im4p (ADT format in this IPSW):
+# root model iPhone10,6, compatible D221AP,iPhone10,6,AppleARM. The board name first:
+# the audio server keys its routing database and MediaExperience its per-board tables on it.
+"model" = "iPhone10,6"
+"target-type" = "D221"
+"compatible" = "D221AP"
+
+["adt"."chosen"]
+
+["adt"."chosen"."string"]
+"osenvironment" = "main"
+"crypto-hash-method" = "sha2-384"
+
+["adt"."chosen"."u32"]
+"certificate-production-status" = 0
+"effective-production-status-ap" = 0
+"certificate-security-mode" = 1
+"effective-security-mode-sep" = 1
+"amfi-only-platform-code" = 1
+
+["adt"."product"]
+
+# The /product properties are the real d221ap values, measured from the IPSW DeviceTree
+# (extract_ipsw_pins.py -> device_tree.product). artwork-device-subtype 2436 is the
+# iPhone X panel height; kern.maxvnodes below is the measured /defaults value 10000.
+["adt"."product"."string"]
+"product-name" = "iPhone X"
+"product-description" = "iPhone X"
+"artwork-device-idiom" = "phone"
+"artwork-display-gamut" = "P3"
+"compatible-device-fallback" = "iPhone9,2"
+"graphics-featureset-class" = "APPLE4"
+"graphics-featureset-fallbacks" = "APPLE3:APPLE3v1:APPLE2:APPLE1:GLES2,0"
+"wifi-chipset" = "4357"
+"baseband-chipset" = "ice17"
+
+["adt"."product"."u32"]
+"artwork-device-subtype" = 2436
+"artwork-scale-factor" = 3
+"device-perf-memory-class" = 4
+"oled-display" = 1
+"thin-bezel" = 1
+
+# MGGetProductType() looks this 20-byte id up in libMobileGestalt's product table;
+# measured from the real d221ap device tree (NOT the d22ap value other ports carry).
+["adt"."product"."bytes"]
+"product-id" = "3d9323fcab67536745e3ee4572304747f069e11a"
+
+["adt"."buttons"]
+
+# Measured d221ap /buttons: names volup,voldown,hold,ringerab; home-button-type 2
+# (no home button), opposed-power-vol-buttons 1, priorities hold 1 / volup,voldown 2.
+["adt"."buttons"."string"]
+"compatible" = "buttons"
+"device_type" = "buttons"
+
+["adt"."buttons"."strings"]
+"button-names" = ["volup", "voldown", "hold", "ringerab"]
+
+["adt"."buttons"."u32"]
+"home-button-type" = 2
+"button-priority_hold" = 1
+"button-priority_volup" = 2
+"button-priority_voldown" = 2
+"opposed-power-vol-buttons" = 1
+
+["adt"."defaults"]
+
+["adt"."defaults"."u32"]
+# Measured from the d221ap /defaults node (kern.maxvnodes 10000), not the iPad's 66560.
+"kern.maxvnodes" = 10000
+
+["adt"."options"]
+
+# SM8250 has no Apple PMGR and no SEP. AppleARMWatchdogTimer reads IODeviceTree:/options;
+# with an empty node it infers defaults and arms the userspace watchdog, which watchdogd
+# must feed from userspace. The R2 baseline already disables watchdogd at the boot-arg
+# level (disable-watchdogd=1) and overrides the owner watchdog; these properties defang
+# the kext-side watchdogs at the source so a boot that never reaches watchdogd does not
+# reset after ~a minute. The d221ap /options node itself is empty; this is our adaptation.
+["adt"."options"."u32"]
+"defang_watchdogd" = 1
+"IOKitQuiesceWatchdogEnabled" = 0
+"PanicWatchdogEnabled" = 0
+"ShutdownWatchdogEnabled" = 0
+
+[userdata]
+# Disk images of this OS, in window order; the device sets the partition geometry.
+# OS = 087-86698-044.dmg (4,730,814,044 B), SystemOS = 087-86593-047.dmg (2,743,074,816 B).
+windows = [{ name = "OS", component = "OS" }, { name = "SystemOS", component = "Cryptex1,SystemOS", optional = true }]
+
+[root]
+# The OS root volume's APFS UUID, measured from 087-86698-044.dmg by
+# tools/r2/apfs_volume_uuids.py (volume name SydneyUpdate20H392.D22D221OS).
+# The SystemOS/cache volume of 087-86593-047.dmg is 96096B28-B6DC-4BC7-9D3A-2632A0FE53F1
+# (SydneyUpdate20H392.D22D221SystemCryptex); the device defconfig carries it.
+os_volume_uuid = "DADD93F8-DBBF-4B17-A1DF-0F11E64172F7"

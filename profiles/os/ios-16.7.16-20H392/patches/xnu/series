@@ -1,0 +1,14 @@
+# iOS 16.7.16 / xnu-8796 version-specific fixes (OS profile ownership per
+# docs/xnu/source-and-patches). Applied after the device series; each touches a
+# region no other patch modifies:
+#   auto-var-init   MakeInc.def CFLAGS_GEN (clang 18+ removed the old flag)
+#   void-ptr-deref  kalloc.h KALLOC_TYPE_IS_COMPATIBLE_PTR (C++ *(void*) hard error)
+#   stackbuf-align  36 uio_stackbuf_t array sites (over-aligned element error)
+#   kpc-optional    files.arm64 kpc.c gate (8796 OSS omits arm64/kpc.c)
+linux-clang-auto-var-init.patch
+linux-clang-void-ptr-deref.patch
+linux-clang-uio-stackbuf-align.patch
+linux-kpc-optional.patch
+linux-kpc-arm64-borrow.patch
+linux-compile-records-mj.patch
+xnu8796-vfs-getvfs-with-vfsops.patch
