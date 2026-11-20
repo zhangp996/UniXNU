@@ -9,6 +9,17 @@
  	decmpfs_header *hdr = NULL;
  
  	/*
+--- a/bsd/kern/kpi_socket.c
++++ b/bsd/kern/kpi_socket.c
+@@ -727,7 +727,7 @@
+ 	int error = 0;
+ 	user_ssize_t length = 0;
+ 	struct sockaddr *fromsa = NULL;
+-	uio_stackbuf_t uio_buf[UIO_SIZEOF((msg != NULL) ? msg->msg_iovlen : 0)];
++	char uio_buf[UIO_SIZEOF((msg != NULL) ? msg->msg_iovlen : 0)] __attribute__((aligned(_Alignof(union iovecs))));
+ 
+ 	if (sock == NULL) {
+ 		return EINVAL;
 --- a/bsd/kern/sys_generic.c
 +++ b/bsd/kern/sys_generic.c
 @@ -303,7 +303,7 @@
@@ -47,6 +58,17 @@
  	uio_t uio;
  	int spacetype = IS_64BIT_PROCESS(p) ? UIO_USERSPACE64 : UIO_USERSPACE32;
  
+--- a/bsd/kern/uipc_syscalls.c
++++ b/bsd/kern/uipc_syscalls.c
+@@ -3561,7 +3561,7 @@
+ 		mbuf_t  m;
+ 		unsigned int    nbufs = SFUIOBUFS, i;
+ 		uio_t   auio;
+-		uio_stackbuf_t    uio_buf[UIO_SIZEOF(SFUIOBUFS)]; /* 1 KB !!! */
++		char    uio_buf[UIO_SIZEOF(SFUIOBUFS)] __attribute__((aligned(_Alignof(union iovecs)))); /* 1 KB !!! */
+ 		size_t  uiolen;
+ 		user_ssize_t    rlen;
+ 		off_t   pgoff;
 --- a/bsd/nfs/nfs_serv.c
 +++ b/bsd/nfs/nfs_serv.c
 @@ -769,7 +769,7 @@
