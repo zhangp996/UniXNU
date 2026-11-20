@@ -67,3 +67,4 @@ rebased/kpc-arm64-from-xnu-10063.patch
 rebased/clang-compile-records-mj.patch
 rebased/pthread-jit-entitled-callback.patch
 rebased/vfs-getvfs-with-vfsops-backport.patch
+component:XnuPrelink/patches/xnu-10063.141.1-sparse-index.patch
