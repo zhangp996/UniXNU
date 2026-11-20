@@ -42,24 +42,24 @@ arch:../../../patches/xnu/offline-owner-boot-manifest.patch
 arch:../../../patches/xnu/offline-owner-cache-carrier.patch
 arch:../../../patches/xnu/offline-owner-root-binding-audit.patch
 arch:../../../patches/xnu/offline-owner-root-crypto-probe.patch
+rebased/offline-owner-systemos-mount.patch
 arch:../../../patches/xnu/offline-owner-z-air-init.patch
 arch:../../../patches/xnu/offline-pgz-alignment-probe.patch
+rebased/pgz-aligned-validation.patch
+rebased/public-entitlements-header.patch
+# published-freezer-condition: DROPPED for xnu-8796.141.3 - the freezer source
+# precondition the official patch fixes (probed 2026-11-20); no target exists.
 arch:../../../patches/xnu/source-corecrypto14-bootstrap.patch
+rebased/source-machine-layer.patch
 arch:../../../patches/xnu/source-pthread-bootstrap.patch
 arch:../../../patches/xnu/zzw-native-adreno-sandbox-grant.patch
 arch:../../../patches/xnu/zzwb-native-sandbox-grant-set-properties.patch
+rebased/zzx-pmap-sync-64bit-pa.patch
 rebased/zzy-native-gpu-addon-mount.patch
 rebased/zzy-staged-system-apps.patch
 arch:../../../patches/xnu/zzyb-native-cryptex-os-view.patch
 arch:../../../patches/xnu/zzyc-owner-skip-launch-constraints.patch
-rebased/public-entitlements-header.patch
-rebased/source-machine-layer.patch
-rebased/zzx-pmap-sync-64bit-pa.patch
-rebased/pgz-aligned-validation.patch
-rebased/offline-owner-systemos-mount.patch
-# published-freezer-condition: DROPPED for xnu-8796.141.3 - the freezer source
-# carries neither FREEZE_ENABLED_DEFAULT nor the broken "#if (XNU_TARGET_OS_IOS && ||"
-# precondition the official patch fixes (probed 2026-11-20); no target exists.
 rebased/clang-drop-auto-var-init-acknowledgement.patch
 rebased/clang-kalloc-void-ptr-compat.patch
 rebased/clang-uio-stackbuf-array-align.patch
+rebased/iorpc-kernel-content.patch
